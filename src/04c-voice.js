@@ -263,7 +263,7 @@ Object.assign(ACT, {
   /* 말풍선 옆 스피커 버튼: 모드와 상관없이 지금 말 듣기 */
   speak: () => {
     const sp = el.screen.querySelector('.speech');
-    if (!TTS.speak(sp ? sp.textContent : '', { stage: Number(sp && sp.dataset.stage) || 0 })) toast('이 기기에서는 음성 읽기를 쓸 수 없어요.');
+    if (!TTS.speak(speechText(sp), { stage: Number(sp && sp.dataset.stage) || 0 })) toast('이 기기에서는 음성 읽기를 쓸 수 없어요.');
   },
   voiceMode: (t) => {
     const v = voicePrefs(); v.mode = t.dataset.v; save(); render();

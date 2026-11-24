@@ -37,6 +37,8 @@ function patchLive(live, lives) {
     if (s) n.style.setProperty(s.prop, s.val);
   }
 }
+/* 말풍선에서 먼지 말만 (정보 줄은 소리로 읽지 않는다) */
+function speechText(sp) { const t = sp && sp.querySelector('[data-live="speech"]'); return t ? t.textContent : sp ? sp.textContent : ''; }
 function render(force = false) {
   const v = computeScreen();
   const live = LIVE, lives = LIVES;
@@ -59,7 +61,7 @@ function render(force = false) {
     }
     const sp = el.screen.querySelector('.speech[data-tpl]');
     const tpl = sp ? sp.dataset.tpl : null;
-    if (sp && tpl !== cur.tpl) { sp.classList.add('say'); if (cur.tpl !== null) TTS.say(sp.textContent, { pri: 'all', stage: Number(sp.dataset.stage) || 0, ev: 'speech' }); }
+    if (sp && tpl !== cur.tpl) { sp.classList.add('say'); if (cur.tpl !== null) TTS.say(speechText(sp), { pri: 'all', stage: Number(sp.dataset.stage) || 0, ev: 'speech' }); }
     cur = { id: v.id, sig, tpl };
   } else patchLive(live, lives);
   // 추가 버튼(+)은 오늘·달력 화면에만, 화면 위에 떠 있게 (스크롤과 상관없이 같은 자리)
@@ -674,7 +676,7 @@ function saveForm(dupOK) {
   if (prev) m.tasks[m.tasks.indexOf(prev)] = task; else m.tasks.push(task);
   if (!prev) {
     const pk = pickLine('saved', persona().lines.saved);
-    ui.react = { id: task.id, until: Date.now() + 3200, mc: { expr: 'focus', pose: 'check', motion: 'check', fluff: 0 }, line: fillLine(pk.tpl, { title: task.title, start: task.start }) };
+    ui.react = { id: task.id, until: Date.now() + 3200, mc: { expr: 'focus', pose: 'check', motion: 'check', fluff: 0 }, line: pk.tpl, fact: `${task.title} · ${fmtMD(task.date)} ${task.allDay ? '종일' : task.start}` };
     setTimeout(() => { if (ui.react && ui.react.id === task.id) { ui.react = null; render(); } }, 3300);
   }
   ui.form = null; ui.sheet = null;
@@ -864,10 +866,10 @@ function onWheel(id, v) {
 
 /* ---------- 실시간 멘트 알림 (FN03 · 앱 안 알림 배너) ---------- */
 let bannerTimer = null;
-function showBanner(text, key, mc, stage = 0, ev = 'start') {
+function showBanner(text, key, mc, stage = 0, ev = 'start', fact = '') {
   const b = $('#layer-banner'); if (!b) return;
   const m = member();
-  b.innerHTML = `<button class="banner" data-act="bannerTap" data-key="${key || ''}"><span class="bn-mascot">${mascot(m, { ...mc, motion: 'none', shadow: false })}</span><span class="bn-text"><b>${persona().name}</b><span>${esc(text)}</span></span></button>`;
+  b.innerHTML = `<button class="banner" data-act="bannerTap" data-key="${key || ''}"><span class="bn-mascot">${mascot(m, { ...mc, motion: 'none', shadow: false })}</span><span class="bn-text"><b>${persona().name}</b><span>${esc(text)}</span>${fact ? `<small>${esc(fact)}</small>` : ''}</span></button>`;
   b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
   clearTimeout(bannerTimer);
   bannerTimer = setTimeout(() => b.classList.remove('show'), 4200);
@@ -878,11 +880,11 @@ function alertTransitions(m, before, after) {
   for (const [k, a] of Object.entries(after)) {
     const b = before[k]; if (!b) continue;
     const st = a.st, title = st.task.title, B = persona().lines.banner;
-    if (b.kind === 'upcoming' && a.kind === 'late') return showBanner(fillLine(B.start, { title }), k, { expr: 'focus', pose: 'nag' }, a.stage);
-    if (b.kind !== 'urgent' && a.kind === 'urgent') return showBanner(fillLine(B.urgent, { title, n: HEAT_POLICY.urgentWindow }), k, { expr: 'angry', pose: 'puff', fluff: 0.6 }, a.stage, 'deadline');
-    if ((a.kind === 'overdue' || a.kind === 'missedStart') && b.kind !== a.kind) return showBanner(fillLine(B.due, { title }), k, { expr: 'furious', pose: 'puff', fluff: 1 }, 5, 'deadline');
-    if (a.kind === 'late' && a.stage > b.stage && a.stage >= 4) return showBanner(fillLine(B.lateHard, { title }), k, { expr: 'angry', pose: 'nag', fluff: 0.6 }, a.stage);
-    if (b.kind === 'break' && a.kind === 'breakOver') return showBanner(fillLine(B.breakOver, { title }), k, { expr: 'suspicious', pose: 'nag', fluff: 0.2 }, a.stage);
+    if (b.kind === 'upcoming' && a.kind === 'late') return showBanner(B.start, k, { expr: 'focus', pose: 'nag' }, a.stage, 'start', `${title} · 시작 시간`);
+    if (b.kind !== 'urgent' && a.kind === 'urgent') return showBanner(B.urgent, k, { expr: 'angry', pose: 'puff', fluff: 0.6 }, a.stage, 'deadline', `${title} · 마감 ${HEAT_POLICY.urgentWindow}분 전`);
+    if ((a.kind === 'overdue' || a.kind === 'missedStart') && b.kind !== a.kind) return showBanner(B.due, k, { expr: 'furious', pose: 'puff', fluff: 1 }, 5, 'deadline', `${title} · 마감`);
+    if (a.kind === 'late' && a.stage > b.stage && a.stage >= 4) return showBanner(B.lateHard, k, { expr: 'angry', pose: 'nag', fluff: 0.6 }, a.stage, 'start', `${title} · 아직 시작 전`);
+    if (b.kind === 'break' && a.kind === 'breakOver') return showBanner(B.breakOver, k, { expr: 'suspicious', pose: 'nag', fluff: 0.2 }, a.stage, 'start', `${title} · 휴식 끝`);
   }
 }
 

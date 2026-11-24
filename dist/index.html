@@ -909,6 +909,8 @@ html.native { --safe-top: max(env(safe-area-inset-top, 0px), var(--safe-area-ins
 textarea.txt.memo { height: auto; min-height: 64px; padding: 10px 14px; resize: vertical; line-height: 1.5; }
 .in-links { display: inline-flex; gap: 4px; }
 .switch.sm::before { inset: -8px 0; }
+.speech-fact { display: block; margin-top: 4px; font-size: 12.5px; font-weight: 600; opacity: .72; letter-spacing: -.1px; }
+.bn-text small { display: block; font-size: 12px; opacity: .7; font-weight: 600; }
 
 /* =========================================================
    미루먼지 스타일과 동작 (transform·opacity만 움직인다)
@@ -1290,85 +1292,90 @@ const CHAR_MIREUM = {
   vocals: MIREUM_VOCALS,
   intro: {
     tagline: '미루는 너와 함께하는 작은 구름, 미루먼지!',
-    helloTitle: '퐁! 나 불렀어어?<br>오늘도 미룰 거야?',
-    helloBody: '나는 네가 미룬 일에서 폴폴 태어난 먼지야. 일을 맡기면 시작부터 마감까지 옆에 붙어 있을게. 미루면 내가 뭉게뭉게 커지고, 끝내면 털털 작아져.',
-    meetBody: '평소엔 몽글몽글 말랑해. 근데 네가 미루면 털이 쭈뼛, 몸이 빵빵해져. 그럼 나 갑갑하거든!',
+    helloTitle: '퐁! 먼지 불렀어어?<br>오늘도 미룰 거야아?',
+    helloBody: '먼지는 네가 미룬 일에서 폴폴 태어났어. 일을 맡기면 시작부터 마감까지 옆에 붙어 있을게. 미루면 먼지가 뭉게뭉게 커지고, 끝내면 털털 작아져.',
+    meetBody: '평소엔 몽글몽글 말랑해. 근데 네가 미루면 털이 쭈뼛, 몸이 빵빵! 그럼 먼지 갑갑하거든!',
   },
+  /* 대사 틀 (DESIGN.md 26절)
+     - 대사에는 정보를 넣지 않는다. 일정 이름·시간은 말풍선 아래 '정보 줄'(lineFor의 fact)로 따로 보여 준다
+       → 화면 글자와 녹음 목소리가 언제나 같다
+     - 자기를 '먼지'라고 부른다 · 감탄사와 말끝 늘이기를 세게 · 한 줄 12자 안팎 · 상황마다 3개 이상 */
   lines: {
-    empty: ['폴폴… 심심해애. 미룬 거 하나만 던져 줘!', '뿌우? 할 일 없어? 진짜아?', '킁킁… 어디 미룬 일 냄새 안 나?'],
-    noneToday: ['오늘은 쉬는 날! 나 구석에서 낮잠 잔다아.', '폴폴… 오늘 맡은 일 없음. 푹 쉬어어.', '오늘은 조용~ 다음 일정은 내가 기억해 둘게!'],
-    allDone: ['털털! 오늘 몫 끝! 나 홀쭉해졌어어!', '우와아! 다 했다! 이러다 나 사라지겠다?', '오늘은 먼지 한 톨 없어! 푹 쉬어어.'],
-    upcoming: ['{title}! {startIn} 뒤다? 나 대기 중!', '폴폴… {startIn} 남았어. 딴소리하기 없기!', '곧 {title} 시간! 나 보고 있다아?'],
-    due: ['퐁! {title} 시간이야! 가자 가자!', '퐁! 시작 시간이다아! 열기만 해!', '땡! {title} 시작! 어서어!'],
+    empty: ['폴폴… 심심해애애!', '뿌우우? 할 일 없어어?', '킁킁… 미룬 일 냄새 어디 있지이?', '먼지한테 하나만 던져 줘어!'],
+    noneToday: ['오늘은 쉬는 날이다아!', '폴폴… 먼지도 낮잠 잔다아.', '쿨쿨… 오늘은 조용하다아.'],
+    allDone: ['털털! 오늘 몫 끝이다아!', '우와아! 먼지 홀쭉해졌어어!', '먼지 한 톨도 없다아! 최고오!'],
+    upcoming: ['폴폴… 곧이다아?', '먼지 대기 중이다아!', '두근두근… 곧 시작이야아!'],
+    due: ['퐁! 시간이다아!', '퐁퐁! 가자 가자아!', '땡! 시작이야아! 열기만 해애!'],
     late: {
-      1: ['어라? {late} 지났는데에… 살짝만 열어 볼래?', '어라라? 아직이야? 한 줄만 해 봐아.', '폴폴… {title} 기다리는 중이야아.'],
-      2: ['뿌우? 아직도 안 열었어어?', '어라? {late} 지났다? 나 갸웃갸웃해.', '킁킁… 미루는 냄새 난다아?'],
-      3: ['뭉게뭉게… 나 답답해지는데에?', '{late}째야! 나 부풀기 시작했어어.', '뿌우! {title} 혼자 안 끝난다구!'],
-      4: ['털이 쭈뼛쭈뼛! 폰 내려놔아!', '{late}째 그대로야! 나 따끔따끔해!', '{left}! 이러다 진짜 큰일 난다구!'],
-      5: ['빵빵! 나 터지기 직전이야아! 지금 열어!', '{left}인데 아직이야? 빵빵해애!', '으아아! 더는 못 참아! 당장 시작!'],
+      1: ['어라라? 아직이야아?', '살짝만 열어 볼래애?', '폴폴… 먼지 기다린다아.'],
+      2: ['뿌우우? 아직도오?', '갸웃갸웃… 왜 안 열어어?', '킁킁… 미루는 냄새 난다아!'],
+      3: ['뭉게뭉게… 답답해애애!', '먼지 부풀기 시작했어어!', '뿌우! 혼자선 안 끝난다구우!'],
+      4: ['털이 쭈뼛쭈뼛! 폰 내려놔아!', '따끔따끔! 먼지 못 참겠어어!', '으으으! 큰일 난다구우!'],
+      5: ['빵빵! 먼지 터진다아!', '으아아아! 당장 열어어!', '빵빵빵! 더는 못 참아아!'],
     },
-    justStarted: ['오오? 시작했다! 나 쪼끄매진다아!', '퐁! 출발! 나 옆에서 보고 있을게.', '푸흐흐, 시작한 거 봤다아!'],
+    justStarted: ['오오? 시작했다아!', '먼지 쪼끄매진다아!', '푸흐흐, 봤다아! 출발이다아!'],
     running: {
-      1: ['사각사각… 좋아, 그 소리 좋아아.', '몽글몽글… 이 속도 딱 좋아.', '쉿, 나 조용히 떠다닐게.'],
-      2: ['사각사각… 리듬 좋다아!', '{elapsed} 했어! 나 살짝 작아졌다?', '킁킁… 집중하는 냄새 좋아.'],
-      3: ['{elapsed} 했어! 아직 남았다아?', '{left}! 조금만 더 빨리이!', '손 멈추면 나 뭉게뭉게 해애.'],
-      4: ['{left}! 빠듯해애!', '쭈뼛! 딴생각 금지! 한 줄 더!', '먼지 짙어진다아! 속도 올려!'],
-      5: ['{left}! 지금 아니면 없어어!', '빵빵! 끝까지 밀어붙여어!', '마지막! 여기서 딴짓하면 나 터진다?'],
+      1: ['사각사각… 좋아아.', '몽글몽글… 딱 좋아아.', '쉿… 먼지 조용히 떠다닐게에.'],
+      2: ['사각사각! 리듬 좋다아!', '먼지 살짝 작아졌다아?', '킁킁… 집중 냄새 좋아아!'],
+      3: ['조금만 더 빨리이!', '손 멈추면 먼지 뭉게뭉게애!', '아직 남았다아? 힘내애!'],
+      4: ['빠듯해애애!', '쭈뼛! 딴생각 금지이!', '먼지 짙어진다아! 속도오!'],
+      5: ['지금 아니면 없어어!', '빵빵! 끝까지 가아!', '여기서 딴짓하면 먼지 터진다아!'],
     },
-    urgent: ['{remain} 남았어! 마무리, 마무리이!', '쭈뼛! {remain}! 다듬지 말고 끝내!', '{remain}! 제출할 곳 열어 놨어?', '으아아! 마감 온다! {remain} 남았다구!', '빵빵! {remain}! 일단 내고 보자아!'],
-    overdue: ['땡! 마감이야! 끝냈어, 못 끝냈어?', '마감 왔다아! 결과 말해 줘!', '뿌우? 마감이야. 솔직하게 알려 줘.'],
-    missedStart: ['히잉… 시작도 못 하고 마감 지났어.', '어라라… 마감이 먼저 와 버렸다.', '히잉… 이번 건 솔직하게 적어 두자.'],
-    overPlan: ['어라? 예정 시간 지났다? 끝났어?', '뿌우? 끝났으면 끝났다고 해 줘!', '폴폴… 길어지네? 어디까지 할 거야?'],
-    break: ['후우~ {breakLeft}만 둥실 쉬자아.', '물 한 모금! {breakLeft} 뒤에 콕 부를게.', '몽글… {breakLeft}만이다? 나 시계 본다.'],
-    breakOver: ['뿌우? 이제 다시 콕!', '휴식 {over} 넘었어! 돌아와아!', '어라? 5분이라며! 벌써 {over} 더 쉬었다?'],
-    slackAsk: ['킁킁… {app} 냄새 난다아?', '어라라? {title} 하다가 {app}?', '킁킁! 딴짓 냄새! {app}에서 뭐 해?'],
-    slackStudy: ['공부용이면 인정! 10분 뒤에 또 킁킁할게.', '푸흐흐, 믿어 볼게. 10분 뒤에 다시 본다?', '사각사각 소리 나는 거 맞지? 10분 뒤 확인!'],
-    slackRest: ['5분만이다? 나 시계 보고 있을게.', '후우~ 5분 휴식! 넘기면 나 뭉게뭉게.', '좋아, 5분! 콕 부를 거야.'],
-    slackFocus: ['좋아! 그 말 믿는다. 바로 돌아가아!', '퐁! 창 닫고 이어서 가자!', '푸흐흐, 다시 사각사각 해 줘.'],
-    slackIdle: ['지금은 봐줄게. 시작 땐 안 봐준다?', '폴폴… 지금은 자유 시간! 시작 땐 콕!', '킁킁… 지금은 괜찮아. 대신 시작 땐 바로!'],
-    slackBreak: ['쉬는 시간이니까 봐줄게. 끝나면 바로 닫아!', '후우~ 휴식 중엔 괜찮아. 끝나면 콕!', '몽글… 쉬는 중이니까 통과!'],
-    studyCheck: ['10분 지났어! 아직 강의 보는 중이야?', '킁킁… 10분 됐다! 아직 공부 영상이야?', '뿌우? 10분 지났는데 아직이야?'],
-    studyMore: ['좋아, 딱 10분만 더! 그다음엔 과제다?', '10분 더! 나 또 킁킁하러 온다?', '푸흐흐, 10분만이다아.'],
-    studyBack: ['퐁! 이제 진짜 과제다! 가자!', '좋아아! 사각사각 시작!', '털털! 영상 끄고 출발!'],
-    doneEarly: ['우와아! 해냈다! 마감 {margin} 전이야!', '털털! 먼지 다 날아갔어어!', '봐, 되잖아! 나 엄청 쪼끄매졌어!'],
-    doneClose: ['휴우… 아슬아슬! 그래도 해냈다아!', '마감 직전 골인! 나 심장 쫄깃했어.', '해냈으면 됐어! 다음엔 덜 빵빵하게 해 줘.'],
-    doneNone: ['우와아! {title} 끝!', '털털! 하나 지웠다아!', '퐁! 끝냈네! 나 홀쭉해졌어.'],
-    doneProud: ['우와아! 연속이야! 나 홀쭉해졌어어!', '털털털! 요즘 완전 달라졌는데?', '푸흐흐, 이 흐름 그대로 가자아!'],
-    dayFail: ['히잉… 오늘 먼지 한 겹 더 쌓였어.', '으에에… 놓친 게 있어. 내일은 털어 보자?', '히잉… 오늘은 좀 무거워어.'],
-    failed: ['히잉… 먼지 한 겹 더 쌓였어. 다음엔 꼭이다?', '으에에… 또 한 겹이야아…', '히잉… 그래도 나 안 떠나. 다음 판 가자!'],
-    cooled: ['털털! 세 번 연속! 먼지 한 겹 털어 줄게!', '우와아! 연속 성공! 먼지 한 겹 털털!', '푸흐흐, 세 번이나! 먼지 한 겹 날려 줄게!'],
-    saved: ['오잉! 새 일정이다아! {title} 접수!', '퐁! {title}, {start}에 콕 부를게!', '킁킁… {title} 냄새 기억했어!'],
-    welcome: ['퐁! 나 불렀어어?', '왔다아! 나 계속 떠다니고 있었어.', '폴폴… 반가워! 오늘은 뭐 할 거야?'],
-    poke: ['푸흐흐, 간지러워어!', '퐁! 나 불렀어?', '뿌우? 왜애?', '몽글몽글~ 쓰다듬어 줘서 좋아.'],
+    studying: ['사각사각… 강의 듣는 중이지이?', '먼지 10분 뒤에 또 온다아?', '킁킁… 공부 냄새 맞지이?'],
+    urgent: ['마무리, 마무리이!', '쭈뼛! 다듬지 말고 끝내애!', '으아아! 마감 온다아!', '빵빵! 일단 내고 보자아!', '제출할 곳 열어 놨어어?'],
+    overdue: ['땡! 마감이다아!', '끝냈어? 못 끝냈어어?', '뿌우? 솔직하게 말해 줘어!'],
+    missedStart: ['히잉… 시작도 못 했어어.', '어라라… 마감이 먼저 왔다아.', '히잉… 먼지 무거워어.'],
+    overPlan: ['어라? 예정 시간 지났다아?', '뿌우? 끝났으면 말해 줘어!', '폴폴… 어디까지 할 거야아?'],
+    break: ['후우우~ 둥실 쉬자아.', '물 한 모금! 먼지가 이따 콕!', '몽글… 딱 그만큼만이다아?'],
+    breakOver: ['뿌우? 이제 다시 콕!', '쉬는 시간 끝났다아!', '어라라? 너무 오래 쉬었다아!'],
+    slackAsk: ['킁킁! 딴짓 냄새 난다아!', '어라라? 지금 뭐 해애?', '킁킁킁… 수상하다아!'],
+    slackStudy: ['공부용이면 인정이다아!', '푸흐흐, 믿어 볼게에! 10분 뒤에 또 킁킁!', '사각사각 소리 나는 거 맞지이?'],
+    slackRest: ['5분만이다아?', '후우~ 5분! 넘기면 뭉게뭉게!', '좋아아! 5분 뒤에 콕!'],
+    slackFocus: ['좋아아! 바로 돌아가아!', '퐁! 창 닫고 출발!', '푸흐흐, 다시 사각사각!'],
+    slackIdle: ['지금은 봐준다아!', '폴폴… 지금은 자유 시간!', '킁킁… 지금은 괜찮아아.'],
+    slackBreak: ['쉬는 시간이니까 통과아!', '후우~ 휴식 중엔 괜찮아아.', '몽글… 끝나면 바로 닫기이!'],
+    studyCheck: ['10분 지났다아! 아직 강의야아?', '킁킁… 아직 공부 영상이야아?', '뿌우? 아직도 보는 중이야아?'],
+    studyMore: ['딱 10분만 더어!', '먼지 또 킁킁하러 온다아?', '푸흐흐, 10분만이다아!'],
+    studyBack: ['퐁! 이제 진짜 과제다아!', '사각사각 시작이다아!', '털털! 영상 끄고 출발!'],
+    doneEarly: ['우와아아! 일찍 해냈다아!', '털털털! 먼지 다 날아갔어어!', '봐아! 되잖아아! 먼지 쪼끄매졌어어!'],
+    doneClose: ['휴우우… 아슬아슬! 해냈다아!', '심장 쫄깃했어어! 그래도 골인!', '다음엔 덜 빵빵하게 해 줘어!'],
+    doneNone: ['우와아! 끝이다아!', '털털! 하나 지웠다아!', '퐁! 먼지 홀쭉해졌어어!'],
+    doneProud: ['우와아! 연속이야아!', '털털털! 요즘 완전 달라졌어어!', '푸흐흐, 이대로 가자아!'],
+    dayFail: ['히잉… 먼지 한 겹 더 쌓였어어.', '으에에… 내일은 털어 보자아?', '히잉… 오늘은 무거워어.'],
+    failed: ['히잉… 한 겹 더 쌓였어어.', '으에에… 또 한 겹이야아…', '히잉… 그래도 먼지 안 떠나아!'],
+    cooled: ['털털! 세 번 연속이다아!', '우와아! 먼지 한 겹 털털!', '푸흐흐! 약속대로 한 겹 날려 줄게에!'],
+    saved: ['오잉! 새 일정이다아!', '퐁! 먼지가 콕 부를게에!', '킁킁… 냄새 기억했어어!'],
+    welcome: ['퐁! 먼지 불렀어어?', '왔다아! 먼지 기다렸어어!', '폴폴… 반가워어!'],
+    poke: ['푸흐흐, 간지러워어!', '퐁! 먼지 불렀어어?', '뿌우? 왜애애?', '몽글몽글~ 좋아아!'],
     excuse: {
-      time: '시간이 모자랐구나… 다음엔 더 일찍 콕!',
-      slack: '솔직해서 좋아! 다음엔 딴짓 냄새 나면 바로 킁킁.',
-      condition: '몸이 안 좋았구나… 먼저 푹 쉬어어.',
-      hard: '어려웠구나… 다음엔 첫 단계만 나한테 맡겨 봐.',
-      none: '말 안 해도 괜찮아. 다음 판 가자!',
+      time: '시간이 모자랐구나아… 다음엔 더 일찍 콕!',
+      slack: '솔직해서 좋아아! 다음엔 바로 킁킁!',
+      condition: '아팠구나아… 먼저 푹 쉬어어.',
+      hard: '어려웠구나아… 다음엔 첫 단계만 맡겨어!',
+      none: '괜찮아아. 다음 판 가자아!',
     },
     sample: { // 단계 설명용 예시 (온보딩·등록 화면)
-      1: '어라? 시간 됐다? 살짝만 열어 볼래?',
-      2: '뿌우? 아직도 안 열었어어?',
-      3: '뭉게뭉게… 나 답답해지는데에?',
+      1: '어라라? 살짝만 열어 볼래애?',
+      2: '뿌우우? 아직도오?',
+      3: '뭉게뭉게… 답답해애애!',
       4: '털이 쭈뼛쭈뼛! 폰 내려놔아!',
-      5: '빵빵! 터지기 직전이야아! 지금 열어!',
+      5: '빵빵! 먼지 터진다아!',
     },
-    // 앱 안 배너 (상태가 바뀌는 순간)
+    // 앱 안 배너 (상태가 바뀌는 순간). 일정 이름은 배너의 정보 줄에 따로
     banner: {
-      start: '퐁! {title} 시간이야! 가자 가자!',
-      urgent: '쭈뼛! {title} 마감 {n}분 전! 마무리이!',
-      due: '땡! {title} 마감이야! 결과 알려 줘!',
-      lateHard: '빵빵! {title} 아직이지? 폰 내려놓고 열어!',
-      breakOver: '뿌우? 쉬는 시간 끝! {title} 다시 콕!',
+      start: '퐁! 시간이다아! 가자 가자아!',
+      urgent: '쭈뼛! 마감 코앞이다아!',
+      due: '땡! 마감이다아! 결과 알려 줘어!',
+      lateHard: '빵빵! 폰 내려놓고 열어어!',
+      breakOver: '뿌우? 쉬는 시간 끝! 다시 콕!',
     },
-    // 폰 알림 [제목, 본문] — 앱이 꺼져 있어도 이 말투로 온다
+    // 폰 알림 [제목 = 정보, 본문 = 먼지 말]. 소리로 읽지 않아서 제목에는 일정 이름을 넣는다
     notif: {
-      start: ['퐁! {title} 시간이야!', '가자 가자! 열기만 해도 돼.'],
-      late: ['뿌우? {title} 아직이야?', '10분째 기다리는 중이야아. 나 갸웃갸웃.'],
-      urgent: ['{title} 마감 30분 전!', '쭈뼛! 다듬지 말고 마무리부터!'],
-      due: ['{title} 마감이야!', '끝냈어, 못 끝냈어? 알려 줘!'],
-      alarm: ['{title} · {before} 시작', '폴폴… 미리 알려 주는 거야.'],
+      start: ['{title} · 시작 시간', '퐁! 시간이다아! 가자 가자아!'],
+      late: ['{title} · 10분 지남', '뿌우우? 아직도오?'],
+      urgent: ['{title} · 마감 30분 전', '쭈뼛! 마무리, 마무리이!'],
+      due: ['{title} · 마감', '땡! 끝냈어? 못 끝냈어어?'],
+      alarm: ['{title} · {before} 시작', '폴폴… 먼지가 미리 알려 주는 거야아.'],
     },
   },
 };
@@ -1738,29 +1745,33 @@ function lineFor(st, heat, t = now()) {
     breakLeft: run && run.brk ? fmtDur(Math.max(0, (run.brk.until - t) / MIN)) : '',
     over: run && run.brk ? fmtDur(Math.max(0, (t - run.brk.until) / MIN)) : '',
   };
-  let pick;
+  let pick, fact = title;
   const k = st.key;
   switch (st.kind) {
-    case 'upcoming': pick = pickLine(k + ':up', L.upcoming, 0); break;
+    case 'upcoming': pick = pickLine(k + ':up', L.upcoming, 0); fact = `${title} · ${v.startIn} 뒤 시작`; break;
     case 'late': {
       const lateMin = (t - st.w.start) / MIN;
       pick = lateMin < 3 ? pickLine(k + ':due', L.due, 0) : pickLine(k + ':late' + stage, L.late[stage], bucket);
+      fact = lateMin < 3 ? `${title} · 지금 시작` : `${title} · ${v.late} 지남${st.w.deadline ? ' · ' + v.left : ''}`;
       break;
     }
     case 'running':
-      if (run && run.studyUntil && t < run.studyUntil) { pick = { tpl: '강의 보는 중이라며. 10분 뒤에 다시 물어본다.', id: k + ':studying' }; break; }
-      pick = elapsedMin < 5 ? pickLine(k + ':js', L.justStarted, 0) : pickLine(k + ':run' + stage, L.running[stage], bucket); break;
-    case 'urgent': pick = pickLine(k + ':urg', L.urgent, Math.floor(elapsedMin / 5)); break;
-    case 'break': pick = pickLine(k + ':brk', L.break, 0); break;
-    case 'breakOver': pick = pickLine(k + ':brko', L.breakOver, 0); break;
-    case 'overPlan': pick = pickLine(k + ':over', L.overPlan, 0); break;
-    case 'overdue': pick = pickLine(k + ':od', L.overdue, 0); break;
-    case 'missedStart': pick = pickLine(k + ':ms', L.missedStart, 0); break;
+      if (run && run.studyUntil && t < run.studyUntil) { pick = pickLine(k + ':study', L.studying, 0); fact = `${title} · 강의 확인 ${fmtDur(Math.max(1, (run.studyUntil - t) / MIN))} 뒤`; break; }
+      pick = elapsedMin < 5 ? pickLine(k + ':js', L.justStarted, 0) : pickLine(k + ':run' + stage, L.running[stage], bucket);
+      fact = elapsedMin < 5 ? `${title} · 시작함` : `${title} · ${v.elapsed} 함 · ${v.left}`;
+      break;
+    case 'urgent': pick = pickLine(k + ':urg', L.urgent, Math.floor(elapsedMin / 5)); fact = `${title} · 마감까지 ${v.remain}`; break;
+    case 'break': pick = pickLine(k + ':brk', L.break, 0); fact = `휴식 ${v.breakLeft} 남음`; break;
+    case 'breakOver': pick = pickLine(k + ':brko', L.breakOver, 0); fact = `휴식 ${v.over} 넘김`; break;
+    case 'overPlan': pick = pickLine(k + ':over', L.overPlan, 0); fact = `${title} · 예정 종료 지남`; break;
+    case 'overdue': pick = pickLine(k + ':od', L.overdue, 0); fact = `${title} · 마감 시각`; break;
+    case 'missedStart': pick = pickLine(k + ':ms', L.missedStart, 0); fact = `${title} · 시작 못 하고 마감 지남`; break;
     case 'done': pick = { tpl: run.line || L.doneNone[0], id: k + ':done' }; break;
     case 'failed': pick = { tpl: run.line || L.failed[0], id: k + ':fail' }; break;
     default: pick = { tpl: '', id: k };
   }
-  return { id: pick.id, text: fillLine(pick.tpl, v) };
+  // 대사는 정보 없이 그대로(녹음과 같은 글자), 일정 이름·시간은 fact(정보 줄)로
+  return { id: pick.id, text: fillLine(pick.tpl, v), fact };
 }
 
 /* ---------- 실행 기록 조작 ---------- */
@@ -1827,7 +1838,7 @@ function finishOcc(m, st, success, extra = {}) {
     const span = (st.w.deadline ?? st.w.end) - st.w.start;
     run.early = span > 0 && ((st.w.deadline ?? st.w.end) - t) / span >= 0.5; // 예상보다 훨씬 빨리 끝냄 → 놀람
     const pk = pickLine(st.key + ':result', pool, 1);
-    run.line = run.cooled ? L.cooled[0] : fillLine(pk.tpl, { title: st.task.title, margin: st.w.deadline ? fmtDur((st.w.deadline - t) / MIN) : '' });
+    run.line = run.cooled ? L.cooled[0] : pk.tpl; // 대사는 정보 없이 (마감까지 남았던 시간은 결과 화면에 따로)
     logRun(run, 'done', '완료');
   } else {
     run.status = 'failed';
@@ -2358,7 +2369,7 @@ function personaForToday(m) {
   // 방금 일정을 올렸거나 캐릭터를 눌렀을 때의 짧은 반응
   if (ui.react && ui.react.until > Date.now()) {
     res.mc = { ...res.mc, ...ui.react.mc };
-    if (ui.react.line) res.line = { id: 'react:' + ui.react.id, text: ui.react.line };
+    if (ui.react.line) res.line = { id: 'react:' + ui.react.id, text: ui.react.line, fact: ui.react.fact || '' };
   }
   return res;
 }
@@ -2392,7 +2403,8 @@ function heatPips(h) {
 }
 /* 말풍선. stage = 지금 단계 (소리로 읽을 때 4·5단계는 더 빠르고 높게) */
 function speechHTML(line, cls = 'on-dark', stage = 0) {
-  return `<div class="speech-wrap"><p class="speech ${cls}" data-tpl="${esc(line.id)}" data-stage="${stage}" aria-live="polite">${L('speech', line.text)}</p>${TTS.ok() ? `<button class="say-btn ${cls}" data-act="speak" aria-label="${persona().name} 말 소리로 듣기">${icon('speaker')}</button>` : ''}</div>`;
+  // 말풍선 = 먼지 말(녹음과 같은 글자) / 정보 줄 = 일정 이름·시간 (계속 바뀌므로 L로 갱신)
+  return `<div class="speech-wrap"><p class="speech ${cls}" data-tpl="${esc(line.id)}" data-stage="${stage}" aria-live="polite">${L('speech', line.text)}${line.fact ? `<span class="speech-fact">${L('fact', line.fact)}</span>` : ''}</p>${TTS.ok() ? `<button class="say-btn ${cls}" data-act="speak" aria-label="${persona().name} 말 소리로 듣기">${icon('speaker')}</button>` : ''}</div>`;
 }
 /* 추가 버튼은 화면마다 하나: 오른쪽 아래 + (오늘·달력 화면) */
 function fabHTML(date) { return `<button class="fab" data-act="openAdd" data-date="${date}" aria-label="새 일정 올리기">${icon('plus')}</button>`; }
@@ -2425,7 +2437,7 @@ function viewToday(m) {
           <p class="pt-stage">${stageChip(p.heat, true)}<span>${stageOf(p.heat).desc}</span></p>
         </div>
       </div>
-      ${speechHTML(p.line, 'on-dark', p.stage)}
+      ${speechHTML(p.tk ? { ...p.line, fact: '' } : p.line, 'on-dark', p.stage)}${'' /* 표가 일정 이름·시간을 이미 보여 주면 정보 줄은 생략 (중복 방지) */}
       ${tk}
     </div>
     <div class="paper">
@@ -2592,7 +2604,7 @@ function viewFocus(m) {
       <div class="fx-mascot">${mascot(m, { ...mc, label: `${persona().name}, ${EXPR_LABEL[mc.expr]}, ${lvs(h)}` })}</div>
       <div class="fx-temp">${degHTML(h, 'heat', 'xxl')}${heatPips(h)}<p>${stageChip(h, true)}</p></div>
     </div>
-    <div class="fx-speech">${speechHTML(ln, 'on-dark big', sg)}</div>
+    <div class="fx-speech">${speechHTML({ ...ln, fact: '' }, 'on-dark big', sg)}</div>
     <div class="tl" aria-label="진행 시간 막대">
       <div class="tl-track"><div class="tl-fill" ${LS('tlFill', '--p', prog.toFixed(4))}></div>${planPos != null ? `<i class="tl-plan" style="left:${(planPos * 100).toFixed(2)}%"></i>` : ''}<i class="tl-now" ${LS('tlNow', '--p', prog.toFixed(4))}></i></div>
       <div class="tl-labels"><span>${fmtHM(w.start)} 시작</span>${planPos != null ? `<span class="mid">${fmtHM(w.end)} 예정 종료</span>` : ''}<span>${fmtHM(endAt)} ${w.deadline ? '마감' : '예정 종료'}</span></div>
@@ -3240,6 +3252,8 @@ function patchLive(live, lives) {
     if (s) n.style.setProperty(s.prop, s.val);
   }
 }
+/* 말풍선에서 먼지 말만 (정보 줄은 소리로 읽지 않는다) */
+function speechText(sp) { const t = sp && sp.querySelector('[data-live="speech"]'); return t ? t.textContent : sp ? sp.textContent : ''; }
 function render(force = false) {
   const v = computeScreen();
   const live = LIVE, lives = LIVES;
@@ -3262,7 +3276,7 @@ function render(force = false) {
     }
     const sp = el.screen.querySelector('.speech[data-tpl]');
     const tpl = sp ? sp.dataset.tpl : null;
-    if (sp && tpl !== cur.tpl) { sp.classList.add('say'); if (cur.tpl !== null) TTS.say(sp.textContent, { pri: 'all', stage: Number(sp.dataset.stage) || 0, ev: 'speech' }); }
+    if (sp && tpl !== cur.tpl) { sp.classList.add('say'); if (cur.tpl !== null) TTS.say(speechText(sp), { pri: 'all', stage: Number(sp.dataset.stage) || 0, ev: 'speech' }); }
     cur = { id: v.id, sig, tpl };
   } else patchLive(live, lives);
   // 추가 버튼(+)은 오늘·달력 화면에만, 화면 위에 떠 있게 (스크롤과 상관없이 같은 자리)
@@ -3877,7 +3891,7 @@ function saveForm(dupOK) {
   if (prev) m.tasks[m.tasks.indexOf(prev)] = task; else m.tasks.push(task);
   if (!prev) {
     const pk = pickLine('saved', persona().lines.saved);
-    ui.react = { id: task.id, until: Date.now() + 3200, mc: { expr: 'focus', pose: 'check', motion: 'check', fluff: 0 }, line: fillLine(pk.tpl, { title: task.title, start: task.start }) };
+    ui.react = { id: task.id, until: Date.now() + 3200, mc: { expr: 'focus', pose: 'check', motion: 'check', fluff: 0 }, line: pk.tpl, fact: `${task.title} · ${fmtMD(task.date)} ${task.allDay ? '종일' : task.start}` };
     setTimeout(() => { if (ui.react && ui.react.id === task.id) { ui.react = null; render(); } }, 3300);
   }
   ui.form = null; ui.sheet = null;
@@ -4067,10 +4081,10 @@ function onWheel(id, v) {
 
 /* ---------- 실시간 멘트 알림 (FN03 · 앱 안 알림 배너) ---------- */
 let bannerTimer = null;
-function showBanner(text, key, mc, stage = 0, ev = 'start') {
+function showBanner(text, key, mc, stage = 0, ev = 'start', fact = '') {
   const b = $('#layer-banner'); if (!b) return;
   const m = member();
-  b.innerHTML = `<button class="banner" data-act="bannerTap" data-key="${key || ''}"><span class="bn-mascot">${mascot(m, { ...mc, motion: 'none', shadow: false })}</span><span class="bn-text"><b>${persona().name}</b><span>${esc(text)}</span></span></button>`;
+  b.innerHTML = `<button class="banner" data-act="bannerTap" data-key="${key || ''}"><span class="bn-mascot">${mascot(m, { ...mc, motion: 'none', shadow: false })}</span><span class="bn-text"><b>${persona().name}</b><span>${esc(text)}</span>${fact ? `<small>${esc(fact)}</small>` : ''}</span></button>`;
   b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
   clearTimeout(bannerTimer);
   bannerTimer = setTimeout(() => b.classList.remove('show'), 4200);
@@ -4081,11 +4095,11 @@ function alertTransitions(m, before, after) {
   for (const [k, a] of Object.entries(after)) {
     const b = before[k]; if (!b) continue;
     const st = a.st, title = st.task.title, B = persona().lines.banner;
-    if (b.kind === 'upcoming' && a.kind === 'late') return showBanner(fillLine(B.start, { title }), k, { expr: 'focus', pose: 'nag' }, a.stage);
-    if (b.kind !== 'urgent' && a.kind === 'urgent') return showBanner(fillLine(B.urgent, { title, n: HEAT_POLICY.urgentWindow }), k, { expr: 'angry', pose: 'puff', fluff: 0.6 }, a.stage, 'deadline');
-    if ((a.kind === 'overdue' || a.kind === 'missedStart') && b.kind !== a.kind) return showBanner(fillLine(B.due, { title }), k, { expr: 'furious', pose: 'puff', fluff: 1 }, 5, 'deadline');
-    if (a.kind === 'late' && a.stage > b.stage && a.stage >= 4) return showBanner(fillLine(B.lateHard, { title }), k, { expr: 'angry', pose: 'nag', fluff: 0.6 }, a.stage);
-    if (b.kind === 'break' && a.kind === 'breakOver') return showBanner(fillLine(B.breakOver, { title }), k, { expr: 'suspicious', pose: 'nag', fluff: 0.2 }, a.stage);
+    if (b.kind === 'upcoming' && a.kind === 'late') return showBanner(B.start, k, { expr: 'focus', pose: 'nag' }, a.stage, 'start', `${title} · 시작 시간`);
+    if (b.kind !== 'urgent' && a.kind === 'urgent') return showBanner(B.urgent, k, { expr: 'angry', pose: 'puff', fluff: 0.6 }, a.stage, 'deadline', `${title} · 마감 ${HEAT_POLICY.urgentWindow}분 전`);
+    if ((a.kind === 'overdue' || a.kind === 'missedStart') && b.kind !== a.kind) return showBanner(B.due, k, { expr: 'furious', pose: 'puff', fluff: 1 }, 5, 'deadline', `${title} · 마감`);
+    if (a.kind === 'late' && a.stage > b.stage && a.stage >= 4) return showBanner(B.lateHard, k, { expr: 'angry', pose: 'nag', fluff: 0.6 }, a.stage, 'start', `${title} · 아직 시작 전`);
+    if (b.kind === 'break' && a.kind === 'breakOver') return showBanner(B.breakOver, k, { expr: 'suspicious', pose: 'nag', fluff: 0.2 }, a.stage, 'start', `${title} · 휴식 끝`);
   }
 }
 
@@ -4731,7 +4745,7 @@ Object.assign(ACT, {
   /* 말풍선 옆 스피커 버튼: 모드와 상관없이 지금 말 듣기 */
   speak: () => {
     const sp = el.screen.querySelector('.speech');
-    if (!TTS.speak(sp ? sp.textContent : '', { stage: Number(sp && sp.dataset.stage) || 0 })) toast('이 기기에서는 음성 읽기를 쓸 수 없어요.');
+    if (!TTS.speak(speechText(sp), { stage: Number(sp && sp.dataset.stage) || 0 })) toast('이 기기에서는 음성 읽기를 쓸 수 없어요.');
   },
   voiceMode: (t) => {
     const v = voicePrefs(); v.mode = t.dataset.v; save(); render();

@@ -29,7 +29,7 @@ with sync_playwright() as p:
     ev(page, "ACT.cTime({dataset:{hm:'17:55'}})")
     ev(page, "ACT.cShift({dataset:{min:'5'}})")
     check('시작 시각 배너 표시', ev(page, "document.querySelector('#layer-banner').classList.contains('show')"))
-    check('배너 문구 (먼지 말투)', '시간이야' in page.inner_text('#layer-banner') and '퐁!' in page.inner_text('#layer-banner'))
+    check('배너: 먼지 말 + 정보 줄(일정 이름)', '퐁!' in page.inner_text('#layer-banner') and '시작 시간' in page.inner_text('#layer-banner .bn-text small'))
     page.screenshot(path=f'{OUT}/v5_01_banner.png')
     page.wait_for_timeout(4500)
     check('배너 자동 사라짐', not ev(page, "document.querySelector('#layer-banner').classList.contains('show')"))

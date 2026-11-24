@@ -278,7 +278,7 @@ function personaForToday(m) {
   // 방금 일정을 올렸거나 캐릭터를 눌렀을 때의 짧은 반응
   if (ui.react && ui.react.until > Date.now()) {
     res.mc = { ...res.mc, ...ui.react.mc };
-    if (ui.react.line) res.line = { id: 'react:' + ui.react.id, text: ui.react.line };
+    if (ui.react.line) res.line = { id: 'react:' + ui.react.id, text: ui.react.line, fact: ui.react.fact || '' };
   }
   return res;
 }
@@ -312,7 +312,8 @@ function heatPips(h) {
 }
 /* 말풍선. stage = 지금 단계 (소리로 읽을 때 4·5단계는 더 빠르고 높게) */
 function speechHTML(line, cls = 'on-dark', stage = 0) {
-  return `<div class="speech-wrap"><p class="speech ${cls}" data-tpl="${esc(line.id)}" data-stage="${stage}" aria-live="polite">${L('speech', line.text)}</p>${TTS.ok() ? `<button class="say-btn ${cls}" data-act="speak" aria-label="${persona().name} 말 소리로 듣기">${icon('speaker')}</button>` : ''}</div>`;
+  // 말풍선 = 먼지 말(녹음과 같은 글자) / 정보 줄 = 일정 이름·시간 (계속 바뀌므로 L로 갱신)
+  return `<div class="speech-wrap"><p class="speech ${cls}" data-tpl="${esc(line.id)}" data-stage="${stage}" aria-live="polite">${L('speech', line.text)}${line.fact ? `<span class="speech-fact">${L('fact', line.fact)}</span>` : ''}</p>${TTS.ok() ? `<button class="say-btn ${cls}" data-act="speak" aria-label="${persona().name} 말 소리로 듣기">${icon('speaker')}</button>` : ''}</div>`;
 }
 /* 추가 버튼은 화면마다 하나: 오른쪽 아래 + (오늘·달력 화면) */
 function fabHTML(date) { return `<button class="fab" data-act="openAdd" data-date="${date}" aria-label="새 일정 올리기">${icon('plus')}</button>`; }
@@ -345,7 +346,7 @@ function viewToday(m) {
           <p class="pt-stage">${stageChip(p.heat, true)}<span>${stageOf(p.heat).desc}</span></p>
         </div>
       </div>
-      ${speechHTML(p.line, 'on-dark', p.stage)}
+      ${speechHTML(p.tk ? { ...p.line, fact: '' } : p.line, 'on-dark', p.stage)}${'' /* 표가 일정 이름·시간을 이미 보여 주면 정보 줄은 생략 (중복 방지) */}
       ${tk}
     </div>
     <div class="paper">
@@ -512,7 +513,7 @@ function viewFocus(m) {
       <div class="fx-mascot">${mascot(m, { ...mc, label: `${persona().name}, ${EXPR_LABEL[mc.expr]}, ${lvs(h)}` })}</div>
       <div class="fx-temp">${degHTML(h, 'heat', 'xxl')}${heatPips(h)}<p>${stageChip(h, true)}</p></div>
     </div>
-    <div class="fx-speech">${speechHTML(ln, 'on-dark big', sg)}</div>
+    <div class="fx-speech">${speechHTML({ ...ln, fact: '' }, 'on-dark big', sg)}</div>
     <div class="tl" aria-label="진행 시간 막대">
       <div class="tl-track"><div class="tl-fill" ${LS('tlFill', '--p', prog.toFixed(4))}></div>${planPos != null ? `<i class="tl-plan" style="left:${(planPos * 100).toFixed(2)}%"></i>` : ''}<i class="tl-now" ${LS('tlNow', '--p', prog.toFixed(4))}></i></div>
       <div class="tl-labels"><span>${fmtHM(w.start)} 시작</span>${planPos != null ? `<span class="mid">${fmtHM(w.end)} 예정 종료</span>` : ''}<span>${fmtHM(endAt)} ${w.deadline ? '마감' : '예정 종료'}</span></div>

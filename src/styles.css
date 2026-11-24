@@ -893,3 +893,5 @@ html.native { --safe-top: max(env(safe-area-inset-top, 0px), var(--safe-area-ins
 textarea.txt.memo { height: auto; min-height: 64px; padding: 10px 14px; resize: vertical; line-height: 1.5; }
 .in-links { display: inline-flex; gap: 4px; }
 .switch.sm::before { inset: -8px 0; }
+.speech-fact { display: block; margin-top: 4px; font-size: 12.5px; font-weight: 600; opacity: .72; letter-spacing: -.1px; }
+.bn-text small { display: block; font-size: 12px; opacity: .7; font-weight: 600; }

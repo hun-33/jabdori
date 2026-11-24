@@ -163,7 +163,7 @@ with sync_playwright() as p:
     clear_said(pg)
     ev("ACT.cTime({dataset:{hm:'23:10'}})"); pg.wait_for_timeout(400)
     s = said(pg)
-    check('중요할 때만: 시작 시간 배너를 읽음', any('음성 테스트' in x and '시간이야' in x for x in s), s)
+    check('중요할 때만: 시작 배너를 읽음 (먼지 말만, 정보 줄은 안 읽음)', any('퐁!' in x and '시간이다' in x and '음성 테스트' not in x for x in s), s)
     check('중요할 때만: 말풍선 변화는 따로 안 읽음', len(s) == 1, s)
     clear_said(pg)
     ev("showBanner('같은 말 테스트', '', {expr:'focus'}); showBanner('같은 말 테스트', '', {expr:'focus'})"); pg.wait_for_timeout(200)
