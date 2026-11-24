@@ -37,9 +37,16 @@ function fmtDur(min) {
 }
 function jo(word, pair) { return josa(word, pair).slice(String(word).length); }
 function uid(p) { return p + '_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3); }
-function josa(word, pair) { // pair: '을/를', '이/가', '은/는', '와/과', '으로/로'
-  const c = String(word).trim().slice(-1).charCodeAt(0);
+/* 숫자로 끝나는 말의 받침: 마지막 숫자를 한국어로 읽은 소리 기준 (2 이·4 사·5 오·9 구만 받침 없음, 1 일·7 칠·8 팔은 ㄹ) */
+const DIGIT_JONG = { 0: 21, 1: 8, 2: 0, 3: 16, 4: 0, 5: 0, 6: 1, 7: 8, 8: 8, 9: 0 };
+function josa(word, pair) { // pair: '을/를', '이/가', '은/는', '와/과', '으로/로', '이에요/예요', '이야/야' 등 (받침 있을 때/없을 때)
+  const last = String(word).trim().slice(-1), c = last.charCodeAt(0);
   const [a, b] = pair.split('/');
+  if (/[0-9]/.test(last)) {
+    const jong = DIGIT_JONG[last];
+    if (pair === '으로/로') return word + (jong === 0 || jong === 8 ? b : a);
+    return word + (jong ? a : b);
+  }
   if (c < 0xac00 || c > 0xd7a3) return word + b;
   const jong = (c - 0xac00) % 28;
   if (pair === '으로/로') return word + (jong === 0 || jong === 8 ? b : a);
@@ -70,6 +77,7 @@ const ICON_PATHS = {
   info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.1"/>',
   lock: '<rect x="5.5" y="10.5" width="13" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>',
   phone: '<rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M11 17.5h2"/>',
+  dust: '<path d="M7.5 16.5h9.2a3.3 3.3 0 0 0 .3-6.6 5 5 0 0 0-9.5-1.2 3.9 3.9 0 0 0 0 7.8Z"/><path d="M7 20h.1M11.5 20.5h.1M16 20h.1"/>',
   flame: '<path d="M12 21c3.6 0 6-2.4 6-5.6 0-3.4-2.5-5.4-3.6-8.9-2.4 1.6-3.2 3.6-3.3 5.4-1-.7-1.6-1.8-1.8-3C7.4 10.4 6 12.6 6 15.4 6 18.6 8.4 21 12 21Z"/>',
   coffee: '<path d="M5 9.5h11v4.5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5V9.5Z"/><path d="M16 11h1.5a2.5 2.5 0 0 1 0 5H16M8.5 3.5v3M12 3.5v3"/>',
   logout: '<path d="M14 4.5H6.5a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1H14M10.5 12h10M17 8.5l3.5 3.5-3.5 3.5"/>',
@@ -91,7 +99,7 @@ const KAKAO_SYMBOL = '<svg class="kakao-sym" viewBox="0 0 24 24" aria-hidden="tr
 
 /* ---------- 잡도리 정책 (확정되지 않은 값은 여기서만 바꾼다) ---------- */
 const HEAT_POLICY = {
-  progressShare: 0.6,   // 시간 경과로 오르는 몫 (여유 온도 대비)
+  progressShare: 0.6,   // 시간 경과로 오르는 몫 (남은 여유 대비)
   urgentShare: 0.4,     // 마감 임박 구간에서 오르는 몫
   urgentWindow: 30,     // 마감 임박 기준 (분)
   urgentBump: 5,        // 임박 진입 즉시 가산
@@ -100,32 +108,84 @@ const HEAT_POLICY = {
   slackBump: 10,        // 딴짓(응답 전) 가산
   slackRest: 3,         // '잠깐 쉴게' 선택 시
   slackFocus: 6,        // '다시 집중할게' 선택 시
-  slackDecay: 20,       // 딴짓 가산이 식는 시간 (분)
+  slackDecay: 20,       // 딴짓 가산이 사라지는 시간 (분)
   studyRecheck: 10,     // '공부 중' 선택 후 다시 확인까지 (분)
   breakMinutes: 5,
   overBreakPerMin: 1,
   overBreakMax: 10,
-  failStep: 10,         // 실패 1회당 바닥 온도 상승
+  failStep: 10,         // 실패 1회당 최저 시작값 상승 (미루먼지: 먼지 +10)
   floorMax: 90,
   coolStreak: 3,        // 연속 성공 n회 시 가산 1단계 해제
   sliderMin: 20,
   initialHeat: 50,
 };
-const STAGES = [
-  { id: 1, name: '미지근', min: 0, desc: '살살 달래요. 시작만 챙겨 줘요.' },
-  { id: 2, name: '따끈', min: 30, desc: '가볍게 잔소리해요.' },
-  { id: 3, name: '뜨끈', min: 50, desc: '미루면 바로 재촉해요.' },
-  { id: 4, name: '부글', min: 70, desc: '도발 섞인 독촉이 들어가요.' },
-  { id: 5, name: '펄펄', min: 90, desc: '봐주는 거 없어요. 최고 수위예요.' },
+/* ---------- 강도 눈금: 숫자(0~100)는 하나, 그 숫자를 부르는 이름은 눈금마다 다르다 ----------
+   - 캐릭터 눈금: 캐릭터마다 자기 세계관으로 부른다 (미루먼지 = 먼지 농도, 좋음~최악)
+   - 공통 눈금: 어떤 캐릭터든 같은 중립 이름 (순한맛~최고 매운맛)
+   어느 쪽을 쓸지는 회원 설정 m.scaleMode ('character' | 'common') — 나 탭 > 단계 이름
+   단계 경계(min)와 행동 설명(desc)은 모든 눈금이 공유하고, 이름·문구만 갈아 끼운다. */
+const STAGE_BANDS = [
+  { id: 1, min: 0, desc: '살살 달래요. 시작만 챙겨 줘요.' },
+  { id: 2, min: 30, desc: '가볍게 잔소리해요.' },
+  { id: 3, min: 50, desc: '미루면 바로 재촉해요.' },
+  { id: 4, min: 70, desc: '도발 섞인 독촉이 들어가요.' },
+  { id: 5, min: 90, desc: '봐주는 거 없어요. 최고 수위예요.' },
 ];
-function stageOf(h) { let s = STAGES[0]; for (const st of STAGES) if (h >= st.min) s = st; return s; }
+function makeScale(def) { return { ...def, stages: STAGE_BANDS.map((b, i) => ({ ...b, name: def.names[i] })) }; }
+const SCALES = {
+  mireum: makeScale({
+    id: 'mireum',
+    title: '미루먼지 농도',   // 값의 이름 (큰 숫자 위 제목)
+    short: '농도',            // 문장 속 짧은 이름 ("농도 60")
+    unit: '',                 // 숫자 뒤 단위 (온도 캐릭터라면 '°')
+    floor: '쌓인 먼지',       // 실패로 올라가는 최저 시작값의 이름
+    extra: '먼지', extraUnit: '겹', // 실패 가산 한 칸 ("먼지 2겹")
+    clear: '먼지 털기',       // 연속 성공으로 가산 한 칸을 푸는 일
+    icon: 'dust',
+    names: ['좋음', '보통', '나쁨', '매우 나쁨', '최악'],
+    blurb: '미루먼지가 얼마나 짙게 퍼졌는지로 잡도리 세기를 보여 줘요. 미룰수록 짙어지고 미루먼지도 커져요.',
+    onbIntro: '잡도리 세기는 내 먼지 농도로 보여 줘. 미룰수록 짙어지고, 나도 커져. 단계를 눌러 봐.',
+    onbFailTitle: '끝내면 도장,<br>놓치면 먼지가 쌓여.',
+    onbFailBody: '끝내면 칭찬 도장을 찍어 줄게. 놓치면 <b>먼지가 {step}만큼 쌓여서</b> 다음에 올리는 잡도리 일정은 그 농도부터 시작해. 그 아래로는 못 내려. {streak}번 연속 해내면 먼지를 한 겹 털어 줄게.',
+  }),
+  common: makeScale({
+    id: 'common',
+    title: '잡도리 강도', short: '강도', unit: '',
+    floor: '최저 강도',
+    extra: '벌칙', extraUnit: '단계',
+    clear: '벌칙 풀기',
+    icon: 'flame',
+    names: ['순한맛', '보통맛', '매운맛', '아주 매운맛', '최고 매운맛'],
+    blurb: '어떤 캐릭터든 같은 이름으로 잡도리 세기를 보여 줘요. 캐릭터를 바꿔도 단계 이름은 그대로예요.',
+    onbIntro: '잡도리 세기는 {first}부터 {last}까지 다섯 단계야. 단계를 눌러 봐.',
+    onbFailTitle: '끝내면 도장,<br>놓치면 더 맵게 시작해.',
+    onbFailBody: '끝내면 칭찬 도장을 찍어 줄게. 놓치면 <b>최저 강도가 {step} 올라서</b> 다음에 올리는 잡도리 일정은 그 강도부터 시작해. 그 아래로는 못 내려. {streak}번 연속 해내면 벌칙을 한 단계 풀어 줄게.',
+  }),
+};
+/* 지금 회원이 보는 눈금 (설정 > 단계 이름) */
+function scaleOf(m = member()) { return m && m.scaleMode === 'common' ? SCALES.common : charOf(m).scale; }
+/* 숫자 → 단계 (id는 눈금과 상관없이 같다) */
+function stageOf(h, m) { const S = scaleOf(m); let s = S.stages[0]; for (const st of S.stages) if (h >= st.min) s = st; return s; }
+/* 숫자 + 단위: "60" (단위 있는 눈금이면 "60°") */
+function lv(h, m) { return `${h}${scaleOf(m).unit}`; }
+/* 짧은 이름 + 숫자: "농도 60" / "강도 60" */
+function lvs(h, m) { const S = scaleOf(m); return `${S.short} ${h}${S.unit}`; }
+/* 실패 가산 n칸: "먼지 2겹 (+20)" / "벌칙 2단계 (+20)" */
+function extraText(n, m) { const S = scaleOf(m); return `${S.extra} ${n}${S.extraUnit} (+${n * HEAT_POLICY.failStep})`; }
 
-/* ---------- 페르소나: 미루먼지 (공식 마스코트, 그림은 01b-mireum.js) ---------- */
-const PERSONA = {
+/* ---------- 캐릭터: 미루먼지 (공식 마스코트, 그림은 01b-mireum.js) ---------- */
+const CHAR_MIREUM = {
   id: 'mireum',
   name: '미루먼지',
   role: '1:1 전담 잡도리 매니저',
   traits: ['미룬 일에서 태어난 작은 구름', '미룰수록 부풀고 털이 곤두섬', '잘하면 진심으로 기뻐함', '모욕은 안 함'],
+  // 소개 문구 (로그인·온보딩). 캐릭터마다 자기 말투로 채운다
+  intro: {
+    tagline: '미룬 일에서 태어난 잔소리 구름, 미루먼지가 옆에 붙어 줄게.',
+    helloTitle: '오늘도 미룰 거야?<br>이제 내가 옆에 있어.',
+    helloBody: '나는 네가 미룬 일에서 태어난 구름이야. 할 일을 맡기면 시작부터 마감까지 붙잡아 줄게. 네가 미룰수록 나는 커지고, 끝내면 다시 작아져.',
+    meetBody: '평소엔 말랑한데, 네가 미루면 부풀어 오르고 털이 곤두서. 화내는 이유는 하나야. 네 마감.',
+  },
   lines: {
     empty: ['오늘도 미룰 거야? 맡길 일부터 하나 올려 봐.', '할 일 없어? 진짜로? 미뤄 둔 거 하나쯤은 있을 텐데.', '심심하다… 미루는 일 생기면 바로 나한테 맡겨.'],
     noneToday: ['오늘은 내가 맡은 일이 없어. 쉬는 날이면 제대로 쉬어.', '오늘 잡도리는 없음. 다음 일정은 내가 기억하고 있어.'],
@@ -144,7 +204,7 @@ const PERSONA = {
       1: ['좋아, 이 페이스면 충분해.', '조용히 지켜볼게. 하던 거 계속해.', '천천히 가도 돼. 멈추지만 마.'],
       2: ['잘 가고 있어. 중간에 딴 데 새지 말고.', '내가 계속 보고 있다? 리듬 좋아.', '{elapsed} 했어. 리듬 좋다.'],
       3: ['{elapsed} 했어. 아직 갈 길 남았다?', '손 멈추지 마. 지금 리듬 좋아.', '{left}. 속도 조금만 더 내 보자.'],
-      4: ['{left}. 이대로면 빠듯해.', '폰 내려놔. 딴생각 들면 한 줄 더 써.', '슬슬 열 오른다. 속도 올려.'],
+      4: ['{left}. 이대로면 빠듯해.', '폰 내려놔. 딴생각 들면 한 줄 더 써.', '먼지 슬슬 짙어진다. 속도 올려.'],
       5: ['{left}. 지금 아니면 없다.', '나 지금 터지기 직전이야. 끝까지 밀어붙여.', '마지막 스퍼트. 여기서 딴짓하면 진짜 화낸다.'],
     },
     urgent: ['마감 {remain} 전. 이제 다듬지 말고 마무리부터 해.', '{remain} 남았다. 제출할 곳은 열어 놨지?', '털 곤두선다. {remain} 안에 끝내.', '여기서 놓치면 다음 판은 더 세게 간다.', '완벽 말고 완료. {remain} 남았어.'],
@@ -166,8 +226,9 @@ const PERSONA = {
     doneClose: ['아슬아슬했지만 해냈다. 다음엔 조금만 일찍 하자.', '마감 직전에 끝냈네. 심장 쫄깃했다.', '해냈으면 됐어. 다음엔 덜 부풀게 해 줘.'],
     doneNone: ['오! 드디어 해냈어! {title} 끝.', '끝냈네. 오늘 할 일 하나 지웠다.'],
     doneProud: ['연속으로 해냈어! 나 너무 뿌듯해.', '이번에는 진짜 잘했어! 이 흐름 그대로 가자.'],
-    failed: ['또 미뤘네… 다음엔 봐주지 않는다.', '이번 건 놓쳤다. 다음 판은 강도부터 올리고 간다.', '실망이야… 그래도 포기 안 해. 다음에 갚아.'],
-    cooled: ['세 번 연속 해냈네! 약속대로 바닥 한 칸 내려 줄게.'],
+    dayFail: ['또 미뤘네… 오늘 먼지 한 겹 더 쌓였다.', '오늘은 놓친 게 있어. 내일은 먼지 털 일만 만들자.'],
+    failed: ['또 미뤘네… 다음엔 봐주지 않는다.', '이번 건 놓쳤다. 먼지 한 겹 더 쌓고 다음 판 간다.', '실망이야… 그래도 포기 안 해. 다음에 갚아.'],
+    cooled: ['세 번 연속 해냈네! 약속대로 쌓인 먼지 한 겹 털어 줄게.'],
     saved: ['오, 새 일정이다. {title}, 내가 확인했어.', '{title} 접수. {start}에 내가 부를게.'],
     welcome: ['반가워! 오늘도 미룰 거야?', '왔구나. 내가 계속 보고 있었어.'],
     excuse: {
@@ -177,7 +238,7 @@ const PERSONA = {
       hard: '어려웠으면 쪼개서 가자. 다음엔 첫 단계만 맡겨 봐.',
       none: '말 안 해도 알아. 다음엔 기록 바꿔 보자.',
     },
-    sample: { // 강도 설명용 예시 (온보딩·등록 화면)
+    sample: { // 단계 설명용 예시 (온보딩·등록 화면)
       1: '시간 됐어. 천천히라도 시작해 볼까?',
       2: '아직 시작 안 했어? 슬슬 하자.',
       3: '오늘도 미룰 거야? 10분째 기다리는 중이야.',
@@ -186,6 +247,26 @@ const PERSONA = {
     },
   },
 };
+
+/* ---------- 캐릭터 목록 ----------
+   새 캐릭터를 넣을 때 채울 칸:
+   - id·name·role·traits : 이름과 소개
+   - lines               : 상황별 대사 (CHAR_MIREUM.lines와 같은 키를 모두 채운다)
+   - scale               : 자기 세계관 눈금 (SCALES에 하나 추가)
+   - voice               : TTS 목소리 { pitch 높낮이, rate 빠르기 } — 기기 목소리를 이 값으로 바꿔 캐릭터처럼 들리게
+   - art(o)              : 그림 함수. o = { expr 표정, pose 자세, motion 동작, fluff 부풂 0~1, costume, label }
+                           표정·자세·동작 이름은 EXPR_LABEL·mascotFor()가 쓰는 이름을 그대로 그려 낸다
+   - costumes()          : 고를 수 있는 옷 목록 */
+CHAR_MIREUM.scale = SCALES.mireum;
+CHAR_MIREUM.voice = { pitch: 1.3, rate: 1.05 };
+CHAR_MIREUM.art = (o) => mireumSVG(o);
+CHAR_MIREUM.costumes = () => COSTUMES;
+const CHARACTERS = { mireum: CHAR_MIREUM };
+const DEFAULT_CHARACTER = 'mireum';
+/* 회원에게 배정된 캐릭터 (없거나 지워진 id면 기본 캐릭터) */
+function charOf(m = member()) { return CHARACTERS[m && m.characterId] || CHARACTERS[DEFAULT_CHARACTER]; }
+/* 지금 화면에서 말하는 캐릭터 */
+function persona() { return charOf(); }
 
 /* 상황 키마다 마지막으로 고른 문장을 기억해 같은 문장 연속 반복을 피한다 */
 const lineMemo = {};
@@ -221,7 +302,7 @@ function freshState() {
     talkInstalled: true,
     ignoredClicks: 0,
     reduceMotion: false,
-    ttsAuto: false,
+    voice: { mode: 'off', speed: 'normal' }, // 목소리 설정 (04c-voice.js)
     settledDay: ymd(BASE_CLOCK),
   };
 }
@@ -230,7 +311,14 @@ let state = load();
 function load() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (raw) { const s = JSON.parse(raw); if (s && s.v === 1) return Object.assign(freshState(), s); }
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (s && s.v === 1) {
+        if (!s.voice && 'ttsAuto' in s) s.voice = { mode: s.ttsAuto ? 'all' : 'off', speed: 'normal' }; // 옛 '멘트 소리로 듣기' 켜짐 → 모든 멘트
+        delete s.ttsAuto;
+        return Object.assign(freshState(), s);
+      }
+    }
   } catch (e) { storageOK = false; }
   return freshState();
 }
@@ -243,7 +331,7 @@ function now() { return state.clock; }
 function today() { return ymd(state.clock); }
 function member() { const s = state.session; return s && !s.expired ? state.members[s.memberId] || null : null; }
 
-/* ---------- 회원·바닥 온도 ---------- */
+/* ---------- 회원·최저 시작값 (미루먼지: 쌓인 먼지) ---------- */
 function floorOf(m) { return Math.min(HEAT_POLICY.floorMax, m.initialHeat + HEAT_POLICY.failStep * m.penalty); }
 function maxPenalty(m) { return Math.floor((HEAT_POLICY.floorMax - m.initialHeat) / HEAT_POLICY.failStep); }
 function sliderMinFor(m, editTask) {
@@ -263,6 +351,8 @@ function createMember(kakaoId, profile, consent) {
     consent,
     createdAt: now(),
     onboarded: false,
+    characterId: DEFAULT_CHARACTER, // 전담 캐릭터
+    scaleMode: 'character',          // 단계 이름: 'character' 캐릭터별 | 'common' 공통
     costume: 'basic',
     initialHeat: HEAT_POLICY.initialHeat,
     penalty: 0,
@@ -352,12 +442,12 @@ function runningOcc(m) {
   return null;
 }
 
-/* ---------- 잡도리 온도 계산 (FN04) ---------- */
+/* ---------- 잡도리 세기 계산 (FN04) — 0~100 숫자 하나. 이름은 scaleOf()가 붙인다 ---------- */
 function heatOf(st, t = now()) {
   const P = HEAT_POLICY, task = st.task;
   const H0 = task.heat, room = 100 - H0, w = st.w, run = st.run;
   if (st.kind === 'done' || st.kind === 'failed') return { total: run.endHeat ?? H0, parts: [] };
-  const parts = [{ label: '시작 온도', v: H0, base: true }];
+  const parts = [{ label: '시작 ' + scaleOf().short, v: H0, base: true }];
   if (st.kind === 'upcoming' || st.kind === 'past') return { total: H0, parts };
   if (st.kind === 'overdue' || st.kind === 'missedStart') {
     parts.push({ label: '마감 시각 도달', v: 100 - H0 });
@@ -394,7 +484,7 @@ function heatOf(st, t = now()) {
   return { total, parts };
 }
 
-/* ---------- 미루먼지 반응 고르기: 일정 상태 → 표정·자세·동작·부풂 ---------- */
+/* ---------- 캐릭터 반응 고르기: 일정 상태 → 표정·자세·동작·부풂 (모든 캐릭터 공통 약속) ---------- */
 // ctx: { lateMin, elapsedMin, penalty, streak, early, bucket }
 function mascotFor(kind, stage, ctx = {}) {
   const pen = Math.max(0, (ctx.penalty || 0) - 1) * 0.25; // 반복 실패: 평소에도 조금 부풀어 있음
@@ -436,11 +526,12 @@ function mascotForStage(sg) {
     { expr: 'angry', pose: 'puff', motion: 'puff', fluff: 0.65 },
     { expr: 'furious', pose: 'puff', motion: 'puff', fluff: 1 }][sg];
 }
-/* 현재 회원의 코스튬을 넣어 그리기 */
+/* 현재 회원의 캐릭터·코스튬으로 그리기 */
 function mascot(m, o = {}) {
   const costume = o.costume || (m && m.costume) || 'basic';
-  const label = o.label || `${PERSONA.name}, ${EXPR_LABEL[o.expr] || '기본'}`;
-  return mireumSVG({ ...o, costume, label });
+  const c = charOf(m);
+  const label = o.label || `${c.name}, ${EXPR_LABEL[o.expr] || '기본'}`;
+  return c.art({ ...o, costume, label });
 }
 
 /* ---------- 페르소나 말 만들기 ---------- */
@@ -453,7 +544,7 @@ function leftText(st, t = now()) {
   return r > 0 ? `예정 종료까지 ${fmtDur(r)}` : '예정 시간 지남';
 }
 function lineFor(st, heat, t = now()) {
-  const L = PERSONA.lines, stage = stageOf(heat).id, title = st.task.title, run = st.run;
+  const L = persona().lines, stage = stageOf(heat).id, title = st.task.title, run = st.run;
   const elapsedMin = Math.max(0, (t - (run && run.startedAt ? run.startedAt : st.w.start)) / MIN);
   const bucket = Math.floor(elapsedMin / 10);
   const v = {
@@ -492,7 +583,13 @@ function lineFor(st, heat, t = now()) {
 }
 
 /* ---------- 실행 기록 조작 ---------- */
-function logRun(run, kind, text) { run.log.push({ at: now(), kind, text }); }
+/* 로그는 숫자를 따로 저장해 두고(data), 보여 줄 때 지금 눈금 이름으로 문장을 만든다 (logText) */
+function logRun(run, kind, text, data) { run.log.push({ at: now(), kind, text, ...(data || {}) }); }
+function logText(e) {
+  if (e.kind === 'heat' && e.h != null) return `${lvs(e.h)} — ${stageOf(e.h).name} 단계로 올라감`;
+  if (e.kind === 'floor' && e.a != null) return `${scaleOf().floor} ${lv(e.a)} → ${lv(e.b)}`;
+  return e.text;
+}
 function startOcc(m, st) {
   const run = m.runs[st.key] = m.runs[st.key] || {};
   Object.assign(run, {
@@ -504,7 +601,7 @@ function startOcc(m, st) {
   return run;
 }
 function trackHeat(m) {
-  // 진행 중 회차의 최고 온도와 단계 변화를 기록 (시간이 흐를 때마다 호출)
+  // 진행 중 회차의 최고값과 단계 변화를 기록 (시간이 흐를 때마다 호출)
   for (const [k, r] of Object.entries(m.runs)) {
     if (r.status !== 'running') continue;
     const [tid, d] = splitKey(k);
@@ -514,7 +611,7 @@ function trackHeat(m) {
     r.peak = Math.max(r.peak || 0, h);
     const sg = stageOf(h).id;
     if (sg > (r.lastStage || 0)) {
-      if (r.lastStage) logRun(r, 'heat', `${h}° — ${stageOf(h).name} 단계로 올라감`);
+      if (r.lastStage) logRun(r, 'heat', `${h} — ${sg}단계로 올라감`, { h });
       r.lastStage = sg;
     }
     if (st.kind === 'urgent' && !r.urgentLogged) { r.urgentLogged = true; logRun(r, 'urgent', '마감 30분 전 — 마감 임박'); }
@@ -537,7 +634,7 @@ function finishOcc(m, st, success, extra = {}) {
   run.floorBefore = floorOf(m);
   run.penaltyBefore = m.penalty;
   run.streakBefore = m.streak;
-  const L = PERSONA.lines;
+  const L = persona().lines;
   if (success) {
     run.status = 'done';
     m.streak += 1;
@@ -561,7 +658,7 @@ function finishOcc(m, st, success, extra = {}) {
     logRun(run, 'fail', extra.reason ? `실패 — ${extra.reason}` : '실패');
   }
   run.floorAfter = floorOf(m);
-  if (run.floorAfter !== run.floorBefore) logRun(run, 'floor', `바닥 온도 ${run.floorBefore}° → ${run.floorAfter}°`);
+  if (run.floorAfter !== run.floorBefore) logRun(run, 'floor', `${run.floorBefore} → ${run.floorAfter}`, { a: run.floorBefore, b: run.floorAfter });
   return run;
 }
 function undoRun(m, key) {

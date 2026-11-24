@@ -233,6 +233,7 @@ function nativeBars(dark) {
   try { NATIVE.Bars.setStyle({ style }); } catch (e) { /* 무시 */ }
 }
 function nativeBack() {
+  if (ui.input) { ACT.wheelInputCancel(); return; }
   if (ui.menuOpen) { ui.menuOpen = false; render(); return; }
   if (document.body.classList.contains('console-open')) { ACT.cToggle(); return; }
   if (ui.popup) return; // 딴짓 팝업은 답을 골라야 닫힘
@@ -269,7 +270,8 @@ function nativeInit() {
   nativeRestoreSession();
   try {
     NATIVE.App.addListener('backButton', nativeBack);
-    NATIVE.App.addListener('resume', () => { if (state.realTime) syncRealClock(true); nativeRestoreSession(); NOTIF.schedule(true); });
+    NATIVE.App.addListener('resume', () => { if (state.realTime) syncRealClock(true); nativeRestoreSession(); NOTIF.schedule(true); TTS.check(); });
+    NATIVE.App.addListener('pause', () => TTS.stop()); // 앱을 내리면 읽던 말도 멈춘다
   } catch (e) { /* 무시 */ }
 }
 

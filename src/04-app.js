@@ -7,6 +7,7 @@ let cur = { id: null, sig: null, tpl: null };
 const layerState = { sheetKey: null, sheetHtml: '', popupHtml: '', resultHtml: '', tabHtml: '', consoleHtml: '' };
 let formDirty = false;
 let lastFocus = null;
+let enterTimer = null;
 
 /* ---------- 렌더링 ---------- */
 function computeScreen() {
@@ -43,15 +44,19 @@ function render(force = false) {
   if (force || v.id !== cur.id || sig !== cur.sig) {
     const same = v.id === cur.id;
     const top = el.screen.scrollTop;
+    // 같은 화면을 다시 그릴 때는 등장 애니메이션을 다시 틀지 않는다 (탭할 때마다 화면이 내려오는 문제)
+    if (same) el.screen.classList.remove('enter');
     el.screen.innerHTML = v.html;
     if (same) el.screen.scrollTop = top;
     else {
       el.screen.scrollTop = 0;
       el.screen.classList.remove('enter'); void el.screen.offsetWidth; el.screen.classList.add('enter');
+      clearTimeout(enterTimer);
+      enterTimer = setTimeout(() => el.screen.classList.remove('enter'), 400);
     }
     const sp = el.screen.querySelector('.speech[data-tpl]');
     const tpl = sp ? sp.dataset.tpl : null;
-    if (sp && tpl !== cur.tpl) { sp.classList.add('say'); if (state.ttsAuto && cur.tpl !== null) TTS.speak(sp.textContent); }
+    if (sp && tpl !== cur.tpl) { sp.classList.add('say'); if (cur.tpl !== null) TTS.say(sp.textContent, { pri: 'all', stage: Number(sp.dataset.stage) || 0 }); }
     cur = { id: v.id, sig, tpl };
   } else patchLive(live, lives);
 
@@ -66,7 +71,9 @@ function render(force = false) {
   const tc = document.querySelector('meta[name="theme-color"]');
   if (tc) tc.setAttribute('content', dark ? '#2B2622' : '#F3EEE5');
   nativeBars(dark);
+  if (!(ui.sheet && ui.sheet.type === 'form')) ui.input = null;
   renderLayers(m);
+  renderInputLayer();
   renderConsole();
   renderStatus();
 }
@@ -107,7 +114,11 @@ function renderLayers(m) {
     const isNew = !layerState.resultHtml;
     el.result.innerHTML = rh; layerState.resultHtml = rh;
     if (rh && !isNew) el.result.querySelector('.result')?.classList.add('still');
-    if (rh && isNew) el.result.querySelector('.res-title')?.setAttribute('tabindex', '-1'), el.result.querySelector('.res-title')?.focus({ preventScroll: true });
+    if (rh && isNew) {
+      el.result.querySelector('.res-title')?.setAttribute('tabindex', '-1'), el.result.querySelector('.res-title')?.focus({ preventScroll: true });
+      const run = m.runs[ui.result.key];
+      if (run && run.line) TTS.say(run.line, { pri: 'key', stage: run.status === 'done' ? 1 : 4 }); // 결과 한마디 = 중요한 순간
+    }
   }
   // 팝업
   const ph = ui.popup && m ? viewSlackPopup(m) : '';
@@ -116,6 +127,11 @@ function renderLayers(m) {
     el.popup.innerHTML = ph; layerState.popupHtml = ph;
     if (ph && !isNew) el.popup.querySelector('.popup')?.classList.add('still');
     if (ph) (el.popup.querySelector('.opt') || el.popup.querySelector('.btn'))?.focus({ preventScroll: true });
+    // 팝업 대사: 처음 묻는 말(딴짓 감지·공부 확인)은 중요한 순간, 내 선택에 대한 대답은 일반 멘트
+    const line = el.popup.querySelector('.pop-line');
+    const lt = line ? line.textContent : '';
+    if (lt && lt !== layerState.popupLine) TTS.say(lt, { pri: ui.popup && ui.popup.answer ? 'all' : 'key', stage: 3 });
+    layerState.popupLine = lt;
   }
 }
 function renderStatus() {
@@ -321,7 +337,7 @@ const ACT = {
   },
 
   /* 탐색 */
-  tab: (t) => { ui.tab = t.dataset.tab; ui.focusKey = null; ui.sheet = null; if (ui.tab === 'calendar') { ui.calMonth = (ui.selDate || today()).slice(0, 7); ui.calWeek = mondayOf(ui.selDate || today()); } render(); },
+  tab: (t) => { if (ui.tab !== t.dataset.tab) TTS.stop(); ui.tab = t.dataset.tab; ui.focusKey = null; ui.sheet = null; if (ui.tab === 'calendar') { ui.calMonth = (ui.selDate || today()).slice(0, 7); ui.calWeek = mondayOf(ui.selDate || today()); } render(); },
   selDate: (t) => { ui.selDate = t.dataset.date; render(); },
   calPick: (t) => { ui.selDate = t.dataset.date; ui.calWeek = mondayOf(ui.selDate); if (ui.calMode === 'month' && ui.selDate.slice(0, 7) !== ui.calMonth) ui.calMonth = ui.selDate.slice(0, 7); render(); },
   calMode: (t) => { ui.calMode = t.dataset.v; ui.calMonth = ui.selDate.slice(0, 7); ui.calWeek = mondayOf(ui.selDate); render(); },
@@ -361,7 +377,7 @@ const ACT = {
     save(); render();
   },
   openFocus: (t) => { ui.focusKey = t.dataset.key; ui.sheet = null; ui.receiptOpen = false; render(); },
-  exitFocus: () => { ui.focusKey = null; ui.tab = 'today'; render(); },
+  exitFocus: () => { TTS.stop(); ui.focusKey = null; ui.tab = 'today'; render(); },
   toggleReceipt: () => { ui.receiptOpen = !ui.receiptOpen; render(); },
   takeBreak: () => {
     const m = member(), st = curOcc(ui.focusKey); if (!st || !st.run) return;
@@ -386,7 +402,7 @@ const ACT = {
     const m = member(), f = floorOf(m), nf = Math.min(HEAT_POLICY.floorMax, f + HEAT_POLICY.failStep), st = curOcc(t.dataset.key);
     openSheet({
       type: 'confirm', title: '여기서 접을까요?',
-      body: `‘${esc(st.task.title)}’${jo(st.task.title, '을/를')} 실패로 기록해요. 다음에 올리는 잡도리 일정의 바닥 온도가 <b>${f}° → ${nf}°</b>로 올라가요.`,
+      body: `‘${esc(st.task.title)}’${jo(st.task.title, '을/를')} 실패로 기록해요. 다음에 올리는 잡도리 일정의 ${josa(scaleOf(m).floor, '이/가')} <b>${lv(f)} → ${lv(nf)}</b>${jo(lv(nf), '으로/로')} 올라가요.`,
       okLabel: '실패로 기록하기', okAct: 'confirmFail', okData: `data-key="${t.dataset.key}"`, danger: true, cancelLabel: '다시 해볼게',
     });
   },
@@ -394,7 +410,7 @@ const ACT = {
   confirmFail: (t) => openSheet({ type: 'excuse', key: t.dataset.key }),
   excuse: (t) => doFail(t.dataset.v),
   excuseSkip: () => doFail(null),
-  resultClose: () => { ui.result = null; ui.tab = 'today'; render(); },
+  resultClose: () => { TTS.stop(); ui.result = null; ui.tab = 'today'; render(); },
   resultRecord: () => { ui.result = null; ui.tab = 'records'; render(); },
 
   /* 일정 등록·수정 (FN02) */
@@ -455,14 +471,14 @@ const ACT = {
   slackChoose: (t) => {
     const m = member(), p = ui.popup, run = m.runs[p.key]; if (!run) { ui.popup = null; render(); return; }
     const ev = run.slack[run.slack.length - 1]; const v = t.dataset.v; ev.choice = v;
-    const L = PERSONA.lines;
+    const L = persona().lines;
     if (v === 'study') { run.studyUntil = now() + HEAT_POLICY.studyRecheck * MIN; logRun(run, 'slack', '“공부 중이야” — 10분 뒤 다시 확인'); p.answer = pickLine(p.key + ':ss', L.slackStudy).tpl; }
     if (v === 'rest') { run.brk = { start: now(), until: now() + HEAT_POLICY.breakMinutes * MIN, ended: false }; logRun(run, 'break', '“잠깐 쉴게” — 5분 휴식'); p.answer = pickLine(p.key + ':sr', L.slackRest).tpl; }
     if (v === 'focus') { logRun(run, 'slack', '“다시 집중할게”'); p.answer = pickLine(p.key + ':sf', L.slackFocus).tpl; }
     p.choice = v; save(); render();
   },
   studyChoose: (t) => {
-    const m = member(), p = ui.popup, run = m.runs[p.key]; const L = PERSONA.lines;
+    const m = member(), p = ui.popup, run = m.runs[p.key]; const L = persona().lines;
     if (t.dataset.v === 'more') { run.studyUntil = now() + HEAT_POLICY.studyRecheck * MIN; logRun(run, 'slack', '강의 10분 더'); p.answer = L.studyMore[0]; }
     else { logRun(run, 'slack', '과제로 돌아감'); p.answer = L.studyBack[0]; }
     save(); render();
@@ -482,11 +498,12 @@ const ACT = {
       logout: ['로그아웃할까요?', '이 기기에서만 나가요. 카카오 인증은 남아 있어서 다음엔 동의 없이 바로 들어와요. 일정과 기록은 그대로예요.', '로그아웃', false],
       kakaoLogout: ['카카오 로그아웃까지 할까요?', '잡도리에서 나가고 카카오 인증도 끝내요. 다음에 들어올 때 카카오 인증을 다시 거쳐요. 카카오 연결과 기록은 그대로예요.', '카카오 로그아웃', false],
       unlink: ['카카오 연결을 끊을까요?', '카카오 계정과 잡도리의 연결을 끊어요. 다음에 들어오면 동의부터 다시 받아요.<br><br><b>연결을 끊는 것과 탈퇴는 달라요.</b> 잡도리 기록은 탈퇴하기 전까지 남아 있고, 같은 카카오 계정으로 다시 연결하면 이어서 쓸 수 있어요. (정식 서비스에서는 연결이 끊긴 계정을 일정 기간 뒤 정리하는 정책이 따로 필요해요.)', '연결 끊기', true],
-      withdraw: ['정말 탈퇴할까요?', '잡도리 일정·기록·바닥 온도가 모두 지워지고 카카오 연결도 함께 끊겨요. 되돌릴 수 없어요.', '탈퇴하기', true],
+      withdraw: ['정말 탈퇴할까요?', '잡도리 일정·기록·설정이 모두 지워지고 카카오 연결도 함께 끊겨요. 되돌릴 수 없어요.', '탈퇴하기', true],
     }[v];
     openSheet({ type: 'confirm', title: C[0], body: C[1], okLabel: C[2], danger: C[3], okAct: 'doAcct', okData: `data-v="${v}"` });
   },
   doAcct: async (t) => {
+    TTS.stop();
     const v = t.dataset.v, kid = kakaoId(), m = member();
     if (NATIVE.on && state.session && state.session.real) {
       // 진짜 앱: 카카오 서버에 로그아웃·연결 끊기를 실제로 요청 (05-native)
@@ -526,7 +543,7 @@ const ACT = {
     if (st) {
       st.run.slack.push({ at: now(), app, choice: null });
       logRun(st.run, 'slack', `딴짓 감지 — ${app} 실행`);
-      ui.popup = { type: 'slack', app, key: st.key, askTpl: pickLine(st.key + ':ask', PERSONA.lines.slackAsk, st.run.slack.length).tpl };
+      ui.popup = { type: 'slack', app, key: st.key, askTpl: pickLine(st.key + ':ask', persona().lines.slackAsk, st.run.slack.length).tpl };
       save(); render(); return;
     }
     ui.popup = { type: 'slack', app, key: null }; render();
@@ -592,7 +609,7 @@ function saveForm(dupOK) {
   };
   if (prev) m.tasks[m.tasks.indexOf(prev)] = task; else m.tasks.push(task);
   if (!prev) {
-    const pk = pickLine('saved', PERSONA.lines.saved);
+    const pk = pickLine('saved', persona().lines.saved);
     ui.react = { id: task.id, until: Date.now() + 3200, mc: { expr: 'focus', pose: 'check', motion: 'check', fluff: 0 }, line: fillLine(pk.tpl, { title: task.title, start: task.start }) };
     setTimeout(() => { if (ui.react && ui.react.id === task.id) { ui.react = null; render(); } }, 3300);
   }
@@ -619,7 +636,7 @@ const SCENARIOS = [
   ['authFail', '인증 실패'],
   ['returnFail', '카카오톡에서 앱 복귀 실패'],
 ];
-const DEMO_STEPS = ['가상 카카오 로그인', '최초 회원 온보딩', '메인 화면 확인', '데이터베이스 과제 등록 (콘솔: 폼에 테스트 값 채우기)', '주간·월간 달력에서 확인', '일정 시작', '미루먼지 반응 확인', '시간 바꿔 마감 임박 확인 (19:30)', '딴짓 팝업 (YouTube 실행)', '성공 처리 → 오늘 회차 되돌리기', '실패 처리', '새 일정 올리기에서 바닥 온도 60° 확인'];
+const DEMO_STEPS = ['가상 카카오 로그인', '최초 회원 온보딩', '메인 화면 확인', '데이터베이스 과제 등록 (콘솔: 폼에 테스트 값 채우기)', '주간·월간 달력에서 확인', '일정 시작', '미루먼지 반응 확인', '시간 바꿔 마감 임박 확인 (19:30)', '딴짓 팝업 (YouTube 실행)', '성공 처리 → 오늘 회차 되돌리기', '실패 처리', '새 일정 올리기에서 쌓인 먼지 60 확인', '나 > 단계 이름을 공통으로 바꿔 보기'];
 function consoleBody() {
   const m = member();
   const sess = state.session && !state.session.expired ? (m ? `${m.nickname} · ${m.onboarded ? '이용 중' : '온보딩 중'}` : '없음') : '로그인 전';
@@ -653,7 +670,7 @@ function consoleBody() {
   </section>
   <section class="cs-sec"><h3>지금 상태</h3>
     <dl class="cs-state"><div><dt>세션</dt><dd>${esc(sess)}</dd></div><div><dt>가입 회원</dt><dd>${Object.keys(state.members).length}명</dd></div>
-    <div><dt>바닥 온도</dt><dd>${m ? floorOf(m) + '° (가산 ' + m.penalty + '단계, 연속 성공 ' + m.streak + ')' : '-'}</dd></div>
+    <div><dt>${scaleOf(m).floor}</dt><dd>${m ? lv(floorOf(m), m) + ' (가산 ' + m.penalty + '칸, 연속 성공 ' + m.streak + ')' : '-'}</dd></div>
     <div><dt>카카오 연결</dt><dd>${state.kakao[kakaoId()] && state.kakao[kakaoId()].linked ? '연결됨' : '없음'}${state.kakao[kakaoId()] && state.kakao[kakaoId()].token ? ' · 토큰 있음' : ''}</dd></div>
     <div><dt>저장</dt><dd>${storageOK ? 'LocalStorage (새로고침해도 유지)' : '메모리 (새로고침하면 사라짐)'}</dd></div></dl>
   </section>
@@ -673,33 +690,7 @@ function renderConsole(force) {
   if (tEl) tEl.textContent = fmtHM(now());
 }
 
-/* ---------- 미루먼지 목소리 (TTS, 기기 음성 사용) ---------- */
-const TTS = {
-  voice: null,
-  ok() { if (NATIVE.on) return !!NATIVE.Speech; try { return typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined'; } catch (e) { return false; } },
-  init() {
-    if (NATIVE.on || !this.ok()) return;
-    const pick = () => { try { const vs = speechSynthesis.getVoices(); this.voice = vs.find((v) => /^ko/i.test(v.lang)) || null; } catch (e) { /* 무시 */ } };
-    pick();
-    try { speechSynthesis.addEventListener('voiceschanged', pick); } catch (e) { /* 무시 */ }
-  },
-  speak(text) {
-    if (!this.ok() || !text) return false;
-    if (NATIVE.on) { // 진짜 앱: 안드로이드 기기 음성 엔진
-      const S = NATIVE.Speech;
-      S.stop().catch(() => {}).then(() => S.speak({ text, lang: 'ko-KR', rate: 1.0, pitch: 1.3, volume: 1.0, category: 'ambient' })).catch(() => toast('기기에 한국어 음성이 없어서 읽지 못했어요.'));
-      return true;
-    }
-    try {
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'ko-KR'; if (this.voice) u.voice = this.voice;
-      u.rate = 1.05; u.pitch = 1.35;
-      speechSynthesis.speak(u);
-      return true;
-    } catch (e) { return false; }
-  },
-};
+/* 목소리(TTS)는 04c-voice.js */
 
 /* ---------- 설치형 앱 (PWA) ---------- */
 const PWA = {
@@ -749,11 +740,17 @@ function initWheels() {
     w.addEventListener('click', (ev) => {
       const it = ev.target.closest('.wheel-item'); if (!it) return;
       const i = wheelItems(w).indexOf(it);
+      // 이미 선택된 가운데 줄을 누르면 직접 입력창
+      if (String(i) === w.dataset.idx) { openWheelInput(wheelTarget(w.dataset.wheel)); return; }
       w.scrollTo({ top: i * WHEEL_H, behavior: 'smooth' });
     });
+    w.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openWheelInput(wheelTarget(w.dataset.wheel)); } });
   }
 }
 function commitWheel(w) {
+  // 폼을 다시 그리면 옛 휠은 화면에서 떨어져 나간다. 떨어진 휠은 scrollTop이 0이라
+  // 늦게 도착한 스크롤 타이머가 값을 00으로 덮어쓰는 문제가 있었다 → 화면에 붙어 있는 휠만 반영
+  if (!w.isConnected) return;
   const items = wheelItems(w);
   const i = clamp(Math.round(w.scrollTop / WHEEL_H), 0, items.length - 1);
   if (String(i) !== w.dataset.idx) {
@@ -794,31 +791,32 @@ function onWheel(id, v) {
 
 /* ---------- 실시간 멘트 알림 (FN03 · 앱 안 알림 배너) ---------- */
 let bannerTimer = null;
-function showBanner(text, key, mc) {
+function showBanner(text, key, mc, stage = 0) {
   const b = $('#layer-banner'); if (!b) return;
   const m = member();
-  b.innerHTML = `<button class="banner" data-act="bannerTap" data-key="${key || ''}"><span class="bn-mascot">${mascot(m, { ...mc, motion: 'none', shadow: false })}</span><span class="bn-text"><b>${PERSONA.name}</b><span>${esc(text)}</span></span></button>`;
+  b.innerHTML = `<button class="banner" data-act="bannerTap" data-key="${key || ''}"><span class="bn-mascot">${mascot(m, { ...mc, motion: 'none', shadow: false })}</span><span class="bn-text"><b>${persona().name}</b><span>${esc(text)}</span></span></button>`;
   b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
   clearTimeout(bannerTimer);
   bannerTimer = setTimeout(() => b.classList.remove('show'), 4200);
-  if (state.ttsAuto) TTS.speak(text);
+  TTS.say(text, { pri: 'key', stage }); // 배너 = 중요한 순간
 }
 function hideBanner() { clearTimeout(bannerTimer); $('#layer-banner')?.classList.remove('show'); }
 function alertTransitions(m, before, after) {
   for (const [k, a] of Object.entries(after)) {
     const b = before[k]; if (!b) continue;
     const st = a.st, title = st.task.title;
-    if (b.kind === 'upcoming' && a.kind === 'late') return showBanner(`${title} 시작할 시간이야. 이제 슬슬 움직여야 하지 않아?`, k, { expr: 'focus', pose: 'nag' });
-    if (b.kind !== 'urgent' && a.kind === 'urgent') return showBanner(`${title} 마감 30분 전이야. 마무리부터 해!`, k, { expr: 'angry', pose: 'puff', fluff: 0.6 });
-    if ((a.kind === 'overdue' || a.kind === 'missedStart') && b.kind !== a.kind) return showBanner(`${title} 마감 시간이야. 결과 알려 줘.`, k, { expr: 'furious', pose: 'puff', fluff: 1 });
-    if (a.kind === 'late' && a.stage > b.stage && a.stage >= 4) return showBanner(`아직 시작 안 했지? ${title}, 폰 내려놓고 지금 열어.`, k, { expr: 'angry', pose: 'nag', fluff: 0.6 });
+    if (b.kind === 'upcoming' && a.kind === 'late') return showBanner(`${title} 시작할 시간이야. 이제 슬슬 움직여야 하지 않아?`, k, { expr: 'focus', pose: 'nag' }, a.stage);
+    if (b.kind !== 'urgent' && a.kind === 'urgent') return showBanner(`${title} 마감 ${HEAT_POLICY.urgentWindow}분 전이야. 마무리부터 해!`, k, { expr: 'angry', pose: 'puff', fluff: 0.6 }, a.stage);
+    if ((a.kind === 'overdue' || a.kind === 'missedStart') && b.kind !== a.kind) return showBanner(`${title} 마감 시간이야. 결과 알려 줘.`, k, { expr: 'furious', pose: 'puff', fluff: 1 }, 5);
+    if (a.kind === 'late' && a.stage > b.stage && a.stage >= 4) return showBanner(`아직 시작 안 했지? ${title}, 폰 내려놓고 지금 열어.`, k, { expr: 'angry', pose: 'nag', fluff: 0.6 }, a.stage);
+    if (b.kind === 'break' && a.kind === 'breakOver') return showBanner(`쉬는 시간 끝났어. ${title}, 다시 하자.`, k, { expr: 'suspicious', pose: 'nag', fluff: 0.2 }, a.stage);
   }
 }
 
 Object.assign(ACT, {
   /* 캐릭터 터치 → 메뉴바 (기획안 v5) */
   mascotTap: () => {
-    ui.menuOpen = !ui.menuOpen;
+    ui.menuOpen = !ui.menuOpen; ui.menuFresh = ui.menuOpen;
     if (ui.menuOpen) ui.react = { id: 'tap', until: Date.now() + 1600, mc: { expr: 'surprised', pose: 'wave', motion: 'bounce' } };
     render();
   },
@@ -834,13 +832,15 @@ Object.assign(ACT, {
   setCostume: (t) => {
     const m = member(); m.costume = t.dataset.v; save();
     if (ui.sheet && ui.sheet.type === 'closet') render(); else render(true);
-    toast(`${COSTUMES[m.costume].name}으로 갈아입었어.`);
+    toast(`${josa((charOf(m).costumes()[m.costume] || {}).name || '기본', '으로/로')} 갈아입었어.`);
   },
-  speak: () => {
-    const sp = el.screen.querySelector('.speech');
-    if (!TTS.speak(sp ? sp.textContent : '')) toast('이 기기에서는 음성 읽기를 쓸 수 없어요.');
+  /* 나 > 단계 이름: 캐릭터별 ↔ 공통 (숫자·잔소리는 그대로, 이름만 바뀐다) */
+  scaleMode: (t) => {
+    const m = member(); if (!m) return;
+    m.scaleMode = t.dataset.v === 'common' ? 'common' : 'character'; save(); render();
+    const S = scaleOf(m);
+    toast(`이제 ${josa(S.title, "으로/로")} 보여 줘요 · ${S.stages[0].name} ~ ${S.stages[4].name}`);
   },
-  ttsAuto: () => { state.ttsAuto = !state.ttsAuto; save(); render(); if (state.ttsAuto) TTS.speak('이제 내가 말로도 잔소리할게.'); },
   installApp: async () => {
     if (!PWA.deferred) return;
     try { PWA.deferred.prompt(); await PWA.deferred.userChoice; } catch (e) { /* 취소 */ }
@@ -929,7 +929,7 @@ function onField(ev, isChange) {
     let v = Number(t.value);
     if (v < f.minHeat) { v = f.minHeat; t.value = v; }
     f.heat = v;
-    t.setAttribute('aria-valuetext', `${v}도, ${stageOf(v).name}`);
+    t.setAttribute('aria-valuetext', `${lvs(v)}, ${stageOf(v).name}`);
     const pv = $('#heat-preview'); if (pv) pv.innerHTML = heatPreview(v);
     return;
   }

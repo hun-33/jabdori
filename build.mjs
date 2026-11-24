@@ -12,7 +12,7 @@ const read = (p) => readFileSync(p, 'utf8');
 
 const html = read(join(src, 'index.html'));
 const css = read(join(src, 'styles.css')) + '\n' + read(join(src, 'mireum.css'));
-const order = ['00-native.js', '01-core.js', '01b-mireum.js', '02-views.js', '03-sheets.js', '04-app.js', '05-native.js'];
+const order = ['00-native.js', '01-core.js', '01b-mireum.js', '02-views.js', '03-sheets.js', '04-app.js', '04b-input.js', '04c-voice.js', '05-native.js'];
 const js = order.map((f) => read(join(src, f))).join('\n');
 const capPath = join(root, 'node_modules/@capacitor/core/dist/capacitor.js');
 const capjs = (existsSync(capPath) ? read(capPath) : read(join(src, 'vendor-capacitor.js'))).split('\n//# sourceMappingURL')[0];
