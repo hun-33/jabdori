@@ -46,8 +46,9 @@ with sync_playwright() as p:
     pg.click('.btn-kakao'); pg.wait_for_timeout(1800); pg.click('[data-act=consentAgree]'); pg.wait_for_timeout(2200); pg.click('[data-act=onbSkip]'); pg.wait_for_timeout(400)
     ev("ACT.cTime({dataset:{hm:'17:00'}})")
     ev("ACT.openAdd({dataset:{date: today()}})"); pg.wait_for_timeout(500)
-    pg.click('.when-row[data-v=start]'); pg.wait_for_timeout(300)
-    check('라벨 옆 "직접 입력" 버튼 3개(날짜·시작·…)', len(pg.query_selector_all('[data-act=wheelInput]')) >= 2)
+    check('폼 달력 옆 날짜 "입력" 버튼', pg.query_selector('[data-act=wheelInput][data-target=date]') is not None)
+    pg.click('.wb-time[data-v=start-time]'); pg.wait_for_timeout(300)
+    check('시각 선택기 옆 "직접 입력" 버튼', pg.query_selector('[data-act=wheelInput][data-target=start]') is not None)
     pg.click('[data-act=wheelInput][data-target=start]'); pg.wait_for_timeout(300)
     check('입력창 열림 + 현재 값 채워짐 + 포커스', pg.query_selector('#in-field') is not None and pg.input_value('#in-field') == '18:00' and ev("document.activeElement.id") == 'in-field')
     pg.fill('#in-field', '오후 6시 37분'); pg.wait_for_timeout(100)
@@ -56,7 +57,7 @@ with sync_playwright() as p:
     pg.keyboard.press('Enter'); pg.wait_for_timeout(400)
     check('Enter → 시작 18:37 반영, 창 닫힘', ev('ui.form.start') == '18:37' and pg.query_selector('#in-field') is None)
     check('분 선택기에 37분이 끼워져 선택됨', ev("document.querySelector('.wheel[data-wheel=\"start-m\"] .wheel-item.sel').dataset.v") == '37')
-    check('시작 줄 시각 갱신', '18:37' in pg.inner_text('.when-row[data-v=start]'))
+    check('시작 시각 표시 갱신', '18:37' in pg.inner_text('.wb-time[data-v=start-time]'))
 
     # 잘못된 값 → 오류 표시, 값 유지, 닫히지 않음
     pg.click('[data-act=wheelInput][data-target=start]'); pg.wait_for_timeout(200)
@@ -72,7 +73,8 @@ with sync_playwright() as p:
     pg.wait_for_timeout(200)
     if pg.query_selector('#in-field'): ev("ACT.wheelInputCancel()")
 
-    # 날짜: 지난 날짜 거절, 내년 추정, 1년 넘김 거절
+    # 날짜: 지난 날짜 거절, 내년 추정, 1년 넘김 거절 (폼 달력을 열면 '입력' 버튼)
+    pg.click('.wb-date[data-v=start]'); pg.wait_for_timeout(250)
     pg.click('[data-act=wheelInput][data-target=date]'); pg.wait_for_timeout(200)
     td = ev('today()'); y, mo, d = map(int, td.split('-'))
     pg.fill('#in-field', f'{y - 1}-{mo:02d}-{d:02d}'); pg.click('[data-act=wheelInputOk]'); pg.wait_for_timeout(200)
@@ -80,14 +82,14 @@ with sync_playwright() as p:
     pg.fill('#in-field', f'{y + 2}-01-01'); pg.click('[data-act=wheelInputOk]'); pg.wait_for_timeout(200)
     check('1년 넘는 날짜 거절', '1년' in (pg.inner_text('#in-err') if pg.query_selector('#in-err') else ''))
     pg.fill('#in-field', '내일'); pg.keyboard.press('Enter'); pg.wait_for_timeout(400)
-    check('내일 → 날짜 반영 + 선택기 이동', ev('ui.form.date') == ev('addDays(today(),1)') and ev("document.querySelector('.wheel[data-wheel=\"date\"] .wheel-item.sel').dataset.v") == ev('addDays(today(),1)'))
+    check('내일 → 날짜 반영 + 선택기 이동', ev('ui.form.date') == ev('addDays(today(),1)') and ev("document.querySelector('.fcal-cell.a').dataset.date") == ev('addDays(today(),1)'))
     pg.click('[data-act=wheelInput][data-target=date]'); pg.wait_for_timeout(200)
     pg.fill('#in-field', '+200'); pg.keyboard.press('Enter'); pg.wait_for_timeout(400)
-    check('선택기 범위 밖 먼 날짜(+200일)도 선택기에 표시', ev("document.querySelector('.wheel[data-wheel=\"date\"] .wheel-item.sel').dataset.v") == ev('addDays(today(),200)'))
+    check('먼 날짜(+200일) → 폼 달력이 그 달로', ev("document.querySelector('.fcal-cell.a').dataset.date") == ev('addDays(today(),200)'))
     pg.click('[data-act=wheelInput][data-target=date]'); pg.wait_for_timeout(200); pg.fill('#in-field', '오늘'); pg.keyboard.press('Enter'); pg.wait_for_timeout(400)
 
     # 끝 시각: 걸리는 시간으로도 입력, 12시간 초과 거절, 시작과 같음 거절
-    pg.click('.when-row[data-v=end]'); pg.wait_for_timeout(300)
+    pg.click('.wb-time[data-v=end-time]'); pg.wait_for_timeout(300)
     pg.click('[data-act=wheelInput][data-target=end]'); pg.wait_for_timeout(200)
     pg.fill('#in-field', '18:37'); pg.click('[data-act=wheelInputOk]'); pg.wait_for_timeout(200)
     check('끝 = 시작 거절', '같아요' in (pg.inner_text('#in-err') if pg.query_selector('#in-err') else ''))

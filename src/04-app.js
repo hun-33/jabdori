@@ -508,7 +508,33 @@ const ACT = {
     } else if (f.pick === 'dl') f.pick = null;
     delete f.errors.deadline; rerenderForm();
   },
-  formPick: (t) => { const f = ui.form; f.pick = f.pick === t.dataset.v ? null : t.dataset.v; rerenderForm(); },
+  formPick: (t) => {
+    const f = ui.form, v = t.dataset.v;
+    f.pick = f.pick === v ? null : v;
+    if (f.pick === 'start' || f.pick === 'end') f.calMonth = (f.pick === 'end' ? f.endDate : f.date).slice(0, 7);
+    rerenderForm();
+  },
+  /* 폼 안 달력에서 날짜 누르기: 시작 쪽이면 시작 날짜(기간은 유지) 후 끝 쪽으로 넘어가고, 끝 쪽이면 종료 날짜 */
+  formCalPick: (t) => {
+    const f = ui.form, d = t.dataset.date;
+    if (f.pick === 'start') {
+      const span = Math.max(0, daysBetween(f.date, f.endDate));
+      f.date = d; f.endDate = addDays(d, span);
+      if (f.repeatKind === 'weekly' && f.days.length === 1) f.days = [weekday(d)];
+      if (!f._dlTouched || f.dlDate < f.date) f.dlDate = f.date;
+      f.pick = 'end';
+    } else if (d < f.date) { f.date = d; f.endDate = d; } // 시작보다 앞을 누르면 그날 하루 일정으로
+    else f.endDate = d;
+    if (!f.allDay && f.endDate === f.date && hmToMin(f.end) <= hmToMin(f.start)) { // 같은 날인데 종료가 앞서면 시작 + 1시간
+      const e = draftStartMs(f) + 60 * MIN; f.endDate = ymd(e); f.end = fmtHM(e);
+    }
+    f.calMonth = d.slice(0, 7);
+    delete f.errors.date; delete f.errors.time; rerenderForm();
+  },
+  formCalNav: (t) => {
+    const f = ui.form; const [y, mo] = (f.calMonth || f.date.slice(0, 7)).split('-').map(Number);
+    const d = new Date(y, mo - 1 + Number(t.dataset.delta), 1); f.calMonth = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; rerenderForm();
+  },
   formAllDay: () => { const f = ui.form; if (f.type === 'jab') return; f.allDay = !f.allDay; if (f.endDate < f.date) f.endDate = f.date; delete f.errors.time; rerenderForm(); },
   formMore: () => { const f = ui.form; f.more = !f.more; rerenderForm(); },
   formAlarm: (t) => { const f = ui.form, v = Number(t.dataset.v); f.alarms = f.alarms.includes(v) ? f.alarms.filter((x) => x !== v) : [...f.alarms, v]; rerenderForm(); },
@@ -857,11 +883,9 @@ function onWheel(id, v) {
   const dh = $('#dl-hint'); if (dh) dh.textContent = draftDeadlineHint(f);
   const sh = $('#start-hint'); if (sh) sh.textContent = f.type === 'jab' && f.date === today() && !f.allDay && at(f.date, f.start) < now() ? '시작 시각이 이미 지났어요. 올리면 바로 잡도리가 시작돼요.' : '';
   // 시작·종료 줄의 글자도 바로 바꾼다 (선택기는 그대로 둔 채)
-  for (const [k, d, hm] of [['start', f.date, f.start], ['end', f.endDate, f.end], ['dl', f.dlDate, f.dlTime]]) {
-    const r = el.sheet.querySelector(`.when-row[data-v="${k}"]`); if (!r) continue;
-    const dd = r.querySelector('.wr-date'), tt = r.querySelector('.wr-time');
-    if (dd) dd.textContent = fmtDateShort(d); if (tt) tt.textContent = hm;
-  }
+  for (const [k, hm] of [['start-time', f.start], ['end-time', f.end]]) { const b = el.sheet.querySelector(`.wb-time[data-v="${k}"]`); if (b) b.textContent = hm; }
+  const dlr = el.sheet.querySelector('.when-row[data-v="dl"]');
+  if (dlr) { dlr.querySelector('.wr-date').textContent = fmtDateShort(f.dlDate); const tt = dlr.querySelector('.wr-time'); if (tt) tt.textContent = f.dlTime; }
 }
 
 /* ---------- 실시간 멘트 알림 (FN03 · 앱 안 알림 배너) ---------- */
@@ -949,10 +973,13 @@ function init() {
   });
   // 달력을 옆으로 쓸면 이전·다음 (월간 = 달, 주간 = 주, 일간 = 날). 세로 스크롤과 헷갈리지 않게 가로로 충분히 움직였을 때만
   let sw = null;
-  document.addEventListener('touchstart', (ev) => { const z = ev.target.closest('[data-swipe="cal"]'); sw = z ? { x: ev.touches[0].clientX, y: ev.touches[0].clientY, t: Date.now() } : null; }, { passive: true });
+  document.addEventListener('touchstart', (ev) => { const z = ev.target.closest('[data-swipe]'); sw = z ? { x: ev.touches[0].clientX, y: ev.touches[0].clientY, t: Date.now(), z: z.dataset.swipe } : null; }, { passive: true });
   document.addEventListener('touchend', (ev) => {
-    if (!sw) return; const t = ev.changedTouches[0]; const dx = t.clientX - sw.x, dy = t.clientY - sw.y, quick = Date.now() - sw.t < 600; sw = null;
-    if (quick && Math.abs(dx) > 60 && Math.abs(dy) < Math.abs(dx) * 0.6) { swipeGuard = Date.now(); ACT.calNav({ dataset: { delta: dx < 0 ? 1 : -1 } }); }
+    if (!sw) return; const t = ev.changedTouches[0]; const dx = t.clientX - sw.x, dy = t.clientY - sw.y, quick = Date.now() - sw.t < 600, zone = sw.z; sw = null;
+    if (quick && Math.abs(dx) > 60 && Math.abs(dy) < Math.abs(dx) * 0.6) {
+      swipeGuard = Date.now();
+      (zone === 'fcal' ? ACT.formCalNav : ACT.calNav)({ dataset: { delta: dx < 0 ? 1 : -1 } });
+    }
   }, { passive: true });
   TTS.init();
   PWA.init();

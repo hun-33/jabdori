@@ -911,6 +911,38 @@ textarea.txt.memo { height: auto; min-height: 64px; padding: 10px 14px; resize: 
 .switch.sm::before { inset: -8px 0; }
 .speech-fact { display: block; margin-top: 4px; font-size: 12.5px; font-weight: 600; opacity: .72; letter-spacing: -.1px; }
 .bn-text small { display: block; font-size: 12px; opacity: .7; font-weight: 600; }
+/* 등록 폼: 시작 → 종료 한 줄 + 폼 안 달력 (삼성 캘린더 방식) */
+.wb-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 4px; margin-top: 8px; }
+.wb-side { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.wb-label { font-size: 12px; color: var(--ink-2); font-weight: 650; }
+.wb-arrow { color: var(--ink-2); font-size: 20px; padding-top: 14px; }
+.wb-date, .wb-time { min-height: 40px; padding: 0 14px; border-radius: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.wb-date { font-size: 16px; }
+.wb-time { font-size: 20px; }
+.wb-time.muted { color: var(--ink-2); font-size: 15px; display: grid; place-items: center; min-height: 40px; }
+.wb-date.on, .wb-time.on { background: var(--ink); color: var(--surface); }
+.fcal { margin-top: 10px; padding: 8px 4px 10px; border-radius: var(--r-m); background: var(--field); border: 1px solid var(--line); touch-action: pan-y; }
+.fcal-nav { display: flex; align-items: center; gap: 6px; padding: 0 4px; }
+.fcal-nav b { flex: 1; text-align: center; font-size: 16px; }
+.fcal-tip { text-align: center; font-size: 12.5px; color: var(--ink-2); margin: 2px 0 6px; }
+.fcal-head, .fcal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.fcal-head span { text-align: center; font-size: 12px; font-weight: 650; color: var(--ink-2); }
+.fcal-head .wd0 { color: #C2503A; } .fcal-head .wd6 { color: #4F78B8; }
+.fcal-cell { height: 40px; display: grid; place-items: center; position: relative; font-weight: 640; font-variant-numeric: tabular-nums; }
+.fcal-cell span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; position: relative; z-index: 1; }
+.fcal-cell.wd0 { color: #C2503A; } .fcal-cell.wd6 { color: #4F78B8; }
+.fcal-cell.out { opacity: .4; }
+.fcal-cell[disabled] { opacity: .25; }
+.fcal-cell.today span { box-shadow: inset 0 0 0 1.5px var(--ink-2); }
+/* 기간: 시작~끝을 하나의 알약 띠로 */
+.fcal-cell.in::before, .fcal-cell.ra::before, .fcal-cell.rb::before { content: ""; position: absolute; top: 3px; bottom: 3px; left: 0; right: 0; background: #D9CCF2; }
+.fcal-cell.ra::before { left: 50%; } .fcal-cell.rb::before { right: 50%; }
+.fcal-cell.a span, .fcal-cell.b span { background: #A48BD0; color: #fff; }
+/* 폼 아래 취소 · 저장 알약 */
+.pill-actions { display: flex; align-items: center; margin: 0 auto; width: min(100%, 320px); min-height: 54px; border-radius: 27px; background: var(--ink); color: var(--surface); box-shadow: 0 6px 18px rgba(38, 33, 28, .22); }
+.pill-actions button { flex: 1; min-height: 54px; text-align: center; font-size: 16px; font-weight: 650; color: var(--on-stove-2); }
+.pill-actions button.save { color: var(--surface); font-weight: 760; }
+.pill-actions i { width: 1px; height: 22px; background: var(--stove-line); }
 
 /* =========================================================
    미루먼지 스타일과 동작 (transform·opacity만 움직인다)
@@ -2996,7 +3028,7 @@ function newDraft(m, date, type = 'jab', range) {
     heat: f, minHeat: sliderMinFor(m), jabOn: true,
     dlMode: 'off', dlDate: d, dlTime: '20:00',
     alarms: [], color: type === 'jab' ? 'coral' : 'sky', memo: '',
-    more: false, pick: null, errors: {},
+    more: false, pick: 'start', calMonth: d.slice(0, 7), errors: {},
   };
 }
 function draftFromTask(m, t) {
@@ -3009,7 +3041,7 @@ function draftFromTask(m, t) {
     heat: t.heat ?? floorOf(m), minHeat: sliderMinFor(m, t.type === 'jab' ? t : null), jabOn: t.jabOn !== false,
     dlMode: dl, dlDate: t.deadline ? t.deadline.date : t.date, dlTime: t.deadline ? t.deadline.time : '20:00',
     alarms: [...(t.alarms || [])], color: t.color || (t.type === 'jab' ? 'coral' : 'sky'), memo: t.memo || '',
-    more: true, pick: null, errors: {},
+    more: true, pick: null, calMonth: t.date.slice(0, 7), errors: {},
   };
 }
 /* 초안의 시작·종료 시각(ms)과 걸리는 시간(분) */
@@ -3091,6 +3123,42 @@ function pickerFor(f, key) {
   }
   return `<div class="picker">${subLabel('마감 날짜·시각', 'dl')}<div class="wheels dl" role="group" aria-label="마감 날짜와 시각">${wheelCol('dl-date', dateItems(f.date, f.repeatKind !== 'none' ? 7 : Math.max(61, daysBetween(f.date, f.dlDate) + 15), td), f.dlDate, '마감 날짜')}${wheelCol('dl-h', HOURS, splitHM(f.dlTime)[0], '마감 시', '시')}${wheelCol('dl-m', minsWith(splitHM(f.dlTime)[1]), splitHM(f.dlTime)[1], '마감 분', '분')}</div></div>`;
 }
+/* ---------- 시작 → 종료 한 줄 + 폼 안 달력 (삼성 캘린더 방식) ----------
+   f.pick: 'start' | 'end' → 아래 달력이 그쪽 날짜를 정함 / 'start-time' | 'end-time' → 시각 선택기 / 'dl' 마감
+   f.calMonth: 폼 달력에 보이는 달 'YYYY-MM' */
+function formCalHTML(f) {
+  const td = today();
+  const month = f.calMonth || (f.pick === 'end' ? f.endDate : f.date).slice(0, 7);
+  const [y, mo] = month.split('-').map(Number);
+  const first = `${y}-${pad(mo)}-01`, start = weekStartOf(first);
+  const cellsN = Math.ceil((daysBetween(start, first) + new Date(y, mo, 0).getDate()) / 7) * 7;
+  const minDate = f.id ? (f.origDate && f.origDate < td ? f.origDate : td) : td;
+  let cells = '';
+  for (let i = 0; i < cellsN; i++) {
+    const d = addDays(start, i);
+    const cls = [d.slice(0, 7) !== month ? 'out' : '', d === td ? 'today' : '', `wd${i % 7}`,
+      d === f.date ? 'a' : '', d === f.endDate ? 'b' : '', d > f.date && d < f.endDate ? 'in' : '', f.date !== f.endDate && d === f.date ? 'ra' : '', f.date !== f.endDate && d === f.endDate ? 'rb' : ''].filter(Boolean).join(' ');
+    const off = d < minDate;
+    cells += `<button class="fcal-cell ${cls}" data-act="formCalPick" data-date="${d}" ${off ? 'disabled' : ''} aria-label="${fmtDateLong(d)}${d === f.date ? ', 시작' : ''}${d === f.endDate ? ', 종료' : ''}"><span>${parseYmd(d).getDate()}</span></button>`;
+  }
+  return `<div class="fcal" data-swipe="fcal">
+    <div class="fcal-nav"><button class="icon-btn" data-act="formCalNav" data-delta="-1" aria-label="이전 달">${icon('prev')}</button><b>${y}년 ${mo}월</b><button class="icon-btn" data-act="formCalNav" data-delta="1" aria-label="다음 달">${icon('next')}</button>
+      ${f.pick === 'start' ? `<button class="in-link" data-act="wheelInput" data-target="date" aria-label="시작 날짜 직접 입력">${icon('edit')}입력</button>` : ''}</div>
+    <p class="fcal-tip">${f.pick === 'start' ? '시작 날짜를 누르세요' : '끝나는 날짜를 누르세요'}</p>
+    <div class="fcal-head" aria-hidden="true">${WEEK_ORDER.map((w, i) => `<span class="wd${i}">${WD[w]}</span>`).join('')}</div>
+    <div class="fcal-grid">${cells}</div></div>`;
+}
+function whenBlock(f) {
+  const side = (k, label, d, hm) => `<div class="wb-side"><span class="wb-label">${label}</span>
+      <button class="wb-date ${f.pick === k ? 'on' : ''}" data-act="formPick" data-v="${k}" aria-pressed="${f.pick === k}">${fmtDateShort(d)}</button>
+      ${f.allDay ? '<span class="wb-time muted">종일</span>' : `<button class="wb-time ${f.pick === k + '-time' ? 'on' : ''}" data-act="formPick" data-v="${k}-time" aria-pressed="${f.pick === k + '-time'}">${hm}</button>`}</div>`;
+  let below = '';
+  if (f.pick === 'start' || f.pick === 'end') below = formCalHTML(f);
+  else if (f.pick === 'start-time') below = `<div class="picker">${subLabel('시작 시각', 'start')}${timeWheels('start', f.start, '시작')}</div>`;
+  else if (f.pick === 'end-time') below = `<div class="picker">${subLabel('종료 시각', 'end')}${timeWheels('end', f.end, '종료')}
+      <div class="chips quick-dur" role="group" aria-label="걸리는 시간으로 종료 정하기">${[[30, '30분'], [60, '1시간'], [120, '2시간'], [180, '3시간']].map(([v, l]) => `<button class="chip" data-act="formDur" data-v="${v}">${l}</button>`).join('')}</div></div>`;
+  return `<div class="wb-row">${side('start', '시작', f.date, f.start)}<span class="wb-arrow" aria-hidden="true">→</span>${side('end', '종료', f.endDate, f.end)}</div>${below}`;
+}
 function viewForm(m) {
   const f = ui.form;
   const jab = f.type === 'jab';
@@ -3148,7 +3216,7 @@ function viewForm(m) {
         <textarea id="f-memo" class="txt memo" data-field="memo" maxlength="200" rows="2" placeholder="필요한 것만 짧게">${esc(f.memo)}</textarea>
       </section>
       ${heatSec}` : '';
-  return sheetWrap(`<div class="sheet-head"><div><h2 id="sheet-title" class="sheet-title">${f.id ? '일정 고치기' : '새 일정'}</h2></div><button class="icon-btn" data-act="formClose" aria-label="닫기">${icon('close')}</button></div>
+  return sheetWrap(`<div class="sheet-head"><div><h2 id="sheet-title" class="sheet-title">${f.id ? '일정 고치기' : '새 일정'}</h2></div></div>
     <div class="sheet-body form-body">
       <section class="f-sec">
         <div class="f-row-head"><label for="f-title" class="f-label">제목</label><span class="f-aside" id="title-count">${f.title.length}/30</span></div>
@@ -3166,8 +3234,7 @@ function viewForm(m) {
       <section class="f-sec when" aria-labelledby="lb-time">
         <div class="f-row-head"><h3 id="lb-time" class="f-label">시간</h3>
           <span class="allday"><span>종일</span><button class="switch sm ${f.allDay ? 'on' : ''}" role="switch" aria-checked="${f.allDay}" aria-label="종일 일정" data-act="formAllDay" ${jab ? 'disabled' : ''}><i></i></button></span></div>
-        ${whenRow(f, 'start', '시작', f.date, f.start)}${pickerFor(f, 'start')}
-        ${whenRow(f, 'end', '종료', f.endDate, f.end)}${pickerFor(f, 'end')}
+        ${whenBlock(f)}
         <p class="summary" id="time-summary">${icon('clock')}<span>${draftSummary(f)}</span></p>
         ${fieldErr(f, 'date')}${fieldErr(f, 'time')}
         <p class="hint" id="start-hint">${jab ? (f.date === td && !f.allDay && at(f.date, f.start) < now() ? '시작 시각이 이미 지났어요. 올리면 바로 잡도리가 시작돼요.' : '') : ''}${jab ? (f.allDay ? '' : '') : ''}</p>
@@ -3175,7 +3242,7 @@ function viewForm(m) {
       <button class="more-btn" data-act="formMore" aria-expanded="${f.more}">${f.more ? '상세 설정 접기' : `상세 설정 · 반복, 알림, 색상, 메모${jab ? `, ${S.short}, 마감` : ''}`}${icon(f.more ? 'prev' : 'next')}</button>
       ${more}
     </div>
-    <div class="sheet-foot"><button class="btn primary block" data-act="formSave">${f.id ? '고친 내용 저장' : jab ? `${P.name}한테 맡기기` : '저장'}</button></div>`, { full: true, cls: 'form-sheet from-top' });
+    <div class="sheet-foot"><div class="pill-actions"><button data-act="formClose">취소</button><i aria-hidden="true"></i><button class="save" data-act="formSave">${f.id ? '저장' : jab ? '맡기기' : '저장'}</button></div></div>`, { full: true, cls: 'form-sheet from-top' });
 }
 function validateDraft(m, f) {
   const e = {};
@@ -3723,7 +3790,33 @@ const ACT = {
     } else if (f.pick === 'dl') f.pick = null;
     delete f.errors.deadline; rerenderForm();
   },
-  formPick: (t) => { const f = ui.form; f.pick = f.pick === t.dataset.v ? null : t.dataset.v; rerenderForm(); },
+  formPick: (t) => {
+    const f = ui.form, v = t.dataset.v;
+    f.pick = f.pick === v ? null : v;
+    if (f.pick === 'start' || f.pick === 'end') f.calMonth = (f.pick === 'end' ? f.endDate : f.date).slice(0, 7);
+    rerenderForm();
+  },
+  /* 폼 안 달력에서 날짜 누르기: 시작 쪽이면 시작 날짜(기간은 유지) 후 끝 쪽으로 넘어가고, 끝 쪽이면 종료 날짜 */
+  formCalPick: (t) => {
+    const f = ui.form, d = t.dataset.date;
+    if (f.pick === 'start') {
+      const span = Math.max(0, daysBetween(f.date, f.endDate));
+      f.date = d; f.endDate = addDays(d, span);
+      if (f.repeatKind === 'weekly' && f.days.length === 1) f.days = [weekday(d)];
+      if (!f._dlTouched || f.dlDate < f.date) f.dlDate = f.date;
+      f.pick = 'end';
+    } else if (d < f.date) { f.date = d; f.endDate = d; } // 시작보다 앞을 누르면 그날 하루 일정으로
+    else f.endDate = d;
+    if (!f.allDay && f.endDate === f.date && hmToMin(f.end) <= hmToMin(f.start)) { // 같은 날인데 종료가 앞서면 시작 + 1시간
+      const e = draftStartMs(f) + 60 * MIN; f.endDate = ymd(e); f.end = fmtHM(e);
+    }
+    f.calMonth = d.slice(0, 7);
+    delete f.errors.date; delete f.errors.time; rerenderForm();
+  },
+  formCalNav: (t) => {
+    const f = ui.form; const [y, mo] = (f.calMonth || f.date.slice(0, 7)).split('-').map(Number);
+    const d = new Date(y, mo - 1 + Number(t.dataset.delta), 1); f.calMonth = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; rerenderForm();
+  },
   formAllDay: () => { const f = ui.form; if (f.type === 'jab') return; f.allDay = !f.allDay; if (f.endDate < f.date) f.endDate = f.date; delete f.errors.time; rerenderForm(); },
   formMore: () => { const f = ui.form; f.more = !f.more; rerenderForm(); },
   formAlarm: (t) => { const f = ui.form, v = Number(t.dataset.v); f.alarms = f.alarms.includes(v) ? f.alarms.filter((x) => x !== v) : [...f.alarms, v]; rerenderForm(); },
@@ -4072,11 +4165,9 @@ function onWheel(id, v) {
   const dh = $('#dl-hint'); if (dh) dh.textContent = draftDeadlineHint(f);
   const sh = $('#start-hint'); if (sh) sh.textContent = f.type === 'jab' && f.date === today() && !f.allDay && at(f.date, f.start) < now() ? '시작 시각이 이미 지났어요. 올리면 바로 잡도리가 시작돼요.' : '';
   // 시작·종료 줄의 글자도 바로 바꾼다 (선택기는 그대로 둔 채)
-  for (const [k, d, hm] of [['start', f.date, f.start], ['end', f.endDate, f.end], ['dl', f.dlDate, f.dlTime]]) {
-    const r = el.sheet.querySelector(`.when-row[data-v="${k}"]`); if (!r) continue;
-    const dd = r.querySelector('.wr-date'), tt = r.querySelector('.wr-time');
-    if (dd) dd.textContent = fmtDateShort(d); if (tt) tt.textContent = hm;
-  }
+  for (const [k, hm] of [['start-time', f.start], ['end-time', f.end]]) { const b = el.sheet.querySelector(`.wb-time[data-v="${k}"]`); if (b) b.textContent = hm; }
+  const dlr = el.sheet.querySelector('.when-row[data-v="dl"]');
+  if (dlr) { dlr.querySelector('.wr-date').textContent = fmtDateShort(f.dlDate); const tt = dlr.querySelector('.wr-time'); if (tt) tt.textContent = f.dlTime; }
 }
 
 /* ---------- 실시간 멘트 알림 (FN03 · 앱 안 알림 배너) ---------- */
@@ -4164,10 +4255,13 @@ function init() {
   });
   // 달력을 옆으로 쓸면 이전·다음 (월간 = 달, 주간 = 주, 일간 = 날). 세로 스크롤과 헷갈리지 않게 가로로 충분히 움직였을 때만
   let sw = null;
-  document.addEventListener('touchstart', (ev) => { const z = ev.target.closest('[data-swipe="cal"]'); sw = z ? { x: ev.touches[0].clientX, y: ev.touches[0].clientY, t: Date.now() } : null; }, { passive: true });
+  document.addEventListener('touchstart', (ev) => { const z = ev.target.closest('[data-swipe]'); sw = z ? { x: ev.touches[0].clientX, y: ev.touches[0].clientY, t: Date.now(), z: z.dataset.swipe } : null; }, { passive: true });
   document.addEventListener('touchend', (ev) => {
-    if (!sw) return; const t = ev.changedTouches[0]; const dx = t.clientX - sw.x, dy = t.clientY - sw.y, quick = Date.now() - sw.t < 600; sw = null;
-    if (quick && Math.abs(dx) > 60 && Math.abs(dy) < Math.abs(dx) * 0.6) { swipeGuard = Date.now(); ACT.calNav({ dataset: { delta: dx < 0 ? 1 : -1 } }); }
+    if (!sw) return; const t = ev.changedTouches[0]; const dx = t.clientX - sw.x, dy = t.clientY - sw.y, quick = Date.now() - sw.t < 600, zone = sw.z; sw = null;
+    if (quick && Math.abs(dx) > 60 && Math.abs(dy) < Math.abs(dx) * 0.6) {
+      swipeGuard = Date.now();
+      (zone === 'fcal' ? ACT.formCalNav : ACT.calNav)({ dataset: { delta: dx < 0 ? 1 : -1 } });
+    }
   }, { passive: true });
   TTS.init();
   PWA.init();
@@ -4449,6 +4543,7 @@ Object.assign(ACT, {
     const f = ui.form;
     if (r.patch.date) {
       f.endDate = addDays(f.date, Math.max(0, span));
+      f.calMonth = f.date.slice(0, 7); // 폼 달력도 그 달로
       if (f.repeatKind === 'weekly' && f.days.length === 1) f.days = [weekday(f.date)];
       if (!f._dlTouched || f.dlDate < f.date) f.dlDate = f.date;
       delete f.errors.date;

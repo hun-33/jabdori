@@ -219,6 +219,7 @@ Object.assign(ACT, {
     const f = ui.form;
     if (r.patch.date) {
       f.endDate = addDays(f.date, Math.max(0, span));
+      f.calMonth = f.date.slice(0, 7); // 폼 달력도 그 달로
       if (f.repeatKind === 'weekly' && f.days.length === 1) f.days = [weekday(f.date)];
       if (!f._dlTouched || f.dlDate < f.date) f.dlDate = f.date;
       delete f.errors.date;

@@ -252,7 +252,7 @@ function newDraft(m, date, type = 'jab', range) {
     heat: f, minHeat: sliderMinFor(m), jabOn: true,
     dlMode: 'off', dlDate: d, dlTime: '20:00',
     alarms: [], color: type === 'jab' ? 'coral' : 'sky', memo: '',
-    more: false, pick: null, errors: {},
+    more: false, pick: 'start', calMonth: d.slice(0, 7), errors: {},
   };
 }
 function draftFromTask(m, t) {
@@ -265,7 +265,7 @@ function draftFromTask(m, t) {
     heat: t.heat ?? floorOf(m), minHeat: sliderMinFor(m, t.type === 'jab' ? t : null), jabOn: t.jabOn !== false,
     dlMode: dl, dlDate: t.deadline ? t.deadline.date : t.date, dlTime: t.deadline ? t.deadline.time : '20:00',
     alarms: [...(t.alarms || [])], color: t.color || (t.type === 'jab' ? 'coral' : 'sky'), memo: t.memo || '',
-    more: true, pick: null, errors: {},
+    more: true, pick: null, calMonth: t.date.slice(0, 7), errors: {},
   };
 }
 /* 초안의 시작·종료 시각(ms)과 걸리는 시간(분) */
@@ -347,6 +347,42 @@ function pickerFor(f, key) {
   }
   return `<div class="picker">${subLabel('마감 날짜·시각', 'dl')}<div class="wheels dl" role="group" aria-label="마감 날짜와 시각">${wheelCol('dl-date', dateItems(f.date, f.repeatKind !== 'none' ? 7 : Math.max(61, daysBetween(f.date, f.dlDate) + 15), td), f.dlDate, '마감 날짜')}${wheelCol('dl-h', HOURS, splitHM(f.dlTime)[0], '마감 시', '시')}${wheelCol('dl-m', minsWith(splitHM(f.dlTime)[1]), splitHM(f.dlTime)[1], '마감 분', '분')}</div></div>`;
 }
+/* ---------- 시작 → 종료 한 줄 + 폼 안 달력 (삼성 캘린더 방식) ----------
+   f.pick: 'start' | 'end' → 아래 달력이 그쪽 날짜를 정함 / 'start-time' | 'end-time' → 시각 선택기 / 'dl' 마감
+   f.calMonth: 폼 달력에 보이는 달 'YYYY-MM' */
+function formCalHTML(f) {
+  const td = today();
+  const month = f.calMonth || (f.pick === 'end' ? f.endDate : f.date).slice(0, 7);
+  const [y, mo] = month.split('-').map(Number);
+  const first = `${y}-${pad(mo)}-01`, start = weekStartOf(first);
+  const cellsN = Math.ceil((daysBetween(start, first) + new Date(y, mo, 0).getDate()) / 7) * 7;
+  const minDate = f.id ? (f.origDate && f.origDate < td ? f.origDate : td) : td;
+  let cells = '';
+  for (let i = 0; i < cellsN; i++) {
+    const d = addDays(start, i);
+    const cls = [d.slice(0, 7) !== month ? 'out' : '', d === td ? 'today' : '', `wd${i % 7}`,
+      d === f.date ? 'a' : '', d === f.endDate ? 'b' : '', d > f.date && d < f.endDate ? 'in' : '', f.date !== f.endDate && d === f.date ? 'ra' : '', f.date !== f.endDate && d === f.endDate ? 'rb' : ''].filter(Boolean).join(' ');
+    const off = d < minDate;
+    cells += `<button class="fcal-cell ${cls}" data-act="formCalPick" data-date="${d}" ${off ? 'disabled' : ''} aria-label="${fmtDateLong(d)}${d === f.date ? ', 시작' : ''}${d === f.endDate ? ', 종료' : ''}"><span>${parseYmd(d).getDate()}</span></button>`;
+  }
+  return `<div class="fcal" data-swipe="fcal">
+    <div class="fcal-nav"><button class="icon-btn" data-act="formCalNav" data-delta="-1" aria-label="이전 달">${icon('prev')}</button><b>${y}년 ${mo}월</b><button class="icon-btn" data-act="formCalNav" data-delta="1" aria-label="다음 달">${icon('next')}</button>
+      ${f.pick === 'start' ? `<button class="in-link" data-act="wheelInput" data-target="date" aria-label="시작 날짜 직접 입력">${icon('edit')}입력</button>` : ''}</div>
+    <p class="fcal-tip">${f.pick === 'start' ? '시작 날짜를 누르세요' : '끝나는 날짜를 누르세요'}</p>
+    <div class="fcal-head" aria-hidden="true">${WEEK_ORDER.map((w, i) => `<span class="wd${i}">${WD[w]}</span>`).join('')}</div>
+    <div class="fcal-grid">${cells}</div></div>`;
+}
+function whenBlock(f) {
+  const side = (k, label, d, hm) => `<div class="wb-side"><span class="wb-label">${label}</span>
+      <button class="wb-date ${f.pick === k ? 'on' : ''}" data-act="formPick" data-v="${k}" aria-pressed="${f.pick === k}">${fmtDateShort(d)}</button>
+      ${f.allDay ? '<span class="wb-time muted">종일</span>' : `<button class="wb-time ${f.pick === k + '-time' ? 'on' : ''}" data-act="formPick" data-v="${k}-time" aria-pressed="${f.pick === k + '-time'}">${hm}</button>`}</div>`;
+  let below = '';
+  if (f.pick === 'start' || f.pick === 'end') below = formCalHTML(f);
+  else if (f.pick === 'start-time') below = `<div class="picker">${subLabel('시작 시각', 'start')}${timeWheels('start', f.start, '시작')}</div>`;
+  else if (f.pick === 'end-time') below = `<div class="picker">${subLabel('종료 시각', 'end')}${timeWheels('end', f.end, '종료')}
+      <div class="chips quick-dur" role="group" aria-label="걸리는 시간으로 종료 정하기">${[[30, '30분'], [60, '1시간'], [120, '2시간'], [180, '3시간']].map(([v, l]) => `<button class="chip" data-act="formDur" data-v="${v}">${l}</button>`).join('')}</div></div>`;
+  return `<div class="wb-row">${side('start', '시작', f.date, f.start)}<span class="wb-arrow" aria-hidden="true">→</span>${side('end', '종료', f.endDate, f.end)}</div>${below}`;
+}
 function viewForm(m) {
   const f = ui.form;
   const jab = f.type === 'jab';
@@ -404,7 +440,7 @@ function viewForm(m) {
         <textarea id="f-memo" class="txt memo" data-field="memo" maxlength="200" rows="2" placeholder="필요한 것만 짧게">${esc(f.memo)}</textarea>
       </section>
       ${heatSec}` : '';
-  return sheetWrap(`<div class="sheet-head"><div><h2 id="sheet-title" class="sheet-title">${f.id ? '일정 고치기' : '새 일정'}</h2></div><button class="icon-btn" data-act="formClose" aria-label="닫기">${icon('close')}</button></div>
+  return sheetWrap(`<div class="sheet-head"><div><h2 id="sheet-title" class="sheet-title">${f.id ? '일정 고치기' : '새 일정'}</h2></div></div>
     <div class="sheet-body form-body">
       <section class="f-sec">
         <div class="f-row-head"><label for="f-title" class="f-label">제목</label><span class="f-aside" id="title-count">${f.title.length}/30</span></div>
@@ -422,8 +458,7 @@ function viewForm(m) {
       <section class="f-sec when" aria-labelledby="lb-time">
         <div class="f-row-head"><h3 id="lb-time" class="f-label">시간</h3>
           <span class="allday"><span>종일</span><button class="switch sm ${f.allDay ? 'on' : ''}" role="switch" aria-checked="${f.allDay}" aria-label="종일 일정" data-act="formAllDay" ${jab ? 'disabled' : ''}><i></i></button></span></div>
-        ${whenRow(f, 'start', '시작', f.date, f.start)}${pickerFor(f, 'start')}
-        ${whenRow(f, 'end', '종료', f.endDate, f.end)}${pickerFor(f, 'end')}
+        ${whenBlock(f)}
         <p class="summary" id="time-summary">${icon('clock')}<span>${draftSummary(f)}</span></p>
         ${fieldErr(f, 'date')}${fieldErr(f, 'time')}
         <p class="hint" id="start-hint">${jab ? (f.date === td && !f.allDay && at(f.date, f.start) < now() ? '시작 시각이 이미 지났어요. 올리면 바로 잡도리가 시작돼요.' : '') : ''}${jab ? (f.allDay ? '' : '') : ''}</p>
@@ -431,7 +466,7 @@ function viewForm(m) {
       <button class="more-btn" data-act="formMore" aria-expanded="${f.more}">${f.more ? '상세 설정 접기' : `상세 설정 · 반복, 알림, 색상, 메모${jab ? `, ${S.short}, 마감` : ''}`}${icon(f.more ? 'prev' : 'next')}</button>
       ${more}
     </div>
-    <div class="sheet-foot"><button class="btn primary block" data-act="formSave">${f.id ? '고친 내용 저장' : jab ? `${P.name}한테 맡기기` : '저장'}</button></div>`, { full: true, cls: 'form-sheet from-top' });
+    <div class="sheet-foot"><div class="pill-actions"><button data-act="formClose">취소</button><i aria-hidden="true"></i><button class="save" data-act="formSave">${f.id ? '저장' : jab ? '맡기기' : '저장'}</button></div></div>`, { full: true, cls: 'form-sheet from-top' });
 }
 function validateDraft(m, f) {
   const e = {};
