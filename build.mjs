@@ -12,7 +12,7 @@ const read = (p) => readFileSync(p, 'utf8');
 
 const html = read(join(src, 'index.html'));
 const css = read(join(src, 'styles.css')) + '\n' + read(join(src, 'mireum.css'));
-const order = ['00-native.js', '01-core.js', '01b-mireum.js', '02-views.js', '03-sheets.js', '04-app.js', '04b-input.js', '04c-voice.js', '05-native.js'];
+const order = ['00-native.js', '01-core.js', '01b-mireum.js', '02-views.js', '03-sheets.js', '04-app.js', '04b-input.js', '04c-voice.js', '04d-account.js', '05-native.js', '05b-voice-pack.js'];
 const js = order.map((f) => read(join(src, f))).join('\n');
 const capPath = join(root, 'node_modules/@capacitor/core/dist/capacitor.js');
 const capjs = (existsSync(capPath) ? read(capPath) : read(join(src, 'vendor-capacitor.js'))).split('\n//# sourceMappingURL')[0];
@@ -23,6 +23,8 @@ const dist = join(root, 'dist');
 mkdirSync(dist, { recursive: true });
 writeFileSync(join(dist, 'index.html'), out, 'utf8');
 for (const f of ['manifest.webmanifest', 'sw.js']) copyFileSync(join(src, f), join(dist, f));
+// 캐릭터 목소리 파일 (src/voice/<캐릭터>/*.mp3) → dist/voice
+if (existsSync(join(src, 'voice'))) { rmSync(join(dist, 'voice'), { recursive: true, force: true }); cpSync(join(src, 'voice'), join(dist, 'voice'), { recursive: true }); }
 console.log('dist/index.html', Buffer.byteLength(out), 'bytes');
 
 const www = join(root, 'www');

@@ -25,25 +25,39 @@ async function nativeLogin(opt = {}) {
   if (ui.login.busy) { state.ignoredClicks++; save(); renderConsole(); return; }
   ui.login = { busy: true, step: opt.forceAccount ? 'account' : 'opening' };
   render();
+  diagBegin('real', 'login'); // 단계별 결과 기록 시작 (개발자 진단에서 확인)
   try {
     const st = await NATIVE.Kakao.status();
-    if (!st.configured) { ui.login = { busy: false, error: 'notConfigured', detail: `패키지 ${st.packageName} · 키 해시 ${st.keyHash}` }; render(); return; }
+    if (!st.configured) { diagFail('config', 'NOT_CONFIGURED'); ui.login = { busy: false, error: 'notConfigured', detail: `패키지 ${st.packageName} · 키 해시 ${st.keyHash}` }; render(); return; }
+    diagStep('config');
     // 카카오 토큰이 남아 있으면(앱 로그아웃만 했던 경우) 카카오톡을 다시 열지 않고 바로 들어간다
     if (st.hasToken && !opt.forceAccount) {
-      try { const u = await NATIVE.Kakao.me(); await completeNativeLogin({ ...u, method: 'token' }); return; } catch (e) { /* 토큰 만료 → 아래에서 새로 로그인 */ }
+      try { const u = await NATIVE.Kakao.me(); diagStep('auth'); await completeNativeLogin({ ...u, method: 'token' }); return; } catch (e) { /* 토큰 만료 → 아래에서 새로 로그인 */ }
     }
     if (!opt.forceAccount && !st.talkAvailable) { ui.login.step = 'account'; render(); }
     // 여기서 카카오톡(또는 브라우저)이 열리고, 카카오의 진짜 동의 화면이 뜬다
     const u = await NATIVE.Kakao.login({ mode: opt.forceAccount ? 'account' : 'auto' });
+    diagStep('auth');
     await completeNativeLogin(u);
   } catch (e) {
-    ui.login = { busy: false, ...kakaoErrorToLogin(e) };
+    const r = kakaoErrorToLogin(e);
+    diagFail(r.note === 'cancel' || r.note === 'denyRequired' ? 'auth' : null, (e && e.code) || 'UNKNOWN', e && e.message);
+    ui.login = { busy: false, ...r };
     render();
   }
 }
 
 // 카카오가 돌려준 사용자 정보로 잡도리 회원을 찾거나 새로 만든다 (내부 계정은 카카오 회원번호로만 연결)
 async function completeNativeLogin(u) {
+  // ② 토큰이 실제로 발급·저장됐는지 카카오 서버에 확인 (토큰 값은 받지 않음)
+  const tk = await kakaoTokenCheck();
+  if (!tk.ok) { diagFail('token', tk.code, tk.msg); ui.login = { busy: false, error: 'loginFailed', detail: `토큰 확인 실패 · ${tk.code}` }; render(); return; }
+  diagStep('token', { expiresIn: tk.expiresIn ?? null });
+  // ③ 사용자 정보(/v2/user/me)를 받았는지, ④ 회원번호가 토큰 주인과 같은지
+  if (!u || u.id == null || u.id === '') { diagFail('me', 'NO_USER'); ui.login = { busy: false, error: 'loginFailed', detail: '사용자 정보를 받지 못했어요' }; render(); return; }
+  diagStep('me');
+  if (tk.id && tk.id !== String(u.id)) { diagFail('kakaoId', 'ID_MISMATCH'); ui.login = { busy: false, error: 'loginFailed', detail: '토큰 주인과 사용자 정보가 달라요' }; render(); return; }
+  diagStep('kakaoId', { kakaoId: String(u.id) });
   const kid = 'kakao:' + u.id;
   const consent = { terms: true, privacy: true, email: !!u.email, profile: !!u.profileImage };
   state.kakao[kid] = { linked: true, token: true, consent, real: true };
@@ -57,16 +71,27 @@ async function completeNativeLogin(u) {
     isNew = true;
   }
   const mm = state.members[mid];
+  // ⑤ 잡도리 회원 확인: 카카오 회원번호 ↔ 회원이 제대로 이어졌는지
+  if (!mm || state.memberByKakao[kid] !== mid) { diagFail('member', 'MEMBER_LINK'); ui.login = { busy: false, error: 'loginFailed', detail: '회원 연결을 확인하지 못했어요' }; render(); return; }
+  diagStep('member');
   const relinked = !!mm.unlinked;
   applyKakaoProfile(mm, u);
   mm.unlinked = false;
-  state.session = { kakaoId: kid, memberId: mid, method: u.method || 'talk', at: now(), real: true };
+  state.session = { kakaoId: kid, memberId: mid, method: u.method || 'talk', at: now(), realAt: Date.now(), real: true };
+  // ⑥ 서비스 세션: 저장소에 실제로 남았는지 다시 읽어서 확인 (앱을 껐다 켜도 유지되는지)
+  save();
+  let persisted = false;
+  try { const back = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); persisted = !!(back && back.session && back.session.memberId === mid && back.session.kakaoId === kid); } catch (e) { persisted = false; }
+  if (persisted) diagStep('session'); else diagFail('session', 'STORAGE', '세션을 저장하지 못했어요 (앱을 다시 켜면 로그아웃될 수 있음)');
+  diagDone();
   ui.login = { busy: false };
   ui.tab = 'today'; ui.selDate = today(); ui.onb = { step: 0, stage: 3 }; ui.focusKey = null;
   ui.scopes = null;
   state.settledDay = today();
   save(); render();
-  if (!isNew) toast(relinked ? '다시 연결됐어요. 기록은 그대로예요.' : `다시 왔네요, ${mm.nickname} 님. 기록은 그대로예요.`);
+  if (persisted) showLoginWelcome(mm, 'real'); // 모든 단계가 확인됐을 때만 성공 안내
+  else toast('로그인은 됐지만 저장소에 기록하지 못했어요. 나 > 로그인 진단을 확인해 주세요.');
+  if (!isNew && relinked) toast('다시 연결됐어요. 기록은 그대로예요.');
 }
 
 // 카카오에서 받은 최신 개인정보를 회원 정보에 반영 (동의 안 한 항목은 빈 값)
@@ -86,16 +111,19 @@ function applyKakaoProfile(mm, u) {
 async function nativeRestoreSession() {
   const s = state.session;
   if (!s || !s.real || s.expired) return;
-  try {
-    const u = await NATIVE.Kakao.me();
+  const r = await checkRealLogin('restore'); // 토큰 → 사용자 정보 → 회원 → 세션 순서로 다시 확인
+  if (r.ok) {
     const mm = state.members[s.memberId];
-    if (mm) { applyKakaoProfile(mm, u); save(); render(); }
-  } catch (e) {
-    if (e && e.code === 'NETWORK') return; // 오프라인이면 그대로 쓰게 둔다
+    if (mm) applyKakaoProfile(mm, r.user);
+    save(); render();
+    return;
+  }
+  if (r.network) return; // 오프라인이면 그대로 쓰게 둔다
+  if (['config', 'auth', 'token', 'me', 'kakaoId', 'member'].includes(r.failStep)) {
     state.session = { ...s, expired: true };
     ui.login = { busy: false, error: 'tokenExpired' };
-    save(); render();
   }
+  save(); render();
 }
 
 // 동의 내역 (나 탭에서 보여 줌)

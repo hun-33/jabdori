@@ -56,7 +56,7 @@ function render(force = false) {
     }
     const sp = el.screen.querySelector('.speech[data-tpl]');
     const tpl = sp ? sp.dataset.tpl : null;
-    if (sp && tpl !== cur.tpl) { sp.classList.add('say'); if (cur.tpl !== null) TTS.say(sp.textContent, { pri: 'all', stage: Number(sp.dataset.stage) || 0 }); }
+    if (sp && tpl !== cur.tpl) { sp.classList.add('say'); if (cur.tpl !== null) TTS.say(sp.textContent, { pri: 'all', stage: Number(sp.dataset.stage) || 0, ev: 'speech' }); }
     cur = { id: v.id, sig, tpl };
   } else patchLive(live, lives);
 
@@ -94,6 +94,7 @@ function renderLayers(m) {
     else if (s.type === 'floorInfo' && m) sh = viewFloorInfo(m);
     else if (s.type === 'month' && m) sh = viewMonthSheet(m);
     else if (s.type === 'closet' && m) sh = viewCloset(m);
+    else if (s.type === 'diag') sh = viewLoginDiag();
   }
   if (sh !== null && sh !== layerState.sheetHtml) {
     const keepScroll = layerState.sheetKey === key ? (el.sheet.querySelector('.sheet-body') || {}).scrollTop : 0;
@@ -117,7 +118,7 @@ function renderLayers(m) {
     if (rh && isNew) {
       el.result.querySelector('.res-title')?.setAttribute('tabindex', '-1'), el.result.querySelector('.res-title')?.focus({ preventScroll: true });
       const run = m.runs[ui.result.key];
-      if (run && run.line) TTS.say(run.line, { pri: 'key', stage: run.status === 'done' ? 1 : 4 }); // 결과 한마디 = 중요한 순간
+      if (run && run.line) TTS.say(run.line, { pri: 'key', stage: run.status === 'done' ? 1 : 4, ev: 'result' }); // 결과 한마디 = 중요한 순간
     }
   }
   // 팝업
@@ -130,7 +131,7 @@ function renderLayers(m) {
     // 팝업 대사: 처음 묻는 말(딴짓 감지·공부 확인)은 중요한 순간, 내 선택에 대한 대답은 일반 멘트
     const line = el.popup.querySelector('.pop-line');
     const lt = line ? line.textContent : '';
-    if (lt && lt !== layerState.popupLine) TTS.say(lt, { pri: ui.popup && ui.popup.answer ? 'all' : 'key', stage: 3 });
+    if (lt && lt !== layerState.popupLine) TTS.say(lt, { pri: ui.popup && ui.popup.answer ? 'all' : 'key', stage: 3, ev: 'slack' });
     layerState.popupLine = lt;
   }
 }
@@ -275,10 +276,12 @@ async function completeLogin(kid, method) {
   state.kakao[kid].token = true;
   state.session = { kakaoId: kid, memberId: mid, method, at: now() };
   if (state.scenario !== 'noTalk') state.scenario = 'normal';
+  checkFakeLogin('login'); // 흉내 모드: 카카오 단계는 '흉내'로, 회원·세션은 실제로 확인해서 기록
   ui.login = { busy: false };
   ui.tab = 'today'; ui.selDate = today(); ui.onb = { step: 0, stage: 3 }; ui.focusKey = null;
   state.settledDay = today();
   save(); render();
+  if (state.diag && state.diag.done && !state.diag.failStep) showLoginWelcome(mm, 'fake'); // 회원·세션이 확인됐을 때만
   if (!isNew) toast(relinked ? '다시 연결됐어요. 기록은 그대로예요.' : `다시 왔네요, ${mm.nickname} 님. 기록은 그대로예요.`);
 }
 
@@ -337,13 +340,13 @@ const ACT = {
   },
 
   /* 탐색 */
-  tab: (t) => { if (ui.tab !== t.dataset.tab) TTS.stop(); ui.tab = t.dataset.tab; ui.focusKey = null; ui.sheet = null; if (ui.tab === 'calendar') { ui.calMonth = (ui.selDate || today()).slice(0, 7); ui.calWeek = mondayOf(ui.selDate || today()); } render(); },
+  tab: (t) => { if (ui.tab !== t.dataset.tab) TTS.stop(); ui.tab = t.dataset.tab; ui.focusKey = null; ui.sheet = null; if (ui.tab === 'calendar') { ui.calMonth = (ui.selDate || today()).slice(0, 7); ui.calWeek = weekStartOf(ui.selDate || today()); } render(); },
   selDate: (t) => { ui.selDate = t.dataset.date; render(); },
-  calPick: (t) => { ui.selDate = t.dataset.date; ui.calWeek = mondayOf(ui.selDate); if (ui.calMode === 'month' && ui.selDate.slice(0, 7) !== ui.calMonth) ui.calMonth = ui.selDate.slice(0, 7); render(); },
-  calMode: (t) => { ui.calMode = t.dataset.v; ui.calMonth = ui.selDate.slice(0, 7); ui.calWeek = mondayOf(ui.selDate); render(); },
+  calPick: (t) => { ui.selDate = t.dataset.date; ui.calWeek = weekStartOf(ui.selDate); if (ui.calMode === 'month' && ui.selDate.slice(0, 7) !== ui.calMonth) ui.calMonth = ui.selDate.slice(0, 7); render(); },
+  calMode: (t) => { ui.calMode = t.dataset.v; ui.calMonth = ui.selDate.slice(0, 7); ui.calWeek = weekStartOf(ui.selDate); render(); },
   calNav: (t) => { const [y, mo] = ui.calMonth.split('-').map(Number); const d = new Date(y, mo - 1 + Number(t.dataset.delta), 1); ui.calMonth = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; render(); },
   weekNav: (t) => { ui.calWeek = addDays(ui.calWeek, 7 * Number(t.dataset.delta)); render(); },
-  calToday: () => { ui.selDate = today(); ui.calMonth = today().slice(0, 7); ui.calWeek = mondayOf(today()); render(); },
+  calToday: () => { ui.selDate = today(); ui.calMonth = today().slice(0, 7); ui.calWeek = weekStartOf(today()); render(); },
 
   /* 일정 보기 */
   openTask: (t) => openSheet({ type: 'task', key: t.dataset.key }),
@@ -515,6 +518,8 @@ const ACT = {
       if (v === 'withdraw') { if (m) delete state.members[m.id]; delete state.memberByKakao[kid]; state.kakao[kid] = { linked: false, token: false }; }
     }
     state.session = null; ui.scopes = null;
+    // 잡도리 세션은 확실히 끝났다고 진단 기록에도 남긴다 (카카오 쪽 상태는 '다시 확인'으로 확인)
+    state.diag = { mode: NATIVE.on && !state.fakeLogin ? 'real' : 'fake', kind: 'logout', at: Date.now(), steps: { session: 'fail' }, failStep: 'session', code: v.toUpperCase(), msg: { logout: '잡도리앱에서 로그아웃함', kakaoLogout: '카카오 로그아웃함', unlink: '카카오 연결을 끊음', withdraw: '회원 탈퇴함' }[v], kakaoId: null, done: true };
     Object.assign(ui, { focusKey: null, sheet: null, result: null, popup: null, form: null, tab: 'today' });
     ui.login = { busy: false, note: { logout: 'loggedOut', kakaoLogout: 'kakaoLoggedOut', unlink: 'unlinked', withdraw: 'withdrawn' }[v] };
     save(); render();
@@ -615,7 +620,7 @@ function saveForm(dupOK) {
   }
   ui.form = null; ui.sheet = null;
   ui.selDate = task.date;
-  if (ui.tab === 'calendar') { ui.calMonth = task.date.slice(0, 7); ui.calWeek = mondayOf(task.date); }
+  if (ui.tab === 'calendar') { ui.calMonth = task.date.slice(0, 7); ui.calWeek = weekStartOf(task.date); }
   trackHeat(m);
   save(); render();
   toast(prev ? '고친 내용을 저장했어요.' : task.type === 'jab' ? `맡았어. ${fmtMD(task.date)} ${task.start}부터 내가 볼게.` : '달력에 적어 뒀어요.');
@@ -657,6 +662,7 @@ function consoleBody() {
   <section class="cs-sec"><h3>다음 로그인 결과${NATIVE.on ? ' (흉내 모드일 때)' : ''}</h3>
     <div class="cs-radios" role="radiogroup" aria-label="다음 로그인 시나리오">${SCENARIOS.map(([v, l]) => `<label class="cs-radio"><input type="radio" name="scn" value="${v}" ${state.scenario === v ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
     <div class="cs-row"><button class="cs-toggle ${state.talkInstalled ? 'on' : ''}" data-act="cTalk" role="switch" aria-checked="${state.talkInstalled}"><i></i>카카오톡 설치됨</button><button class="cs-btn ghost" data-act="cExpire">토큰 만료시키기</button></div>
+    <div class="cs-row"><button class="cs-btn" data-act="openDiag">로그인 진단 열기 (개발자용)</button></div>
     <p class="cs-note">중복 클릭 무시: <b>${state.ignoredClicks}회</b> · 로그인 중 버튼을 여러 번 눌러 보세요.</p>
   </section>
   <section class="cs-sec"><h3>딴짓 시뮬레이션</h3>
@@ -791,14 +797,14 @@ function onWheel(id, v) {
 
 /* ---------- 실시간 멘트 알림 (FN03 · 앱 안 알림 배너) ---------- */
 let bannerTimer = null;
-function showBanner(text, key, mc, stage = 0) {
+function showBanner(text, key, mc, stage = 0, ev = 'start') {
   const b = $('#layer-banner'); if (!b) return;
   const m = member();
   b.innerHTML = `<button class="banner" data-act="bannerTap" data-key="${key || ''}"><span class="bn-mascot">${mascot(m, { ...mc, motion: 'none', shadow: false })}</span><span class="bn-text"><b>${persona().name}</b><span>${esc(text)}</span></span></button>`;
   b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
   clearTimeout(bannerTimer);
   bannerTimer = setTimeout(() => b.classList.remove('show'), 4200);
-  TTS.say(text, { pri: 'key', stage }); // 배너 = 중요한 순간
+  TTS.say(text, { pri: 'key', stage, ev }); // 배너 = 중요한 순간
 }
 function hideBanner() { clearTimeout(bannerTimer); $('#layer-banner')?.classList.remove('show'); }
 function alertTransitions(m, before, after) {
@@ -806,8 +812,8 @@ function alertTransitions(m, before, after) {
     const b = before[k]; if (!b) continue;
     const st = a.st, title = st.task.title;
     if (b.kind === 'upcoming' && a.kind === 'late') return showBanner(`${title} 시작할 시간이야. 이제 슬슬 움직여야 하지 않아?`, k, { expr: 'focus', pose: 'nag' }, a.stage);
-    if (b.kind !== 'urgent' && a.kind === 'urgent') return showBanner(`${title} 마감 ${HEAT_POLICY.urgentWindow}분 전이야. 마무리부터 해!`, k, { expr: 'angry', pose: 'puff', fluff: 0.6 }, a.stage);
-    if ((a.kind === 'overdue' || a.kind === 'missedStart') && b.kind !== a.kind) return showBanner(`${title} 마감 시간이야. 결과 알려 줘.`, k, { expr: 'furious', pose: 'puff', fluff: 1 }, 5);
+    if (b.kind !== 'urgent' && a.kind === 'urgent') return showBanner(`${title} 마감 ${HEAT_POLICY.urgentWindow}분 전이야. 마무리부터 해!`, k, { expr: 'angry', pose: 'puff', fluff: 0.6 }, a.stage, 'deadline');
+    if ((a.kind === 'overdue' || a.kind === 'missedStart') && b.kind !== a.kind) return showBanner(`${title} 마감 시간이야. 결과 알려 줘.`, k, { expr: 'furious', pose: 'puff', fluff: 1 }, 5, 'deadline');
     if (a.kind === 'late' && a.stage > b.stage && a.stage >= 4) return showBanner(`아직 시작 안 했지? ${title}, 폰 내려놓고 지금 열어.`, k, { expr: 'angry', pose: 'nag', fluff: 0.6 }, a.stage);
     if (b.kind === 'break' && a.kind === 'breakOver') return showBanner(`쉬는 시간 끝났어. ${title}, 다시 하자.`, k, { expr: 'suspicious', pose: 'nag', fluff: 0.2 }, a.stage);
   }

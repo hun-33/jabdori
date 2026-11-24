@@ -100,13 +100,13 @@ function dayMarks(m, date) {
   return { mark, label, n: occs.length };
 }
 function weekStrip(m, sel, actName = 'selDate') {
-  const mon = mondayOf(sel), td = today();
+  const ws = weekStartOf(sel), td = today();
   let cells = '';
   for (let i = 0; i < 7; i++) {
-    const d = addDays(mon, i), dm = dayMarks(m, d);
+    const d = addDays(ws, i), dm = dayMarks(m, d);
     const isSel = d === sel, isToday = d === td;
     cells += `<button class="wk-cell ${isSel ? 'sel' : ''} ${isToday ? 'today' : ''}" data-act="${actName}" data-date="${d}" aria-pressed="${isSel}" aria-label="${fmtDateLong(d)}${isToday ? ', 오늘' : ''}${dm.label ? ', ' + dm.label : ''}">
-      <span class="wk-d">${WD[i + 1]}</span><span class="wk-n">${parseYmd(d).getDate()}</span><span class="wk-m">${dm.mark}</span></button>`;
+      <span class="wk-d">${WD[WEEK_ORDER[i]]}</span><span class="wk-n">${parseYmd(d).getDate()}</span><span class="wk-m">${dm.mark}</span></button>`;
   }
   return `<div class="wk">${cells}</div>`;
 }
@@ -160,6 +160,7 @@ function viewLogin() {
     id: 'login',
     html: `<section class="scr login on-stove" aria-labelledby="login-title">
       <div class="login-top">
+        <p class="state-pill off" role="status">${icon('lock')}로그인 안 됨</p>
         <p class="eyebrow">미루는 사람 곁에 붙는 1:1 잡도리</p>
         <h1 id="login-title" class="wordmark">잡도리</h1>
         <p class="tagline">오늘도 미룰 거야?</p>
@@ -360,7 +361,7 @@ function monthGridHTML(m, month, sel, act) {
   const td = today();
   const [y, mo] = month.split('-').map(Number);
   const first = `${y}-${pad(mo)}-01`;
-  const start = mondayOf(first);
+  const start = weekStartOf(first);
   const lastDay = new Date(y, mo, 0).getDate();
   const cellsN = Math.ceil((daysBetween(start, first) + lastDay) / 7) * 7;
   let cells = '';
@@ -369,14 +370,14 @@ function monthGridHTML(m, month, sel, act) {
     const dm = dayMarks(m, d);
     cells += `<button class="mo-cell ${out ? 'out' : ''} ${d === sel ? 'sel' : ''} ${d === td ? 'today' : ''}" data-act="${act}" data-date="${d}" aria-pressed="${d === sel}" aria-label="${fmtDateLong(d)}${d === td ? ', 오늘' : ''}${dm.label ? ', ' + dm.label : ''}"><span class="mo-n">${parseYmd(d).getDate()}</span><span class="mo-m">${dm.mark}</span></button>`;
   }
-  return `<div class="mo-head" aria-hidden="true">${WD.slice(1).map((w) => `<span>${w}</span>`).join('')}</div><div class="mo-grid">${cells}</div>`;
+  return `<div class="mo-head" aria-hidden="true">${WEEK_ORDER.map((w) => `<span>${WD[w]}</span>`).join('')}</div><div class="mo-grid">${cells}</div>`;
 }
 function viewCalendar(m) {
   const td = today();
   if (!ui.selDate) ui.selDate = td;
   const sel = ui.selDate;
   if (!ui.calMonth) ui.calMonth = sel.slice(0, 7);
-  if (!ui.calWeek) ui.calWeek = mondayOf(sel);
+  if (!ui.calWeek) ui.calWeek = weekStartOf(sel);
   const mode = ui.calMode;
   let nav, grid;
   if (mode === 'month') {
@@ -386,13 +387,13 @@ function viewCalendar(m) {
       <div class="sec-head mt"><h2 class="sec-title">${fmtDateLong(sel)}</h2><button class="link-btn" data-act="openAdd" data-date="${sel}">${icon('plus')}이날에 올리기</button></div>
       ${dayList(m, sel)}`;
   } else {
-    const mon = ui.calWeek, sun = addDays(mon, 6);
-    nav = `<button class="icon-btn" data-act="weekNav" data-delta="-1" aria-label="이전 주">${icon('prev')}</button><h2 class="cal-title">${fmtMD(mon)} – ${fmtMD(sun)}</h2><button class="icon-btn" data-act="weekNav" data-delta="1" aria-label="다음 주">${icon('next')}</button>`;
+    const ws = ui.calWeek, we = addDays(ws, 6); // 일요일 ~ 토요일
+    nav = `<button class="icon-btn" data-act="weekNav" data-delta="-1" aria-label="이전 주">${icon('prev')}</button><h2 class="cal-title">${fmtMD(ws)} – ${fmtMD(we)}</h2><button class="icon-btn" data-act="weekNav" data-delta="1" aria-label="다음 주">${icon('next')}</button>`;
     let days = '';
     for (let i = 0; i < 7; i++) {
-      const d = addDays(mon, i), occs = occurrencesOn(m, d);
+      const d = addDays(ws, i), occs = occurrencesOn(m, d);
       days += `<div class="ag-day ${d === sel ? 'sel' : ''} ${d === td ? 'today' : ''}">
-        <button class="ag-date" data-act="calPick" data-date="${d}" aria-pressed="${d === sel}"><b>${WD[i + 1]}</b><span>${parseYmd(d).getDate()}</span></button>
+        <button class="ag-date" data-act="calPick" data-date="${d}" aria-pressed="${d === sel}"><b>${WD[WEEK_ORDER[i]]}</b><span>${parseYmd(d).getDate()}</span></button>
         <div class="ag-items">${occs.length ? `<ul class="rows tight">${occs.map(rowOcc).join('')}</ul>` : `<button class="ag-empty" data-act="openAdd" data-date="${d}">비어 있음 · 올리기</button>`}</div>
       </div>`;
     }
@@ -407,7 +408,7 @@ function viewCalendar(m) {
           <button role="tab" aria-selected="${mode === 'week'}" class="${mode === 'week' ? 'on' : ''}" data-act="calMode" data-v="week">주간</button>
           <button role="tab" aria-selected="${mode === 'month'}" class="${mode === 'month' ? 'on' : ''}" data-act="calMode" data-v="month">월간</button>
         </div>
-        ${sel !== td || (mode === 'month' && ui.calMonth !== td.slice(0, 7)) || (mode === 'week' && ui.calWeek !== mondayOf(td)) ? '<button class="link-btn" data-act="calToday">오늘로</button>' : ''}
+        ${sel !== td || (mode === 'month' && ui.calMonth !== td.slice(0, 7)) || (mode === 'week' && ui.calWeek !== weekStartOf(td)) ? '<button class="link-btn" data-act="calToday">오늘로</button>' : ''}
       </div>
       <div class="cal-nav">${nav}</div>
       ${grid}
@@ -549,27 +550,21 @@ function viewMe(m) {
     ['서비스 이용약관', '필수', c.terms], ['개인정보 수집·이용', '필수', c.privacy],
     ['카카오계정 이메일', '선택', c.email], ['프로필 사진', '선택', c.profile],
   ];
+  // 로그아웃은 위의 '로그인 상태' 구역에 있다 (accountStatusBlock)
   const acct = real ? [
-    ['logout', 'logout', '로그아웃', '이 폰에서만 나가요. 카카오 연결은 남아 있어 다음엔 동의 없이 바로 들어와요.'],
     ['kakaoLogout', 'logout', '카카오 로그아웃', '카카오 로그인 토큰까지 지워요. 다음엔 카카오톡 인증부터 다시 해요.'],
     ['unlink', 'unlink', '카카오 연결 끊기', '카카오 계정과 잡도리의 연결을 끊고 동의도 철회해요. 기록은 탈퇴 전까지 남아요.'],
     ['withdraw', 'trash', '회원 탈퇴', '이 폰의 잡도리 기록을 지우고 카카오 연결도 함께 끊어요.'],
   ] : [
-    ['logout', 'logout', '로그아웃', '이 기기에서만 나가요. 카카오 인증은 남아 있어 다음엔 바로 들어와요.'],
     ['kakaoLogout', 'logout', '카카오 로그아웃', '카카오 인증까지 끝내요. 다음엔 카카오 인증부터 다시 해요.'],
     ['unlink', 'unlink', '카카오 연결 끊기', '카카오와 잡도리의 연결만 끊어요. 기록은 탈퇴 전까지 남아요.'],
     ['withdraw', 'trash', '회원 탈퇴', '잡도리 기록을 지우고 카카오 연결도 함께 끊어요.'],
   ];
-  const photo = real && (m.thumbnailUrl || m.profileImageUrl);
-  const since = real && m.connectedAt ? `${fmtDateShort(ymd(m.connectedAt))} 연결` : '';
   const S = scaleOf(m), C = charOf(m);
   const html = `<section class="scr me" aria-labelledby="me-h">
     <header class="hdr"><div><h1 id="me-h" class="hdr-title">나</h1><p class="hdr-sub">계정과 잡도리 설정</p></div></header>
     <div class="paper">
-      <div class="profile">
-        <span class="avatar" aria-hidden="true">${esc(m.nickname.slice(0, 1))}${photo ? `<img src="${esc(photo)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}</span>
-        <div><p class="pf-name">${esc(m.nickname)}</p><p class="pf-sub">${KAKAO_SYMBOL}카카오로 연결됨 · ${real ? `카카오 회원번호 ${esc(m.kakaoUserId || '')}` : `회원 번호 ${esc(m.id.slice(2, 8))}`}</p><p class="pf-sub">이메일 ${m.email ? esc(m.email) : '제공 안 함 (선택 항목)'}${since ? ` · ${since}` : ''}</p></div>
-      </div>
+      ${accountStatusBlock(m)}
       <h2 class="sec-label">${real ? '카카오에서 동의한 항목' : '동의한 항목'}</h2>
       <ul class="kv">${rows.map(([n, r, v]) => `<li><span>${esc(n)} <em>${esc(r)}</em></span><b class="${v ? 'yes' : 'no'}">${icon(v ? 'check' : 'x')}${v ? '동의' : '동의 안 함'}</b></li>`).join('')}</ul>
       ${real && !m.email ? `<button class="list-btn" data-act="askEmail">${icon('plus')}<span class="lb-text"><b>이메일 제공에 동의하기</b><small>카카오 동의 화면이 다시 열려요 (선택 항목)</small></span>${icon('chevron', 'muted')}</button>` : ''}
@@ -593,6 +588,8 @@ function viewMe(m) {
       <button class="list-btn" data-act="replayOnboarding">${icon('eye')}<span>${C.name} 소개 다시 보기</span>${icon('chevron', 'muted')}</button>
       ${NATIVE.on ? `<div class="list-btn as-row"><span class="lb-text"><b>발표용 시연 도구 보이기</b><small>오른쪽 가장자리에 '시연' 탭을 띄워 시간을 바꾸거나 딴짓을 흉내 내요</small></span>
         <button class="switch ${state.showDemo ? 'on' : ''}" role="switch" aria-checked="${!!state.showDemo}" aria-label="발표용 시연 도구 보이기" data-act="demoToggle"><i></i></button></div>` : ''}
+      ${state.showDemo ? `<h2 class="sec-label">개발자</h2>
+      <button class="list-btn" data-act="openDiag">${icon('sliders')}<span class="lb-text"><b>로그인 진단</b><small>카카오 인증·토큰·사용자 정보·회원·세션을 단계별로 확인해요</small></span>${icon('chevron', 'muted')}</button>` : ''}
       <h2 class="sec-label">계정</h2>
       <ul class="acct">${acct.map(([a, ic, t, d]) => `<li><button class="list-btn ${a === 'withdraw' ? 'danger' : ''}" data-act="acct" data-v="${a}">${icon(ic)}<span class="lb-text"><b>${t}</b><small>${d}</small></span>${icon('chevron', 'muted')}</button></li>`).join('')}</ul>
       <p class="fine dark">${NATIVE.on ? '잡도리 안드로이드 앱 · 데이터는 이 폰 안에만 저장돼요. 앱을 지우면 함께 지워져요.' : `잡도리 프로토타입 · 데이터는 이 브라우저(LocalStorage)에만 저장돼요${storageOK ? '' : ' — 지금은 저장소를 쓸 수 없어 새로고침하면 사라져요'}.`}</p>

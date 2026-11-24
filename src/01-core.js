@@ -13,7 +13,11 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const MIN = 60000;
 const DAY = 86400000;
+/* 요일 값은 저장 형식 그대로 1=월 … 7=일 (기존 일정 데이터를 바꾸지 않기 위해).
+   화면에 보이는 순서만 일요일부터: WEEK_ORDER */
 const WD = ['', '월', '화', '수', '목', '금', '토', '일'];
+const WEEK_ORDER = [7, 1, 2, 3, 4, 5, 6];
+function dayRank(d) { return d % 7; } // 화면 순서: 일=0, 월=1 … 토=6
 
 function ymd(d) { d = new Date(d); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
 function parseYmd(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
@@ -21,7 +25,7 @@ function at(dateStr, hm) { const d = parseYmd(dateStr); const [h, mi] = hm.split
 function addDays(s, n) { const d = parseYmd(s); d.setDate(d.getDate() + n); return ymd(d); }
 function daysBetween(a, b) { return Math.round((parseYmd(b) - parseYmd(a)) / DAY); }
 function weekday(s) { const w = parseYmd(s).getDay(); return w === 0 ? 7 : w; }
-function mondayOf(s) { return addDays(s, 1 - weekday(s)); }
+function weekStartOf(s) { return addDays(s, -(weekday(s) % 7)); } // 그 날이 속한 주의 일요일
 function fmtDateLong(s) { const d = parseYmd(s); return `${d.getMonth() + 1}월 ${d.getDate()}일 ${WD[weekday(s)]}요일`; }
 function fmtDateShort(s) { const d = parseYmd(s); return `${d.getMonth() + 1}월 ${d.getDate()}일 (${WD[weekday(s)]})`; }
 function fmtMD(s) { const d = parseYmd(s); return `${d.getMonth() + 1}월 ${d.getDate()}일`; }
@@ -394,11 +398,11 @@ function repeatText(task) {
   if (r.kind === 'none') return '반복 안 함';
   if (r.kind === 'daily') return '매일';
   if (r.kind === 'interval') return `${r.every}일마다`;
-  const d = [...r.days].sort();
+  const d = [...r.days].sort((a, b) => a - b);
   if (d.length === 7) return '매일';
   if (d.join() === '1,2,3,4,5') return '평일마다';
   if (d.join() === '6,7') return '주말마다';
-  return '매주 ' + d.map((x) => WD[x]).join('·') + '요일';
+  return '매주 ' + [...d].sort((a, b) => dayRank(a) - dayRank(b)).map((x) => WD[x]).join('·') + '요일';
 }
 /* 회차의 현재 상태: upcoming / late / running / urgent / break / breakOver / overPlan / overdue / missedStart / done / failed / past (일반 일정: todo / done) */
 function occState(m, task, date, t = now()) {

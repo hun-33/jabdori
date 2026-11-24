@@ -24,6 +24,7 @@ import java.io.IOException
  *  status()            설정 상태: 키 설정 여부, 카카오톡 설치 여부, 이 앱의 키 해시, 이미 로그인돼 있는지
  *  login({mode})       카카오 로그인 → 성공하면 사용자 정보까지 돌려줌 (mode: auto | talk | account)
  *  me()                지금 로그인된 사용자 정보 다시 받기 (앱을 다시 켰을 때 로그인 유지 확인)
+ *  tokenInfo()         액세스 토큰이 카카오 서버 기준으로 살아 있는지 확인 (토큰 값은 넘기지 않음)
  *  scopes()            사용자가 동의한 개인정보 항목 목록
  *  requestScopes({scopes})  나중에 추가 동의 받기 (예: 이메일)
  *  logout()            카카오 로그아웃 (토큰만 지움, 앱 연결은 유지)
@@ -129,6 +130,26 @@ class KakaoLoginPlugin : Plugin() {
         UserApiClient.instance.me { user, error ->
             if (error != null || user == null) rejectWith(call, error ?: IllegalStateException("사용자 정보가 비어 있어요."))
             else call.resolve(userToJs(user))
+        }
+    }
+
+    /** 로그인 진단용: 액세스 토큰이 유효한지 카카오 서버에 물어본다. 토큰 문자열은 JS로 넘기지 않는다. */
+    @PluginMethod
+    fun tokenInfo(call: PluginCall) {
+        if (!requireConfigured(call)) return
+        if (!AuthApiClient.instance.hasToken()) {
+            call.reject("로그인돼 있지 않아요.", "NO_TOKEN")
+            return
+        }
+        UserApiClient.instance.accessTokenInfo { info, error ->
+            if (error != null || info == null) {
+                rejectWith(call, error ?: IllegalStateException("토큰 정보가 비어 있어요."))
+            } else {
+                val ret = JSObject()
+                ret.put("id", info.id?.toString() ?: "")
+                ret.put("expiresIn", info.expiresIn)
+                call.resolve(ret)
+            }
         }
     }
 

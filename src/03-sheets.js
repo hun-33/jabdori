@@ -354,7 +354,7 @@ function viewForm(m) {
       <p class="hint" id="dl-hint">${draftDeadlineHint(f)}</p>
     </section>` : '';
   const repeatSub = f.repeatKind === 'weekly'
-    ? `<p class="sub-label">반복할 요일</p><div class="days" role="group" aria-label="반복할 요일">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<button class="day ${f.days.includes(d) ? 'on' : ''}" aria-pressed="${f.days.includes(d)}" data-act="formDay" data-d="${d}">${WD[d]}</button>`).join('')}</div>${fieldErr(f, 'days')}`
+    ? `<p class="sub-label">반복할 요일</p><div class="days" role="group" aria-label="반복할 요일">${WEEK_ORDER.map((d) => `<button class="day ${f.days.includes(d) ? 'on' : ''}" aria-pressed="${f.days.includes(d)}" data-act="formDay" data-d="${d}">${WD[d]}</button>`).join('')}</div>${fieldErr(f, 'days')}`
     : f.repeatKind === 'interval'
       ? `<p class="sub-label">반복 간격</p><div class="stepper" role="group" aria-label="반복 간격"><button class="icon-btn" data-act="formEvery" data-delta="-1" aria-label="하루 줄이기" ${f.every <= 1 ? 'disabled' : ''}>−</button><b aria-live="polite">${f.every === 1 ? '매일' : f.every + '일마다'}</b><button class="icon-btn" data-act="formEvery" data-delta="1" aria-label="하루 늘리기" ${f.every >= 30 ? 'disabled' : ''}>+</button></div>`
       : '';
@@ -381,7 +381,7 @@ function viewForm(m) {
         ${subLabel(f.repeatKind === 'none' ? '날짜' : '시작 날짜', 'date')}
         <div class="wheels one" role="group" aria-label="날짜">${wheelCol('date', dateItems(dateFrom, Math.max(91, daysBetween(dateFrom, f.date) + 30), td), f.date, '날짜')}</div>
         ${fieldErr(f, 'date')}
-        <p class="hint" id="rep-hint">${f.repeatKind === 'weekly' ? `${fmtMD(f.date)}부터 매주 ${f.days.length ? [...f.days].sort().map((x) => WD[x]).join('·') + '요일' : '(요일을 골라 주세요)'}에 반복해요.` : f.repeatKind === 'interval' ? `${fmtMD(f.date)}부터 ${f.every === 1 ? '매일' : f.every + '일마다'} 반복해요.` : ''}</p>
+        <p class="hint" id="rep-hint">${f.repeatKind === 'weekly' ? `${fmtMD(f.date)}부터 매주 ${f.days.length ? [...f.days].sort((a, b) => dayRank(a) - dayRank(b)).map((x) => WD[x]).join('·') + '요일' : '(요일을 골라 주세요)'}에 반복해요.` : f.repeatKind === 'interval' ? `${fmtMD(f.date)}부터 ${f.every === 1 ? '매일' : f.every + '일마다'} 반복해요.` : ''}</p>
       </section>
       <section class="f-sec" aria-labelledby="lb-time">
         <h3 id="lb-time" class="f-label">수행 시간</h3>

@@ -5,6 +5,8 @@
    ③ 말하기      : TTS.say(text, { pri, stage }) — 모드·중복·우선순위를 보고 읽을지 정한다
                    TTS.speak(text)                  — 버튼으로 직접 듣기 (모드와 상관없이)
    ④ 한국어 음성 : TTS.check() — 기기에 한국어 음성이 있는지 확인, 없으면 안내
+   ⑤ 캐릭터 목소리 파일 : VOICE_PACKS(05b-voice-pack.js) — 미리 만든 음성 파일이 있는 대사는 파일을 틀고,
+                          파일이 없는 말(일정 이름이 들어간 문장 등)만 기기 음성으로 읽는다
    캐릭터마다 목소리 높낮이·빠르기가 다르다 (01-core.js CHARACTERS[].voice)
    ============================================================ */
 
@@ -17,11 +19,43 @@ const VOICE_MODES = [
 /* 말 빠르기: 캐릭터 기본 빠르기에 곱한다 */
 const VOICE_SPEEDS = { slow: { label: '느리게', k: 0.85 }, normal: { label: '보통', k: 1 }, fast: { label: '빠르게', k: 1.2 } };
 
+/* 상황별로 소리 낼지 (소리 모드가 켜져 있을 때만 의미 있음) */
+const VOICE_EVENTS = [
+  ['start', '시작·지각'], ['deadline', '마감 임박·마감'], ['slack', '딴짓·공부 확인'], ['result', '완료·실패 결과'], ['speech', '말풍선 변화'],
+];
 function voicePrefs() {
   if (!state.voice || typeof state.voice !== 'object') state.voice = { mode: 'off', speed: 'normal' };
-  if (!VOICE_MODES.some(([id]) => id === state.voice.mode)) state.voice.mode = 'off';
-  if (!VOICE_SPEEDS[state.voice.speed]) state.voice.speed = 'normal';
-  return state.voice;
+  const v = state.voice;
+  if (!VOICE_MODES.some(([id]) => id === v.mode)) v.mode = 'off';
+  if (!VOICE_SPEEDS[v.speed]) v.speed = 'normal';
+  if (!(v.volume >= 0 && v.volume <= 1)) v.volume = 1;            // 음량 0~1
+  if (!v.events || typeof v.events !== 'object') v.events = {};
+  for (const [id] of VOICE_EVENTS) if (typeof v.events[id] !== 'boolean') v.events[id] = true;
+  if (typeof v.useClips !== 'boolean') v.useClips = true;          // 캐릭터 목소리 파일 쓰기
+  return v;
+}
+
+/* ---------- ⑤ 캐릭터 목소리 파일 ---------- */
+// 대사 틀(템플릿) → 정규식. {title} 같은 빈칸은 아무 글자나 맞춘다
+const clipIndex = {};
+function clipsFor(charId) {
+  if (clipIndex[charId]) return clipIndex[charId];
+  const pack = typeof VOICE_PACKS !== 'undefined' ? VOICE_PACKS[charId] : null;
+  const list = [];
+  if (pack && Array.isArray(pack.clips)) {
+    for (const [tpl, file, mood] of pack.clips) {
+      const re = new RegExp('^' + tpl.trim().replace(/[.*+?^${}()|[\]\\]/g, (c) => '\\' + c).replace(/\\\{\w+\\\}/g, '(.+?)') + '$');
+      list.push({ tpl, re, src: pack.dir + file + '.mp3', mood: mood || '' });
+    }
+  }
+  return (clipIndex[charId] = { pack, list });
+}
+// 화면에 나온 문장 → 미리 만든 음성 파일 (없으면 null)
+function clipFor(text, charId = (persona() || {}).id) {
+  const t = String(text || '').trim();
+  if (!t) return null;
+  const { list } = clipsFor(charId);
+  return list.find((c) => c.re.test(t)) || null;
 }
 
 /* 화면 글자 → 읽기 좋은 말 */
@@ -96,12 +130,16 @@ const TTS = {
   say(text, o = {}) {
     const pri = o.pri || 'all';
     if (!this.allowed(pri)) return false;
+    if (o.ev && voicePrefs().events[o.ev] === false) return false; // 상황별 설정에서 끈 상황
     return this.speak(text, { ...o, pri });
   },
   /* 실제로 읽기 */
   speak(text, o = {}) {
     const t = speakable(text);
-    if (!this.ok() || !t) return false;
+    if (!t) return false;
+    // 캐릭터 목소리 파일이 있는 대사면 파일을 튼다. 실패하면 기기 음성으로 대신 읽는다
+    const clip = voicePrefs().useClips && !o.device ? clipFor(text) : null;
+    if (!clip && !this.ok()) return false;
     const ms = Date.now(), pri = o.pri || 'manual';
     if (pri !== 'manual') {
       if (t === this.last.text && ms - this.last.at < 15000) return true;              // 같은 말을 15초 안에 또 읽지 않음
@@ -110,9 +148,37 @@ const TTS = {
     this.last = { text: t, at: ms }; this.lastPri = pri;
     const { rate, pitch } = this.params(o.stage || 0);
     this.busyUntil = ms + Math.min(15000, 500 + (t.length * 150) / rate);
+    if (clip) { this.playClip(clip, t, o); return true; }
+    return this.speakDevice(t, rate, pitch);
+  },
+  /* 미리 만든 음성 파일 재생 (말 빠르기는 재생 속도로, 음량은 설정값으로) */
+  playClip(clip, t, o) {
+    this.stopDevice();
+    try {
+      if (this.audio) { this.audio.pause(); this.audio = null; }
+      const a = new Audio(clip.src);
+      a.volume = voicePrefs().volume;
+      a.playbackRate = VOICE_SPEEDS[voicePrefs().speed].k;
+      try { a.preservesPitch = true; } catch (e) { /* 무시 */ }
+      a.onended = () => { if (this.audio === a) { this.audio = null; this.busyUntil = 0; } };
+      a.onerror = () => { if (this.audio === a) { this.audio = null; this.clipFail = (this.clipFail || 0) + 1; const p = this.params(o.stage || 0); this.speakDevice(t, p.rate, p.pitch); } };
+      this.audio = a; this.lastClip = clip.src;
+      const pr = a.play();
+      if (pr && pr.catch) pr.catch((e) => {
+        if (this.audio !== a) return;
+        this.audio = null;
+        if (e && e.name === 'NotAllowedError') { this.blocked = true; return; } // 브라우저가 자동 재생을 막음 → 다음 터치 뒤에 재생됨
+        const p = this.params(o.stage || 0); this.speakDevice(t, p.rate, p.pitch);
+      });
+    } catch (e) { const p = this.params(o.stage || 0); this.speakDevice(t, p.rate, p.pitch); }
+  },
+  /* 기기 음성으로 읽기 */
+  speakDevice(t, rate, pitch) {
+    if (!this.ok()) return false;
+    const vol = voicePrefs().volume;
     if (NATIVE.on) { // 진짜 앱: 안드로이드 기기 음성 엔진
       const S = NATIVE.Speech;
-      const go = (retry) => S.speak({ text: t, lang: 'ko-KR', rate, pitch, volume: 1.0, category: 'ambient' })
+      const go = (retry) => S.speak({ text: t, lang: 'ko-KR', rate, pitch, volume: vol, category: 'ambient' })
         .then(() => { this.koOK = true; })
         .catch((e) => {
           const msg = String((e && e.message) || e || '');
@@ -126,7 +192,7 @@ const TTS = {
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(t);
       u.lang = 'ko-KR'; if (this.voice) u.voice = this.voice;
-      u.rate = rate; u.pitch = pitch;
+      u.rate = rate; u.pitch = pitch; u.volume = vol;
       u.onerror = (e) => {
         if (e && e.error === 'not-allowed') this.blocked = true; // 화면을 한 번도 안 눌러 브라우저가 막음
         else if (e && (e.error === 'language-unavailable' || e.error === 'voice-unavailable')) { this.koOK = false; this.warnNoKorean(); }
@@ -139,6 +205,10 @@ const TTS = {
   },
   stop() {
     this.busyUntil = 0; this.lastPri = '';
+    if (this.audio) { try { this.audio.pause(); } catch (e) { /* 무시 */ } this.audio = null; }
+    this.stopDevice();
+  },
+  stopDevice() {
     if (!this.ok()) return;
     if (NATIVE.on) { NATIVE.Speech.stop().catch(() => {}); return; }
     try { speechSynthesis.cancel(); } catch (e) { /* 무시 */ }
@@ -158,24 +228,34 @@ const TTS = {
 /* 나 탭 > 목소리 구역 */
 function voiceSection() {
   const v = voicePrefs(), c = persona();
-  const ok = TTS.ok();
+  const pack = clipsFor(c.id);
+  const nClips = pack.list.length;
+  const ok = TTS.ok() || nClips > 0;
   let status;
-  if (!ok) status = NATIVE.on ? '음성 기능을 불러오지 못했어요. 앱을 다시 열어 주세요.' : '이 브라우저는 음성 읽기를 지원하지 않아요.';
+  if (!TTS.ok()) status = NATIVE.on ? '기기 음성 기능을 불러오지 못했어요. 앱을 다시 열어 주세요.' : '이 브라우저는 기기 음성 읽기를 지원하지 않아요.';
   else if (TTS.koOK === false) status = NATIVE.on ? '기기에 한국어 음성이 없어요. 아래 버튼으로 설치해 주세요.' : '한국어 음성이 없어 기본 음성으로 읽어요.';
   else if (TTS.koOK) status = `${esc(josa(TTS.voiceName || '한국어 음성', '으로/로'))} 읽어요.`;
   else status = '기기 음성으로 읽어요.';
   const seg = (name, act, items, curV) => `<div class="seg wide" role="radiogroup" aria-label="${name}">${items.map(([id, label]) => `<button role="radio" class="seg-btn ${curV === id ? 'on' : ''}" aria-checked="${curV === id}" data-act="${act}" data-v="${id}" ${ok ? '' : 'disabled'}>${label}</button>`).join('')}</div>`;
   const modeDesc = (VOICE_MODES.find(([id]) => id === v.mode) || VOICE_MODES[0])[2];
+  const vol = Math.round(v.volume * 100);
   return `<h2 class="sec-label">목소리</h2>
     <div class="set-block">
       <p class="set-title">소리 모드</p>
       ${seg('소리 모드', 'voiceMode', VOICE_MODES, v.mode)}
       <p class="set-desc">${modeDesc}</p>
+      ${v.mode !== 'off' ? `<p class="set-title">상황별로 소리 내기</p>
+      <div class="chips" role="group" aria-label="상황별로 소리 내기">${VOICE_EVENTS.map(([id, l]) => `<button class="chip ${v.events[id] ? 'on' : ''}" aria-pressed="${!!v.events[id]}" data-act="voiceEvent" data-v="${id}">${l}</button>`).join('')}</div>` : ''}
       <p class="set-title">말 빠르기</p>
       ${seg('말 빠르기', 'voiceSpeed', Object.entries(VOICE_SPEEDS).map(([id, s]) => [id, s.label]), v.speed)}
+      <p class="set-title">음량 <b class="vol-val">${vol}%</b></p>
+      <input type="range" class="vol-range" min="0" max="100" step="10" value="${vol}" data-act-input="voiceVolume" aria-label="목소리 음량" aria-valuetext="${vol}%">
       <div class="set-row"><button class="btn secondary sm" data-act="voiceTest" ${ok ? '' : 'disabled'}>${icon('speaker')}${esc(c.name)} 목소리 들어 보기</button>
+        ${TTS.audio || (TTS.busyUntil > Date.now()) ? `<button class="btn ghost sm" data-act="voiceStop">멈추기</button>` : ''}
         ${NATIVE.on && TTS.koOK === false ? `<button class="btn ghost sm" data-act="voiceInstall">음성 설치</button>` : ''}</div>
-      <p class="set-desc">${status} 앱 화면이 켜져 있을 때만 소리로 읽고, 화면이 꺼져 있으면 알림으로 알려요.</p>
+      ${nClips ? `<div class="list-btn as-row"><span class="lb-text"><b>${esc(c.name)} 전용 목소리</b><small>미리 만든 목소리 ${nClips}개를 써요. 일정 이름처럼 그때그때 바뀌는 말만 기기 음성으로 읽어요.${pack.pack && pack.pack.credit ? ' · ' + esc(pack.pack.credit) : ''}</small></span>
+        <button class="switch ${v.useClips ? 'on' : ''}" role="switch" aria-checked="${v.useClips}" aria-label="${esc(c.name)} 전용 목소리 쓰기" data-act="voiceClips"><i></i></button></div>` : ''}
+      <p class="set-desc">${nClips && v.useClips ? '전용 목소리 + ' : ''}${status} 앱 화면이 켜져 있을 때만 소리로 읽고, 화면이 꺼져 있으면 알림으로 알려요.</p>
     </div>`;
 }
 
@@ -198,9 +278,28 @@ Object.assign(ACT, {
     if (!TTS.speak(pk.tpl, { stage: sg })) toast('이 기기에서는 음성 읽기를 쓸 수 없어요.');
   },
   voiceInstall: () => TTS.install(),
+  voiceStop: () => { TTS.stop(); render(); },
+  voiceClips: () => { const v = voicePrefs(); v.useClips = !v.useClips; save(); render(); TTS.speak(v.useClips ? '이제 내 목소리로 말할게.' : '기기 목소리로 바꿨어.'); },
+  voiceEvent: (t) => { const v = voicePrefs(); v.events[t.dataset.v] = !v.events[t.dataset.v]; save(); render(); },
   /* 온보딩·강도 미리보기: 단계 예시 멘트 듣기 */
   speakSample: (t) => {
     const sg = Number(t.dataset.s) || 1;
     if (!TTS.speak(persona().lines.sample[sg], { stage: sg })) toast('이 기기에서는 음성 읽기를 쓸 수 없어요.');
   },
+});
+
+/* 음량 막대: 끄는 동안에는 숫자만 바꾸고, 손을 떼면 저장하고 짧게 들려준다 */
+document.addEventListener('input', (ev) => {
+  const t = ev.target;
+  if (!t || !t.dataset || t.dataset.actInput !== 'voiceVolume') return;
+  const v = voicePrefs(); v.volume = clamp(Number(t.value) / 100, 0, 1);
+  t.setAttribute('aria-valuetext', `${Math.round(v.volume * 100)}%`);
+  const lb = document.querySelector('.vol-val'); if (lb) lb.textContent = `${Math.round(v.volume * 100)}%`;
+  if (TTS.audio) TTS.audio.volume = v.volume;
+});
+document.addEventListener('change', (ev) => {
+  const t = ev.target;
+  if (!t || !t.dataset || t.dataset.actInput !== 'voiceVolume') return;
+  save();
+  if (voicePrefs().volume > 0) TTS.speak('이 정도 크기로 말할게.');
 });

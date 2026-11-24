@@ -781,3 +781,35 @@ html.native { --safe-top: max(env(safe-area-inset-top, 0px), var(--safe-area-ins
 .in-preview { min-height: 20px; margin-top: 6px; font-size: 14px; font-weight: 680; color: var(--success); font-variant-numeric: tabular-nums; }
 .in-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; margin-top: 10px; }
 .in-box .field-err { margin-top: 8px; }
+
+/* ---------- 로그인 상태 (나 탭) · 성공 안내 · 개발자 진단 ---------- */
+.acct-state b { display: inline-flex; align-items: center; gap: 4px; font-weight: 650; }
+.acct-state b .ic { width: 16px; height: 16px; }
+.acct-state b.yes { color: var(--success); }
+.acct-state b.no { color: var(--danger); }
+.acct-state .kakao-sym { width: 16px; height: 16px; color: #3A1D1D; background: var(--kakao); border-radius: 4px; padding: 2px; }
+.sim-tag { font-style: normal; font-size: 11.5px; font-weight: 650; color: var(--heat-ink); background: var(--danger-soft); border-radius: 999px; padding: 1px 7px; margin-left: 4px; }
+.state-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 650; padding: 3px 10px 3px 8px; border-radius: 999px; margin-bottom: 10px; }
+.state-pill .ic { width: 14px; height: 14px; }
+.state-pill.off { background: rgba(243, 236, 224, .12); color: var(--on-stove-2); }
+.banner.login-ok { display: flex; align-items: center; gap: 12px; cursor: default; }
+.banner.login-ok .ok-mark { margin-left: auto; color: var(--success); }
+.avatar.sm { width: 40px; height: 40px; font-size: 16px; flex: none; }
+.dg-mode { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 650; padding: 10px 12px; border-radius: var(--r-s); margin-bottom: 6px; }
+.dg-mode.real { background: var(--success-soft); color: var(--success); }
+.dg-mode.sim { background: var(--sunken); color: var(--ink-2); }
+.dg-list { margin: 10px 0 12px; border-top: 1px solid var(--line); }
+.dg-row { display: flex; align-items: center; gap: 10px; min-height: 46px; border-bottom: 1px solid var(--line); font-size: 14.5px; }
+.dg-ic { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: none; }
+.dg-ic .ic { width: 15px; height: 15px; }
+.dg-name { flex: 1; }
+.dg-ok .dg-ic { background: var(--success-soft); color: var(--success); } .dg-ok b { color: var(--success); }
+.dg-bad .dg-ic { background: var(--danger-soft); color: var(--danger); } .dg-bad b { color: var(--danger); }
+.dg-sim .dg-ic { background: var(--sunken); color: var(--ink-2); } .dg-sim b { color: var(--ink-2); }
+.dg-skip .dg-ic { background: transparent; color: var(--line-strong); } .dg-skip b { color: var(--ink-2); font-weight: 500; }
+.dg-fail { margin-bottom: 12px; }
+.notice.dg-fail { background: var(--danger-soft); color: var(--ink); }
+.notice.dg-fail > .ic { color: var(--danger); }
+.notice.dg-fail p { color: var(--ink-2); }
+.vol-range { width: 100%; accent-color: var(--ink); min-height: 32px; }
+.vol-val { font-weight: 650; color: var(--ink-2); margin-left: 4px; }
