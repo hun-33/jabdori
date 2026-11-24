@@ -1,0 +1,106 @@
+[
+ {
+  "file": "mireum_default",
+  "expr": "default",
+  "pose": "idle",
+  "fluff": 0
+ },
+ {
+  "file": "mireum_happy",
+  "expr": "happy",
+  "pose": "cheer",
+  "fluff": 0
+ },
+ {
+  "file": "mireum_focus",
+  "expr": "focus",
+  "pose": "check",
+  "fluff": 0
+ },
+ {
+  "file": "mireum_suspicious",
+  "expr": "suspicious",
+  "pose": "nag",
+  "fluff": 0.1
+ },
+ {
+  "file": "mireum_angry",
+  "expr": "angry",
+  "pose": "puff",
+  "fluff": 0.65
+ },
+ {
+  "file": "mireum_furious",
+  "expr": "furious",
+  "pose": "puff",
+  "fluff": 1
+ },
+ {
+  "file": "mireum_disappointed",
+  "expr": "disappointed",
+  "pose": "idle",
+  "fluff": 0.1
+ },
+ {
+  "file": "mireum_sad",
+  "expr": "sad",
+  "pose": "cry",
+  "fluff": 0.1
+ },
+ {
+  "file": "mireum_surprised",
+  "expr": "surprised",
+  "pose": "cheer",
+  "fluff": 0
+ },
+ {
+  "file": "mireum_sleepy",
+  "expr": "sleepy",
+  "pose": "curl",
+  "fluff": 0
+ },
+ {
+  "file": "mireum_proud",
+  "expr": "proud",
+  "pose": "flag",
+  "fluff": 0
+ },
+ {
+  "file": "mireum_flustered",
+  "expr": "flustered",
+  "pose": "idle",
+  "fluff": 0.2
+ },
+ {
+  "file": "mireum_shy",
+  "expr": "shy",
+  "pose": "idle",
+  "fluff": 0
+ },
+ {
+  "file": "mireum_tired",
+  "expr": "tired",
+  "pose": "curl",
+  "fluff": 0.1
+ },
+ {
+  "file": "pose_wave",
+  "expr": "happy",
+  "pose": "wave"
+ },
+ {
+  "file": "pose_nag",
+  "expr": "angry",
+  "pose": "nag"
+ },
+ {
+  "file": "pose_chase",
+  "expr": "surprised",
+  "pose": "chase"
+ },
+ {
+  "file": "pose_check",
+  "expr": "focus",
+  "pose": "check"
+ }
+]

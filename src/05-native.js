@@ -199,18 +199,22 @@ const NOTIF = {
     for (let i = 0; i < 7; i++) {
       const d = addDays(ymd(nowMs), i);
       for (const t of m.tasks) {
-        if (t.type !== 'jab' || !occursOn(t, d)) continue;
+        if (!occursOn(t, d)) continue;
         const key = occKey(t.id, d);
         const run = m.runs[key];
         if (run && (run.status === 'done' || run.status === 'failed')) continue;
         const w = occWindow(t, d);
         const started = run && run.startedAt;
-        const add = (ms, kind, title, body) => { if (ms > nowMs + 30 * 1000) out.push({ ms, kind, key, title, body }); };
-        if (!started) add(w.start, 'start', `${t.title} 시작할 시간이야`, '이제 슬슬 움직여야 하지 않아? 폰 내려놓고 지금 열어.');
-        if (!started) add(w.start + 10 * MIN, 'late', `${t.title}, 아직이야?`, '10분째 기다리는 중이야. 내가 계속 보고 있다?');
+        const N = persona().lines.notif; // 알림 문구도 캐릭터 말투로 (01-core.js lines.notif)
+        const add = (ms, kind, tpl, extra = {}) => { if (ms > nowMs + 30 * 1000) out.push({ ms, kind, key, title: fillLine(tpl[0], { title: t.title, ...extra }), body: fillLine(tpl[1], { title: t.title, ...extra }) }); };
+        // 사용자가 고른 알림 (일반·잡도리 모두): 시작 n분 전
+        for (const a of t.alarms || []) add(w.start - a * MIN, 'alarm' + a, N.alarm, { before: a ? (a >= 1440 ? '하루' : fmtDur(a)) + ' 뒤' : '지금' });
+        if (t.type !== 'jab' || t.jabOn === false) continue; // 아래는 잡도리 일정만
+        if (!started && !(t.alarms || []).includes(0)) add(w.start, 'start', N.start);
+        if (!started) add(w.start + 10 * MIN, 'late', N.late);
         const dl = w.deadline || w.end;
-        add(dl - 30 * MIN, 'urgent', `${t.title} 마감 30분 전`, '이제 다듬지 말고 마무리부터 해!');
-        add(dl, 'due', `${t.title} 마감이야`, '결과 알려 줘. 끝냈어, 못 끝냈어?');
+        add(dl - 30 * MIN, 'urgent', N.urgent);
+        add(dl, 'due', N.due);
       }
     }
     return out.sort((a, b) => a.ms - b.ms).slice(0, 60);
@@ -262,7 +266,6 @@ function nativeBars(dark) {
 }
 function nativeBack() {
   if (ui.input) { ACT.wheelInputCancel(); return; }
-  if (ui.menuOpen) { ui.menuOpen = false; render(); return; }
   if (document.body.classList.contains('console-open')) { ACT.cToggle(); return; }
   if (ui.popup) return; // 딴짓 팝업은 답을 골라야 닫힘
   if (ui.sheet) { ACT.sheetScrim(); return; }

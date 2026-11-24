@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="mireum e-focus p-check m-none " viewBox="0 0 240 240" aria-hidden="true" focusable="false"><style>/* =========================================================
+   미루먼지 스타일과 동작 (transform·opacity만 움직인다)
+   ========================================================= */
+.mireum { display: block; width: 100%; height: auto; overflow: visible; --m-body: #FFF6E8; --m-line: #6E5548; --m-face: #2E2420; --m-cheek: #F4ADAD; --m-shadow: rgba(43, 38, 34, .12); }
+.on-stove .mireum, .stove-band .mireum, .popup .mireum, .heat-preview .mireum, .result.r-bad .mireum { --m-shadow: rgba(10, 8, 7, .32); }
+.mireum .mr-shadow { fill: var(--m-shadow); }
+.mireum .mr-body, .mireum .mr-tuft, .mireum .mr-foot, .mireum .mr-arm { fill: var(--m-body); stroke: var(--m-line); stroke-width: 2.7; stroke-linejoin: round; stroke-linecap: round; }
+/* 파스텔 수채화 느낌: 가장자리 쪽만 살짝 어둡게(광택·글로우 없음) + 손그림처럼 살짝 어긋난 두 번째 선 */
+.mireum .mr-sketch { fill: none; stroke: var(--m-line); stroke-width: 1.1; opacity: .3; stroke-linejoin: round; }
+.mireum .mr-face .soft { stroke-width: 2; opacity: .6; }
+.mireum .mr-dust circle { fill: #D9CBB9; opacity: .8; }
+.mireum .mr-dust .d1 { fill: #CBB9E3; } .mireum .mr-dust .d2 { fill: #E8C7B4; }
+.mireum .fx-blush path { stroke: #E88B8B; stroke-width: 2.2; }
+.mireum .mr-curl { fill: none; stroke: var(--m-line); stroke-width: 2.2; stroke-linecap: round; }
+.mireum .mr-face path, .mireum .mr-brows path { fill: none; stroke: var(--m-face); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.mireum .mr-face .f { fill: var(--m-face); stroke: none; }
+.mireum .mr-face .hl { fill: #FFFFFF; }
+.mireum .mr-face .thick { stroke-width: 3.8; }
+.mireum .mr-face .tongue { fill: #F08A8A; stroke: none; }
+.mireum .mr-cheek { fill: var(--m-cheek); opacity: .75; }
+.mireum.e-angry .mr-cheek, .mireum.e-furious .mr-cheek { fill: #EE8D7E; opacity: .85; }
+.mireum.e-sleepy .mr-cheek { opacity: .55; }
+/* 효과 */
+.mireum .mr-fx path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.mireum .fx-spark path { fill: #F3CF62; stroke: none; }
+.mireum .fx-q path { stroke: var(--m-line); stroke-width: 4; }
+.mireum .fx-q .dot, .mireum .fx-bang .dot { fill: var(--m-line); }
+.mireum .fx-bang path { stroke: var(--m-line); stroke-width: 4.2; }
+.mireum .fx-vein path { stroke: #E5735F; stroke-width: 4; }
+.mireum .fx-steam path { stroke: #BFB2A2; stroke-width: 4.5; }
+.on-stove .mireum .fx-steam path, .stove-band .mireum .fx-steam path { stroke: #D9CFC0; }
+.mireum .fx-gloom path { stroke: #A99BD8; stroke-width: 3; opacity: .75; }
+.mireum .fx-sweat path { fill: #9CC6EC; stroke: none; }
+.mireum .fx-tears path { stroke: #9CC6EC; stroke-width: 4; }
+.mireum .fx-tears .drop { fill: #9CC6EC; stroke: none; }
+.mireum .fx-zz path { stroke: #A99BD8; stroke-width: 3.6; }
+/* 소품 */
+.mireum .prop-clip .wood { fill: #E9C9A0; stroke: var(--m-line); stroke-width: 3; }
+.mireum .prop-clip .paper { fill: #FFFDF8; stroke: none; }
+.mireum .prop-clip .clip { fill: #B8A587; stroke: var(--m-line); stroke-width: 2.4; }
+.mireum .prop-clip .tick { fill: none; stroke: #8F82C8; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.mireum .prop-clip .ln { stroke: #D8CFC2; stroke-width: 3; stroke-linecap: round; }
+.mireum .prop-flag .pole { stroke: var(--m-line); stroke-width: 3.4; stroke-linecap: round; fill: none; }
+.mireum .prop-flag .cloth { fill: #F6DE8D; stroke: var(--m-line); stroke-width: 2.6; stroke-linejoin: round; }
+.mireum .prop-flag .star { fill: #FFFDF8; }
+/* ---------- 동작 ---------- */
+.mireum .mr-all, .mireum .mr-scale, .mireum .mr-arm-r, .mireum .mr-arm-l, .mireum .mr-eyes, .mireum .mr-fx { transform-box: view-box; }
+.mireum .mr-all { transform-origin: 120px 200px; }
+.mireum .mr-scale { transform-origin: 120px 200px; transition: transform .5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.mireum .mr-scale.squash { transform: scale(1.06, .9) !important; }
+.mireum .mr-eyes { transform-origin: 120px 141px; }
+.mireum .mr-arm-r { transform-origin: 186px 128px; }
+.mireum .mr-arm-l { transform-origin: 54px 128px; }
+/* 숨쉬기 (기본 대기) + 눈 깜빡임 */
+
+
+/* 둘러보기 (일정 없음·기다림) */
+
+/* 통통 튀기 (반가움) + 손 흔들기 */
+
+
+/* 기뻐서 뛰어오르기 (성공) */
+
+
+/* 화나서 부풀기 (마감 임박·반복 실패) */
+
+
+
+
+/* 잔소리하기 (팔 흔들기) */
+
+/* 울면서 주저앉기 (실패) */
+
+
+
+/* 잠들어 웅크리기 */
+
+
+/* 쫓아오기 (딴짓 감지 팝업 등장) */
+
+
+/* 체크리스트 확인 (일정 등록·집중) */
+.mireum .prop-clip .tick { stroke-dasharray: 16; stroke-dashoffset: 16; }
+.mireum:not(.m-check) .prop-clip .tick { stroke-dashoffset: 0; }
+
+
+/* 움직임 줄이기 */
+  .mireum .prop-clip .tick { stroke-dashoffset: 0; }
+  .mireum .fx-steam .st { opacity: .8; }
+}
+html.reduce .mireum .prop-clip .tick { stroke-dashoffset: 0; }
+html.reduce .mireum .fx-steam .st { opacity: .8; }
+</style>
+    <defs><radialGradient id="mrg18" cx="48%" cy="42%" r="62%"><stop offset="0" stop-color="#FFFAF1"/><stop offset=".72" stop-color="#FFF4E4"/><stop offset="1" stop-color="#F3E1D0"/></radialGradient></defs>
+    <ellipse class="mr-shadow" cx="120" cy="194" rx="72" ry="8"/>
+    <g class="mr-all">
+      <g class="mr-scale " style="transform:scale(1.000)">
+        <ellipse class="mr-foot" cx="100" cy="187" rx="12" ry="7"/><ellipse class="mr-foot" cx="140" cy="187" rx="12" ry="7"/><g class="mr-tuftg"><path class="mr-tuft" d="M99 64 A8 8 0 0 1 104 50 A10 10 0 0 1 120 42 A10 10 0 0 1 136 49 A8 8 0 0 1 141 64 Z"/><path class="mr-curl" d="M126 40 q2 -7 8 -5 q4 2 1 6"/></g>
+        <path class="mr-body" d="M111.6 58.4 A17.9 17.9 0 0 1 141.4 60.5 A15.2 15.2 0 0 1 165.0 69.8 A18.5 18.5 0 0 1 188.5 90.0 A15.3 15.3 0 0 1 200.5 112.4 A15.8 15.8 0 0 1 203.7 138.5 A10.6 10.6 0 0 1 197.4 155.0 A15.2 15.2 0 0 1 179.0 172.4 A48.6 48.6 0 0 1 155.7 182.9 A55.7 55.7 0 0 1 126.7 187.8 A51.1 51.1 0 0 1 99.9 186.4 A57.0 57.0 0 0 1 71.1 177.9 A44.4 44.4 0 0 1 51.5 165.2 A13.2 13.2 0 0 1 38.6 147.4 A11.2 11.2 0 0 1 36.2 128.9 A17.5 17.5 0 0 1 44.4 100.9 A16.2 16.2 0 0 1 61.1 79.8 A17.1 17.1 0 0 1 85.3 64.8 A16.2 16.2 0 0 1 111.6 58.4 Z" style="fill:url(#mrg18)"/>
+        <path class="mr-sketch" d="M111.6 58.4 A17.9 17.9 0 0 1 141.4 60.5 A15.2 15.2 0 0 1 165.0 69.8 A18.5 18.5 0 0 1 188.5 90.0 A15.3 15.3 0 0 1 200.5 112.4 A15.8 15.8 0 0 1 203.7 138.5 A10.6 10.6 0 0 1 197.4 155.0 A15.2 15.2 0 0 1 179.0 172.4 A48.6 48.6 0 0 1 155.7 182.9 A55.7 55.7 0 0 1 126.7 187.8 A51.1 51.1 0 0 1 99.9 186.4 A57.0 57.0 0 0 1 71.1 177.9 A44.4 44.4 0 0 1 51.5 165.2 A13.2 13.2 0 0 1 38.6 147.4 A11.2 11.2 0 0 1 36.2 128.9 A17.5 17.5 0 0 1 44.4 100.9 A16.2 16.2 0 0 1 61.1 79.8 A17.1 17.1 0 0 1 85.3 64.8 A16.2 16.2 0 0 1 111.6 58.4 Z" transform="translate(0.8 0.6)"/>
+        <g class="mr-face">
+          <ellipse class="mr-cheek" cx="83" cy="152" rx="10.5" ry="6.5"/><ellipse class="mr-cheek" cx="157" cy="152" rx="10.5" ry="6.5"/>
+          <g class="mr-brows"><path d="M90 128 L105 131.5"/><path d="M150 128 L135 131.5"/></g><g class="mr-eyes"><ellipse cx="98" cy="142" rx="4.4" ry="5.2" class="f"/><circle cx="99.5" cy="140" r="1.4" class="hl"/><ellipse cx="142" cy="142" rx="4.4" ry="5.2" class="f"/><circle cx="143.5" cy="140" r="1.4" class="hl"/></g><g class="mr-mouth"><path d="M115 150 q5 2 10 0"/></g>
+        </g>
+        <g class="mr-pose"><ellipse class="mr-arm " cx="42" cy="164" rx="8" ry="10.5" transform="rotate(-24 42 164)"/><g class="mr-prop prop-clip"><rect x="150" y="136" width="48" height="58" rx="6" class="wood"/><rect x="155.5" y="143.5" width="37" height="45" rx="3" class="paper"/><rect x="164" y="131" width="20" height="8.5" rx="3" class="clip"/>
+  <path class="tick t1" d="M160 155 l3.5 3.5 l6 -7"/><path class="ln" d="M173 155 h14"/><path class="tick t2" d="M160 166 l3.5 3.5 l6 -7"/><path class="ln" d="M173 166 h14"/><path class="tick t3" d="M160 177 l3.5 3.5 l6 -7"/><path class="ln" d="M173 177 h10"/></g><ellipse class="mr-arm " cx="152" cy="178" rx="8" ry="10.5" transform="rotate(-30 152 178)"/></g>
+      </g>
+      
+    </g>
+  </svg>

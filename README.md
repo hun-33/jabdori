@@ -152,6 +152,7 @@ PC에 아무것도 설치하지 않고, 폰에서 링크를 눌러 APK를 받는
 | 카카오톡이 열렸다가 아무 일 없이 돌아옴 | 이미 동의한 계정이면 동의 화면이 다시 안 뜨고 바로 로그인돼요. 정상이에요 |
 | 이메일이 "제공 안 함" | 이메일 동의항목이 꺼져 있거나 사용자가 선택 동의를 안 했어요. **나 > 이메일 제공에 동의하기**로 다시 물어볼 수 있어요 |
 | 알림이 안 와요 | **나 > 시작·마감 알림**이 켜져 있는지, 폰 **설정 > 애플리케이션 > 잡도리 > 알림**이 허용인지 확인해요. 시연 도구로 가상 시각을 쓰는 중이면 알림을 예약하지 않아요 |
+| 로그인이 진짜 됐는지 모르겠어요 | 나 탭 > '발표용 시연 도구 보이기'를 켜고 '로그인 진단'을 열어요. 7단계가 모두 초록이면 진짜 카카오 로그인이에요. 빨간 단계와 오류 코드를 알려 주세요 |
 | 멘트 소리가 안 나요 | 나 탭 > 목소리에서 소리 모드가 '끄기'인지 봐요. 한국어 음성이 없다고 나오면 '음성 설치'를 눌러요(또는 폰 설정에서 '텍스트 음성 변환' 검색). 미디어 볼륨도 확인해요. 앱을 내려 둔 동안에는 소리 대신 알림이 와요 |
 | Gradle Sync 실패 (`Could not resolve`) | 인터넷 연결을 확인하고 **File > Sync Project with Gradle Files**를 다시 해요. 회사·학교 망이면 막혀 있을 수 있어요 |
 | `Unsupported class file major version` / JDK 오류 | **Settings > Build Tools > Gradle > Gradle JDK**를 **JetBrains Runtime 21**(또는 JDK 21)로 바꿔요 |
@@ -201,6 +202,8 @@ src/ (화면 코드)  ──npm run build──▶  www/ (합친 화면)  ──
 | `04-app.js` | 동작 연결. `startLogin`은 진짜 앱이면 `nativeLogin`으로 넘기고, `doAcct`는 진짜 앱이면 `nativeAccount`를 불러요. `scaleMode`는 단계 이름 설정 |
 | `04b-input.js` | 휠 **직접 입력** 구역. `parseTimeInput`·`parseDurationInput`·`parseDateInput`이 글자를 시각·길이·날짜로 바꾸고, `evalInput`이 범위·순서를 검사해요 |
 | `04c-voice.js` | **목소리 구역.** `voicePrefs`(소리 모드·빠르기), `speakable`(읽기 다듬기), `TTS.say`(모드·중복·우선순위 판단), `TTS.speak`(직접 듣기), `TTS.check`(한국어 음성 확인), `voiceSection`(나 탭 설정) |
+| `04d-account.js` | **로그인 상태 확인 구역.** `diagBegin/diagStep/diagFail`(단계별 기록), `checkRealLogin`(카카오 서버에 토큰·사용자 정보 확인 후 회원·세션과 대조), `showLoginWelcome`(검증 후 성공 안내), `accountStatusBlock`(나 탭 로그인 상태), `viewLoginDiag`(개발자 진단) |
+| `05b-voice-pack.js` | 캐릭터 목소리 파일 목록(`VOICE_PACKS`). `tools/make_voice_pack.py`가 만든다 |
 | `05-native.js` | **진짜 앱 기능 구역.** 아래 표 참고 |
 
 ### `05-native.js` 함수
@@ -240,5 +243,10 @@ src/ (화면 코드)  ──npm run build──▶  www/ (합친 화면)  ──
 | `tools/run_native_mock.py` | 진짜 앱 환경을 흉내 내 로그인·알림·TTS·뒤로 가기를 검사해요 |
 | `tools/run_scale_voice.py` | 미루먼지 농도·단계 이름 전환·쌓인 먼지·숫자 조사·목소리 모드를 검사해요(57개) |
 | `tools/run_input.py` | 휠 직접 입력의 형식·예외 처리를 검사해요 |
+| `tools/run_calendar_login.py` | 일요일 시작 달력(1일 위치·주 이동·반복 요일)과 로그인 상태 화면·진단을 검사해요(40개) |
+| `tools/run_calendar_v5.py` | v5 일정 구조(시작·종료·종일·여러 날·반복·마감)·한 폼 등록·일/주/월 달력·옛 데이터 변환을 검사해요(40개) |
+| `tools/lines_dump.js` · `tools/make_voice_script.py` | 캐릭터 대사를 꺼내 목소리 대본(`voice/clips.json`, `voice/batchN.txt`)을 만들어요 |
+| `tools/split_voice.py` | 한 번에 만든 긴 음성을 대사별 파일로 잘라요(가장 긴 쉼 N-1개를 경계로) |
+| `tools/make_voice_pack.py` | 잘린 음성 파일로 `05b-voice-pack.js` 목록을 만들어요 |
 
 > 팀 공용 개발 키(`android/keystore/jabdori-dev.jks`, 비밀번호 `jabdori123`)는 **개발·시연 전용**이에요. 정식 출시에는 새 키를 쓰세요.

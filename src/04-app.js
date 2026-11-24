@@ -50,6 +50,9 @@ function render(force = false) {
     if (same) el.screen.scrollTop = top;
     else {
       el.screen.scrollTop = 0;
+      // 일간 시간표는 아침 8시(오늘이면 지금 한 시간 전)부터 보이게
+      const g = el.screen.querySelector('#tgrid');
+      if (g) { const h = ui.selDate === today() ? Math.max(0, new Date(now()).getHours() - 1) : 8; el.screen.scrollTop = Math.max(0, g.offsetTop + h * HOUR_H - 90); }
       el.screen.classList.remove('enter'); void el.screen.offsetWidth; el.screen.classList.add('enter');
       clearTimeout(enterTimer);
       enterTimer = setTimeout(() => el.screen.classList.remove('enter'), 400);
@@ -59,6 +62,11 @@ function render(force = false) {
     if (sp && tpl !== cur.tpl) { sp.classList.add('say'); if (cur.tpl !== null) TTS.say(sp.textContent, { pri: 'all', stage: Number(sp.dataset.stage) || 0, ev: 'speech' }); }
     cur = { id: v.id, sig, tpl };
   } else patchLive(live, lives);
+  // 추가 버튼(+)은 오늘·달력 화면에만, 화면 위에 떠 있게 (스크롤과 상관없이 같은 자리)
+  const fabWant = /^(today|calendar)/.test(v.id) && member() ? fabHTML(ui.selDate || today()) : '';
+  let fs = $('#fab-slot');
+  if (!fs) { fs = document.createElement('div'); fs.id = 'fab-slot'; el.app.insertBefore(fs, el.sheet); }
+  if (fs.innerHTML !== fabWant) fs.innerHTML = fabWant;
 
   const m = member();
   const showTabs = !!m && m.onboarded && !ui.focusKey;
@@ -92,8 +100,6 @@ function renderLayers(m) {
     else if (s.type === 'confirm') sh = viewConfirm(s);
     else if (s.type === 'excuse') sh = viewExcuse(s);
     else if (s.type === 'floorInfo' && m) sh = viewFloorInfo(m);
-    else if (s.type === 'month' && m) sh = viewMonthSheet(m);
-    else if (s.type === 'closet' && m) sh = viewCloset(m);
     else if (s.type === 'diag') sh = viewLoginDiag();
   }
   if (sh !== null && sh !== layerState.sheetHtml) {
@@ -152,6 +158,7 @@ function openSheet(s) {
   render();
 }
 function closeSheet() { ui.sheet = null; render(); }
+let swipeGuard = 0;
 function rerenderForm() { formDirty = true; render(); }
 
 /* ---------- 시간 ---------- */
@@ -185,7 +192,7 @@ function setClock(ms) {
       const s = settleDays(m);
       if (s.length) toast(`결과를 남기지 않은 ‘${s[0]}’${s.length > 1 ? ` 외 ${s.length - 1}개` : ''}를 실패로 기록했어요.`);
       if (ui.selDate === prevDay) ui.selDate = today();
-      ui.calMonth = null; ui.calWeek = null;
+      ui.calMonth = null;
     }
     trackHeat(m);
     studyChecks(m);
@@ -209,7 +216,7 @@ function ensureExistingMember() {
   const tA = { id: uid('t'), type: 'jab', title: '운영체제 퀴즈 준비', date: '2026-11-20', repeat: { kind: 'none' }, start: '19:00', duration: 60, heat: 50, deadline: { enabled: true, date: '2026-11-20', time: '21:00' }, createdAt: at('2026-11-19', '21:00') };
   const tB = { id: uid('t'), type: 'normal', title: '자료구조 스터디', date: '2026-11-10', repeat: { kind: 'weekly', days: [2] }, start: '19:00', duration: 90, heat: null, deadline: null, createdAt: at('2026-11-09', '10:30') };
   const tC = { id: uid('t'), type: 'normal', title: '편의점 아르바이트', date: '2026-11-14', repeat: { kind: 'weekly', days: [6] }, start: '13:00', duration: 300, heat: null, deadline: null, createdAt: at('2026-11-09', '10:31') };
-  m.tasks.push(tA, tB, tC);
+  m.tasks.push(...[tA, tB, tC].map(migrateTask));
   m.runs[occKey(tA.id, '2026-11-20')] = {
     status: 'done', startedAt: at('2026-11-20', '19:06'), endedAt: at('2026-11-20', '20:12'), slack: [{ at: at('2026-11-20', '19:40'), app: 'YouTube', choice: 'focus' }],
     peak: 74, endHeat: 72, title: tA.title, startHeat: 50, plan: occWindow(tA, '2026-11-20'), floorBefore: 50, floorAfter: 50, penaltyBefore: 0, streakBefore: 0,
@@ -287,17 +294,17 @@ async function completeLogin(kid, method) {
 
 /* ---------- 테스트 데이터 ---------- */
 function testTaskSpec() {
-  return { type: 'jab', title: '데이터베이스 과제', date: '2026-11-23', repeatKind: 'weekly', days: [1], every: 2, start: '18:00', durMode: 120, end: '20:00', heat: 50, dlOn: true, dlDate: '2026-11-23', dlTime: '20:00' };
+  return { type: 'jab', title: '데이터베이스 과제', date: '2026-11-23', repeatKind: 'weekly', days: [1], every: 1, start: '18:00', endDate: '2026-11-23', end: '20:00', heat: 50, dlMode: 'custom', dlDate: '2026-11-23', dlTime: '20:00', more: true };
 }
 function seedCommon(m) {
   if (m.tasks.some((t) => t.title === '데이터베이스 과제')) { toast('데이터베이스 과제가 이미 있어요.'); return; }
   const s = testTaskSpec();
-  m.tasks.push({ id: uid('t'), type: 'jab', title: s.title, date: s.date, repeat: { kind: 'weekly', days: [1] }, start: s.start, duration: 120, heat: 50, deadline: { enabled: true, date: s.date, time: s.dlTime }, createdAt: now() });
+  m.tasks.push(migrateTask({ id: uid('t'), type: 'jab', title: s.title, date: s.date, repeat: { kind: 'weekly', days: [1] }, start: s.start, duration: 120, heat: 50, deadline: { enabled: true, date: s.date, time: s.dlTime }, createdAt: now() }));
   ui.selDate = today();
   toast('공통 테스트 일정을 넣었어요 · 데이터베이스 과제');
 }
 function seedExtra(m) {
-  const add = (title, days, start, duration) => { if (!m.tasks.some((t) => t.title === title)) m.tasks.push({ id: uid('t'), type: 'normal', title, date: '2026-11-23', repeat: { kind: 'weekly', days }, start, duration, heat: null, deadline: null, createdAt: now() }); };
+  const add = (title, days, start, duration) => { if (!m.tasks.some((t) => t.title === title)) m.tasks.push(migrateTask({ id: uid('t'), type: 'normal', title, date: '2026-11-23', repeat: { kind: 'weekly', days }, start, duration, heat: null, deadline: null, createdAt: now() })); };
   add('자료구조 스터디', [2], '19:00', 90);
   add('팀 프로젝트 회의', [4], '16:00', 60);
   add('편의점 아르바이트', [6], '13:00', 300);
@@ -340,13 +347,47 @@ const ACT = {
   },
 
   /* 탐색 */
-  tab: (t) => { if (ui.tab !== t.dataset.tab) TTS.stop(); ui.tab = t.dataset.tab; ui.focusKey = null; ui.sheet = null; if (ui.tab === 'calendar') { ui.calMonth = (ui.selDate || today()).slice(0, 7); ui.calWeek = weekStartOf(ui.selDate || today()); } render(); },
+  tab: (t) => { if (ui.tab !== t.dataset.tab) TTS.stop(); ui.tab = t.dataset.tab; ui.focusKey = null; ui.sheet = null; if (ui.tab === 'calendar') { ui.calMonth = (ui.selDate || today()).slice(0, 7);  } render(); },
   selDate: (t) => { ui.selDate = t.dataset.date; render(); },
-  calPick: (t) => { ui.selDate = t.dataset.date; ui.calWeek = weekStartOf(ui.selDate); if (ui.calMode === 'month' && ui.selDate.slice(0, 7) !== ui.calMonth) ui.calMonth = ui.selDate.slice(0, 7); render(); },
-  calMode: (t) => { ui.calMode = t.dataset.v; ui.calMonth = ui.selDate.slice(0, 7); ui.calWeek = weekStartOf(ui.selDate); render(); },
-  calNav: (t) => { const [y, mo] = ui.calMonth.split('-').map(Number); const d = new Date(y, mo - 1 + Number(t.dataset.delta), 1); ui.calMonth = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; render(); },
-  weekNav: (t) => { ui.calWeek = addDays(ui.calWeek, 7 * Number(t.dataset.delta)); render(); },
-  calToday: () => { ui.selDate = today(); ui.calMonth = today().slice(0, 7); ui.calWeek = weekStartOf(today()); render(); },
+  calPick: (t) => { ui.selDate = t.dataset.date; if (ui.calMode === 'month' && ui.selDate.slice(0, 7) !== ui.calMonth) ui.calMonth = ui.selDate.slice(0, 7); render(); },
+  calMode: (t) => { ui.calMode = t.dataset.v; ui.calMonth = ui.selDate.slice(0, 7); ui.range = null; ui.slot = null; render(); },
+  /* 이전·다음: 월간은 달, 주간은 7일, 일간은 하루. 달을 넘기면 그 달 1일(오늘이 있는 달이면 오늘)을 고른다 */
+  calNav: (t) => {
+    const dl = Number(t.dataset.delta);
+    ui.slot = null;
+    if (ui.calMode === 'month') {
+      const [y, mo] = ui.calMonth.split('-').map(Number); const d = new Date(y, mo - 1 + dl, 1);
+      ui.calMonth = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+      ui.selDate = today().slice(0, 7) === ui.calMonth ? today() : ui.calMonth + '-01';
+    } else ui.selDate = addDays(ui.selDate, ui.calMode === 'week' ? 7 * dl : dl);
+    render();
+  },
+  weekNav: (t) => { ui.selDate = addDays(ui.selDate, 7 * Number(t.dataset.delta)); render(); },
+  calToday: () => { ui.selDate = today(); ui.calMonth = today().slice(0, 7); ui.slot = null; render(); },
+  goCalendar: (t) => { ui.tab = 'calendar'; ui.calMode = t.dataset.mode || 'month'; ui.calMonth = (ui.selDate || today()).slice(0, 7); render(); },
+  /* 월간: 기간 정해서 올리기 — 시작 날짜, 끝 날짜를 차례로 누르면 종일 일정 폼이 열린다 */
+  rangeStart: () => { ui.range = { a: null }; render(); },
+  rangeCancel: () => { ui.range = null; render(); },
+  rangePick: (t) => {
+    const d = t.dataset.date;
+    if (!ui.range.a) { ui.range.a = d; render(); return; }
+    const [a, b] = [ui.range.a, d].sort();
+    ui.range = null; ui.selDate = a;
+    const m = member();
+    ui.form = newDraft(m, a, 'normal', { endDate: b });
+    ui.form.allDay = true;
+    openSheet({ type: 'form' });
+  },
+  /* 일간 시간표: 첫 칸 = 시작, 다음 칸 = 종료(그 칸 끝). 같은 칸을 두 번 누르면 1시간 */
+  slotTap: (t) => {
+    const d = t.dataset.date, mn = Number(t.dataset.min);
+    if (!ui.slot || ui.slot.date !== d) { ui.slot = { date: d, from: mn }; render(); return; }
+    const a = Math.min(ui.slot.from, mn), b = Math.max(ui.slot.from, mn) + 60;
+    ui.slot = null;
+    const m = member();
+    ui.form = newDraft(m, d, 'jab', { start: minToHm(a), end: minToHm(b % 1440), endDate: b >= 1440 ? addDays(d, 1) : d });
+    openSheet({ type: 'form' });
+  },
 
   /* 일정 보기 */
   openTask: (t) => openSheet({ type: 'task', key: t.dataset.key }),
@@ -434,29 +475,43 @@ const ACT = {
     if (ui.focusKey && splitKey(ui.focusKey)[0] === id) ui.focusKey = null;
     ui.sheet = null; save(); render(); toast('지웠어요.');
   },
-  formType: (t) => { const f = ui.form; f.type = t.dataset.v; if (f.type === 'jab') f.heat = Math.max(f.heat, f.minHeat); rerenderForm(); },
-  formRepeat: (t) => { const f = ui.form; f.repeatKind = t.dataset.v; if (f.repeatKind === 'weekly' && !f.days.length) f.days = [weekday(f.date)]; if (f.repeatKind === 'interval' && !(f.every >= 1)) f.every = 1; delete f.errors.days; rerenderForm(); },
+  formType: (t) => {
+    const f = ui.form; f.type = t.dataset.v;
+    if (f.type === 'jab') { f.heat = Math.max(f.heat, f.minHeat); f.allDay = false; } // 잡도리는 시작 시각이 있어야 한다
+    if (!f._colorTouched) f.color = f.type === 'jab' ? 'coral' : 'sky';
+    rerenderForm();
+  },
+  formRepeat: (t) => {
+    const f = ui.form; f.repeatKind = t.dataset.v === 'interval' ? 'daily' : t.dataset.v; // 'interval'은 예전 이름
+    if (f.repeatKind === 'weekly' && !f.days.length) f.days = [weekday(f.date)];
+    if (!(f.every >= 1)) f.every = 1;
+    delete f.errors.days; rerenderForm();
+  },
   formDay: (t) => { const f = ui.form, d = Number(t.dataset.d); f.days = f.days.includes(d) ? f.days.filter((x) => x !== d) : [...f.days, d]; if (f.days.length) delete f.errors.days; rerenderForm(); },
   formEvery: (t) => { const f = ui.form; f.every = clamp(f.every + Number(t.dataset.delta), 1, 30); rerenderForm(); },
+  /* 걸리는 시간 버튼: 종료 = 시작 + n분 (날짜를 넘기면 종료 날짜도 넘어간다) */
   formDur: (t) => {
     const f = ui.form, v = t.dataset.v;
-    if (v === 'custom') { f.end = minToHm(hmToMin(f.start) + draftDuration(f)); f.durMode = 'custom'; } else f.durMode = Number(v);
+    if (v === 'custom') { f.pick = 'end'; rerenderForm(); return; }
+    const e = draftStartMs(f) + Number(v) * MIN;
+    f.endDate = ymd(e); f.end = fmtHM(e); f.allDay = false;
     delete f.errors.time; rerenderForm();
   },
   formDl: (t) => {
-    const f = ui.form; f.dlOn = t.dataset.v === 'on';
-    if (f.dlOn && (!f.dlDate || f.dlDate < f.date)) f.dlDate = f.date;
-    if (f.dlOn && !f._dlTouched) { f.dlTime = minToHm(hmToMin(f.start) + draftDuration(f)); f.dlDate = hmToMin(f.start) + draftDuration(f) >= 1440 ? addDays(f.date, 1) : f.date; }
+    const f = ui.form; const v = t.dataset.v === 'on' ? 'custom' : t.dataset.v; // 'on'은 예전 이름
+    f.dlMode = v;
+    if (v === 'custom') {
+      if (!f._dlTouched) { const e = draftEndMs(f); f.dlDate = ymd(e); f.dlTime = fmtHM(e); }
+      f.pick = 'dl';
+    } else if (f.pick === 'dl') f.pick = null;
     delete f.errors.deadline; rerenderForm();
   },
-  formFitDeadline: () => {
-    const f = ui.form;
-    const d = Math.round((at(f.dlDate, f.dlTime) - at(f.date, f.start)) / MIN);
-    if (d <= 0) { f.errors.deadline = '마감이 시작 시각보다 앞이라 맞출 수 없어요.'; rerenderForm(); return; }
-    if (d > 12 * 60) { toast('12시간이 넘어서 끝나는 시간을 마감에 맞출 수 없어요.'); return; }
-    f.durMode = [30, 60, 90, 120].includes(d) ? d : 'custom'; f.end = minToHm(hmToMin(f.start) + d);
-    delete f.errors.time; rerenderForm();
-  },
+  formPick: (t) => { const f = ui.form; f.pick = f.pick === t.dataset.v ? null : t.dataset.v; rerenderForm(); },
+  formAllDay: () => { const f = ui.form; if (f.type === 'jab') return; f.allDay = !f.allDay; if (f.endDate < f.date) f.endDate = f.date; delete f.errors.time; rerenderForm(); },
+  formMore: () => { const f = ui.form; f.more = !f.more; rerenderForm(); },
+  formAlarm: (t) => { const f = ui.form, v = Number(t.dataset.v); f.alarms = f.alarms.includes(v) ? f.alarms.filter((x) => x !== v) : [...f.alarms, v]; rerenderForm(); },
+  formColor: (t) => { const f = ui.form; f.color = t.dataset.v; f._colorTouched = true; rerenderForm(); },
+  formJabOn: () => { const f = ui.form; f.jabOn = !f.jabOn; rerenderForm(); },
   formClose: () => {
     const f = ui.form;
     if (f && f.title.trim() && !f.id) {
@@ -575,7 +630,7 @@ const ACT = {
     try { localStorage.removeItem(STORE_KEY); } catch (e) { /* 저장소 없음 */ }
     state = freshState();
     for (const k of Object.keys(lineMemo)) delete lineMemo[k];
-    Object.assign(ui, { tab: 'today', selDate: null, calMonth: null, calWeek: null, focusKey: null, sheet: null, popup: null, result: null, form: null, login: { busy: false }, onb: { step: 0, stage: 3 } });
+    Object.assign(ui, { tab: 'today', selDate: null, calMonth: null, focusKey: null, sheet: null, popup: null, result: null, form: null, login: { busy: false }, onb: { step: 0, stage: 3 } });
     applyMotionPref(); save(); render(true); renderConsole(true); toast('처음 상태로 돌렸어요.');
   },
   cToggle: () => { if (tabDrag.moved) { tabDrag.moved = false; return; } ui.consoleOpen = !ui.consoleOpen; document.body.classList.toggle('console-open', ui.consoleOpen); },
@@ -604,14 +659,18 @@ function saveForm(dupOK) {
     }
   }
   const prev = f.id ? findTask(m, f.id) : null;
-  const task = {
-    id: f.id || uid('t'), type: f.type, title: f.title.trim(), date: f.date,
-    repeat: f.repeatKind === 'interval' && f.every === 1 ? { kind: 'daily' } : { kind: f.repeatKind, ...(f.repeatKind === 'weekly' ? { days: [...f.days].sort() } : {}), ...(f.repeatKind === 'interval' ? { every: f.every } : {}) },
-    start: f.start, duration: draftDuration(f),
-    heat: f.type === 'jab' ? Math.max(f.heat, f.minHeat) : null,
-    deadline: f.type === 'jab' ? { enabled: f.dlOn, date: f.dlDate, time: f.dlTime } : null,
+  const jab = f.type === 'jab';
+  const task = migrateTask({
+    id: f.id || uid('t'), type: f.type, title: f.title.trim(),
+    date: f.date, start: f.allDay ? '00:00' : f.start, endDate: f.endDate, end: f.allDay ? '23:59' : f.end, allDay: !!f.allDay,
+    repeat: { kind: f.repeatKind, every: f.repeatKind === 'none' ? 1 : f.every, ...(f.repeatKind === 'weekly' ? { days: [...f.days].sort() } : {}) },
+    alarms: [...f.alarms].sort((a, b) => a - b), color: f.color, memo: (f.memo || '').trim(),
+    heat: jab ? Math.max(f.heat, f.minHeat) : null,
+    jabOn: jab ? f.jabOn !== false : undefined,
+    // 마감: 종료와 같으면 sameAsEnd만 켜 두고(같은 값을 두 번 저장하지 않음), 따로 정하면 날짜·시각을 저장
+    deadline: jab ? { enabled: f.dlMode !== 'off', sameAsEnd: f.dlMode === 'end', date: f.dlMode === 'end' ? f.endDate : f.dlDate, time: f.dlMode === 'end' ? f.end : f.dlTime } : null,
     createdAt: prev ? prev.createdAt : now(),
-  };
+  });
   if (prev) m.tasks[m.tasks.indexOf(prev)] = task; else m.tasks.push(task);
   if (!prev) {
     const pk = pickLine('saved', persona().lines.saved);
@@ -620,10 +679,10 @@ function saveForm(dupOK) {
   }
   ui.form = null; ui.sheet = null;
   ui.selDate = task.date;
-  if (ui.tab === 'calendar') { ui.calMonth = task.date.slice(0, 7); ui.calWeek = weekStartOf(task.date); }
+  if (ui.tab === 'calendar') ui.calMonth = task.date.slice(0, 7);
   trackHeat(m);
   save(); render();
-  toast(prev ? '고친 내용을 저장했어요.' : task.type === 'jab' ? `맡았어. ${fmtMD(task.date)} ${task.start}부터 내가 볼게.` : '달력에 적어 뒀어요.');
+  toast(prev ? '고친 내용을 저장했어요.' : task.type === 'jab' ? `${fmtMD(task.date)} ${task.start}부터 ${persona().name}${jo(persona().name, '이/가')} 붙어요.` : '달력에 적어 뒀어요.');
 }
 
 /* ---------- 시연 콘솔 ---------- */
@@ -776,13 +835,15 @@ function onWheel(id, v) {
   const f = ui.form; if (!f) return;
   const setHM = (key, part, val) => { const [h, mm] = (f[key] || '00:00').split(':'); f[key] = part === 'h' ? `${val}:${mm}` : `${h}:${val}`; };
   if (id === 'date') {
-    f.date = v; delete f.errors.date;
+    const span = daysBetween(f.date, f.endDate); // 시작 날짜를 옮기면 종료 날짜도 같은 간격으로 따라간다
+    f.date = v; f.endDate = addDays(v, Math.max(0, span)); delete f.errors.date;
     if (f.repeatKind === 'weekly' && f.days.length === 1) f.days = [weekday(v)];
     if (!f._dlTouched || f.dlDate < f.date) f.dlDate = f.date;
     rerenderForm(); return;
   }
   if (id === 'start-h') setHM('start', 'h', v);
   if (id === 'start-m') setHM('start', 'm', v);
+  if (id === 'end-date') { f.endDate = v; delete f.errors.date; delete f.errors.time; }
   if (id === 'end-h') setHM('end', 'h', v);
   if (id === 'end-m') setHM('end', 'm', v);
   if (id === 'dl-date') { f.dlDate = v; f._dlTouched = true; }
@@ -792,7 +853,13 @@ function onWheel(id, v) {
   if (id.startsWith('dl')) delete f.errors.deadline;
   const sum = $('#time-summary span'); if (sum) sum.textContent = draftSummary(f);
   const dh = $('#dl-hint'); if (dh) dh.textContent = draftDeadlineHint(f);
-  const sh = $('#start-hint'); if (sh) sh.textContent = f.date === today() && at(f.date, f.start) < now() ? '시작 시각이 이미 지났어요. 올리면 바로 잡도리가 시작돼요.' : '';
+  const sh = $('#start-hint'); if (sh) sh.textContent = f.type === 'jab' && f.date === today() && !f.allDay && at(f.date, f.start) < now() ? '시작 시각이 이미 지났어요. 올리면 바로 잡도리가 시작돼요.' : '';
+  // 시작·종료 줄의 글자도 바로 바꾼다 (선택기는 그대로 둔 채)
+  for (const [k, d, hm] of [['start', f.date, f.start], ['end', f.endDate, f.end], ['dl', f.dlDate, f.dlTime]]) {
+    const r = el.sheet.querySelector(`.when-row[data-v="${k}"]`); if (!r) continue;
+    const dd = r.querySelector('.wr-date'), tt = r.querySelector('.wr-time');
+    if (dd) dd.textContent = fmtDateShort(d); if (tt) tt.textContent = hm;
+  }
 }
 
 /* ---------- 실시간 멘트 알림 (FN03 · 앱 안 알림 배너) ---------- */
@@ -810,36 +877,25 @@ function hideBanner() { clearTimeout(bannerTimer); $('#layer-banner')?.classList
 function alertTransitions(m, before, after) {
   for (const [k, a] of Object.entries(after)) {
     const b = before[k]; if (!b) continue;
-    const st = a.st, title = st.task.title;
-    if (b.kind === 'upcoming' && a.kind === 'late') return showBanner(`${title} 시작할 시간이야. 이제 슬슬 움직여야 하지 않아?`, k, { expr: 'focus', pose: 'nag' }, a.stage);
-    if (b.kind !== 'urgent' && a.kind === 'urgent') return showBanner(`${title} 마감 ${HEAT_POLICY.urgentWindow}분 전이야. 마무리부터 해!`, k, { expr: 'angry', pose: 'puff', fluff: 0.6 }, a.stage, 'deadline');
-    if ((a.kind === 'overdue' || a.kind === 'missedStart') && b.kind !== a.kind) return showBanner(`${title} 마감 시간이야. 결과 알려 줘.`, k, { expr: 'furious', pose: 'puff', fluff: 1 }, 5, 'deadline');
-    if (a.kind === 'late' && a.stage > b.stage && a.stage >= 4) return showBanner(`아직 시작 안 했지? ${title}, 폰 내려놓고 지금 열어.`, k, { expr: 'angry', pose: 'nag', fluff: 0.6 }, a.stage);
-    if (b.kind === 'break' && a.kind === 'breakOver') return showBanner(`쉬는 시간 끝났어. ${title}, 다시 하자.`, k, { expr: 'suspicious', pose: 'nag', fluff: 0.2 }, a.stage);
+    const st = a.st, title = st.task.title, B = persona().lines.banner;
+    if (b.kind === 'upcoming' && a.kind === 'late') return showBanner(fillLine(B.start, { title }), k, { expr: 'focus', pose: 'nag' }, a.stage);
+    if (b.kind !== 'urgent' && a.kind === 'urgent') return showBanner(fillLine(B.urgent, { title, n: HEAT_POLICY.urgentWindow }), k, { expr: 'angry', pose: 'puff', fluff: 0.6 }, a.stage, 'deadline');
+    if ((a.kind === 'overdue' || a.kind === 'missedStart') && b.kind !== a.kind) return showBanner(fillLine(B.due, { title }), k, { expr: 'furious', pose: 'puff', fluff: 1 }, 5, 'deadline');
+    if (a.kind === 'late' && a.stage > b.stage && a.stage >= 4) return showBanner(fillLine(B.lateHard, { title }), k, { expr: 'angry', pose: 'nag', fluff: 0.6 }, a.stage);
+    if (b.kind === 'break' && a.kind === 'breakOver') return showBanner(fillLine(B.breakOver, { title }), k, { expr: 'suspicious', pose: 'nag', fluff: 0.2 }, a.stage);
   }
 }
 
 Object.assign(ACT, {
   /* 캐릭터 터치 → 메뉴바 (기획안 v5) */
   mascotTap: () => {
-    ui.menuOpen = !ui.menuOpen; ui.menuFresh = ui.menuOpen;
-    if (ui.menuOpen) ui.react = { id: 'tap', until: Date.now() + 1600, mc: { expr: 'surprised', pose: 'wave', motion: 'bounce' } };
+    const m = member(), pk = pickLine('poke', persona().lines.poke || persona().lines.welcome);
+    ui.react = { id: 'tap', until: Date.now() + 2200, mc: { expr: 'happy', pose: 'wave', motion: 'bounce' }, line: pk.tpl };
+    TTS.say(pk.tpl, { ev: 'speech' });
+    setTimeout(() => { if (ui.react && ui.react.id === 'tap') { ui.react = null; render(); } }, 2300);
     render();
   },
-  menuAdd: () => { ui.menuOpen = false; ACT.openAdd({ dataset: { date: ui.selDate || today() } }); },
-  menuHeat: () => {
-    ui.menuOpen = false; ACT.openAdd({ dataset: { date: ui.selDate || today() } });
-    setTimeout(() => { const h = $('#sec-heat'); if (h) { h.scrollIntoView({ block: 'start', behavior: 'smooth' }); $('#f-heat')?.focus({ preventScroll: true }); } }, 380);
-  },
-  openMonth: () => { ui.menuOpen = false; ui.calMonth = (ui.selDate || today()).slice(0, 7); openSheet({ type: 'month' }); },
-  monthNav: (t) => { const [y, mo] = ui.calMonth.split('-').map(Number); const d = new Date(y, mo - 1 + Number(t.dataset.delta), 1); ui.calMonth = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; render(); },
-  monthPick: (t) => { ui.selDate = t.dataset.date; render(); },
-  openCloset: () => { ui.menuOpen = false; openSheet({ type: 'closet' }); },
-  setCostume: (t) => {
-    const m = member(); m.costume = t.dataset.v; save();
-    if (ui.sheet && ui.sheet.type === 'closet') render(); else render(true);
-    toast(`${josa((charOf(m).costumes()[m.costume] || {}).name || '기본', '으로/로')} 갈아입었어.`);
-  },
+
   /* 나 > 단계 이름: 캐릭터별 ↔ 공통 (숫자·잔소리는 그대로, 이름만 바뀐다) */
   scaleMode: (t) => {
     const m = member(); if (!m) return;
@@ -875,10 +931,9 @@ function init() {
       return;
     }
     const fn = ACT[t.dataset.act];
-    if (ui.menuOpen && !['mascotTap', 'menuAdd', 'menuHeat', 'openMonth', 'openCloset'].includes(t.dataset.act)) ui.menuOpen = false;
+    if (Date.now() - swipeGuard < 400 && t.closest('[data-swipe]')) return; // 방금 쓸어 넘긴 손가락이 칸을 누른 것으로 잡히지 않게
     if (fn) { ev.preventDefault(); fn(t, ev); }
   });
-  document.addEventListener('click', (ev) => { if (ui.menuOpen && !ev.target.closest('[data-act]')) { ui.menuOpen = false; render(); } });
   document.addEventListener('input', onField);
   document.addEventListener('change', (ev) => {
     if (ev.target.name === 'scn') { state.scenario = ev.target.value; if (state.scenario === 'noTalk') state.talkInstalled = true; save(); renderConsole(true); return; }
@@ -886,17 +941,16 @@ function init() {
   });
   document.addEventListener('keydown', (ev) => {
     if (ev.key !== 'Escape') return;
-    if (ui.menuOpen) { ui.menuOpen = false; render(); return; }
     if (ui.popup) return; // 딴짓 팝업은 답을 골라야 닫힘
     if (ui.sheet) { ACT.sheetScrim(); ev.preventDefault(); }
     else if (document.body.classList.contains('console-open')) ACT.cToggle();
   });
-  // 주간 달력을 아래로 쓸면 월간 달력 (기획안 v5 '하단 추가 화면')
+  // 달력을 옆으로 쓸면 이전·다음 (월간 = 달, 주간 = 주, 일간 = 날). 세로 스크롤과 헷갈리지 않게 가로로 충분히 움직였을 때만
   let sw = null;
-  document.addEventListener('touchstart', (ev) => { const z = ev.target.closest('[data-swipe="month"]'); sw = z ? { x: ev.touches[0].clientX, y: ev.touches[0].clientY } : null; }, { passive: true });
+  document.addEventListener('touchstart', (ev) => { const z = ev.target.closest('[data-swipe="cal"]'); sw = z ? { x: ev.touches[0].clientX, y: ev.touches[0].clientY, t: Date.now() } : null; }, { passive: true });
   document.addEventListener('touchend', (ev) => {
-    if (!sw) return; const t = ev.changedTouches[0]; const dx = t.clientX - sw.x, dy = t.clientY - sw.y; sw = null;
-    if (dy > 50 && Math.abs(dx) < 40) ACT.openMonth();
+    if (!sw) return; const t = ev.changedTouches[0]; const dx = t.clientX - sw.x, dy = t.clientY - sw.y, quick = Date.now() - sw.t < 600; sw = null;
+    if (quick && Math.abs(dx) > 60 && Math.abs(dy) < Math.abs(dx) * 0.6) { swipeGuard = Date.now(); ACT.calNav({ dataset: { delta: dx < 0 ? 1 : -1 } }); }
   }, { passive: true });
   TTS.init();
   PWA.init();

@@ -8,7 +8,8 @@ const ui = {
   selDate: null,
   calMode: 'month',
   calMonth: null,      // 'YYYY-MM'
-  calWeek: null,       // 월요일 날짜
+  range: null,         // 월간 기간 선택 { a }
+  slot: null,          // 일간 시간 선택 { date, from }
   focusKey: null,
   sheet: null,
   popup: null,
@@ -63,30 +64,40 @@ function rowSide(st, t = now()) {
   return KIND_LABEL[k] || '';
 }
 function timeRange(task) {
-  const e = hmToMin(task.start) + task.duration;
-  return `${task.start}–${minToHm(e)}${e >= 1440 ? '(+1)' : ''}`;
+  if (task.allDay) return spanDays(task) ? `종일 · ${spanDays(task) + 1}일` : '종일';
+  const sd = spanDays(task);
+  return `${task.start}–${task.end || minToHm(hmToMin(task.start) + durOf(task))}${sd ? `(+${sd})` : ''}`;
 }
+/* 여러 날 일정의 둘째 날부터는 '2/3일째'처럼 보여 준다 */
+function occTimeText(st) {
+  const t = st.task;
+  if (st.dayNo > 1) return `${st.dayNo}/${st.days}일째${t.allDay ? '' : ` · ${st.dayNo === st.days ? '~' + t.end : '종일'}`}`;
+  return timeRange(t);
+}
+/* 일정 색 (일정마다 고른 색 · 없으면 종류별 기본색) */
+function taskColor(t) { return t.color || (t.type === 'jab' ? 'coral' : 'sky'); }
 function rowOcc(st) {
   const task = st.task;
-  const meta = [timeRange(task)];
+  const meta = [occTimeText(st)];
   if (task.type === 'jab') {
     meta.push(st.w.deadline ? `마감 ${fmtHM(st.w.deadline)}${ymd(st.w.deadline) !== st.date ? '(' + fmtMD(ymd(st.w.deadline)) + ')' : ''}` : '마감 없음');
     meta.push(`${lvs(task.heat)}부터`);
   } else if (task.repeat.kind !== 'none') meta.push(repeatText(task));
+  if (task.type === 'jab' && task.jabOn === false) meta.splice(1, meta.length - 1, '잡도리 꺼 둠');
   const sideCls = `row-side k-${st.kind}`;
   const main = `<button class="row-btn" data-act="openTask" data-key="${st.key}">
       ${rowMark(st)}
       <span class="row-main"><span class="row-title ${st.kind === 'done' && task.type === 'normal' ? 'is-done' : ''}">${esc(task.title)}</span><span class="row-meta">${esc(meta.join(' · '))}</span></span>
-      <span class="${sideCls}">${L('row:' + st.key, rowSide(st))}</span>
+      <span class="${sideCls}">${st.dayNo > 1 ? `${st.dayNo}/${st.days}일째` : L('row:' + st.key, rowSide(st))}</span>
     </button>`;
-  if (task.type === 'normal') {
+  if (task.type === 'normal' || task.jabOn === false) {
     const done = st.kind === 'done';
-    return `<li class="row normal"><button class="check ${done ? 'on' : ''}" data-act="normalToggle" data-key="${st.key}" role="checkbox" aria-checked="${done}" aria-label="${esc(task.title)} ${done ? '완료 취소' : '완료 표시'}">${icon('check')}</button>${main}</li>`;
+    return `<li class="row normal c-${taskColor(task)}"><button class="check ${done ? 'on' : ''}" data-act="normalToggle" data-key="${st.key}" role="checkbox" aria-checked="${done}" aria-label="${esc(task.title)} ${done ? '완료 취소' : '완료 표시'}">${icon('check')}</button>${main}</li>`;
   }
-  return `<li class="row jab">${main}</li>`;
+  return `<li class="row jab c-${taskColor(task)}">${main}</li>`;
 }
 function dayMarks(m, date) {
-  const occs = occurrencesOn(m, date);
+  const occs = occurrencesCovering(m, date);
   const jab = occs.filter((o) => o.task.type === 'jab');
   const normal = occs.length - jab.length;
   const failed = jab.some((o) => o.kind === 'failed');
@@ -111,13 +122,12 @@ function weekStrip(m, sel, actName = 'selDate') {
   return `<div class="wk">${cells}</div>`;
 }
 function dayList(m, date, opts = {}) {
-  const occs = occurrencesOn(m, date);
-  const jab = occs.filter((o) => o.task.type === 'jab');
-  const normal = occs.filter((o) => o.task.type === 'normal');
+  const occs = occurrencesCovering(m, date);
+  const jab = occs.filter((o) => o.task.type === 'jab' && o.task.jabOn !== false);
+  const normal = occs.filter((o) => !jab.includes(o));
   if (!occs.length) {
-    return `<div class="empty-inline">
-      <p>${date === today() ? '오늘은 비어 있어요.' : fmtDateShort(date) + '에는 일정이 없어요.'}</p>
-      <button class="btn ghost sm" data-act="openAdd" data-date="${date}">${icon('plus')}이날에 올리기</button></div>`;
+    // 추가 버튼은 화면 오른쪽 아래 + 하나로 모았다 (여기서는 안내만)
+    return `<div class="empty-inline"><p>${date === today() ? '오늘은 비어 있어요.' : fmtDateShort(date) + '에는 일정이 없어요.'}</p><p class="hint">오른쪽 아래 + 로 올릴 수 있어요.</p></div>`;
   }
   let h = '';
   if (jab.length) h += `<h3 class="sec-label">${icon(scaleOf().icon)}${josa(persona().name, '이/가')} 맡은 일</h3><ul class="rows">${jab.map(rowOcc).join('')}</ul>`;
@@ -195,13 +205,12 @@ function viewOnboarding(m) {
     body = `<p class="assign">${icon('check')}${esc(m.nickname)} 님 전담으로 배정됐어요</p>
       <h1 class="onb-title">오늘부터 네 전담은<br>나, ${josa(persona().name, '이야/야')}.</h1>
       <p class="onb-body">${persona().intro.meetBody}</p>
-      <p class="onb-sub">어떤 모습으로 붙어 있을까? 나중에 바꿀 수 있어.</p>
-      ${costumeRow(m)}`;
+`;
   } else if (s === 2) {
     const S = scaleOf(m), sg = ui.onb.stage, st = S.stages[sg - 1];
     art = mascot(m, { ...mascotForStage(sg), label: `${persona().name}, ${st.name} 단계` });
     body = `<h1 class="onb-title">맡긴 일만 내가 관리해.</h1>
-      <p class="onb-body">일정을 올릴 때 <b>${persona().name}한테 맡기기</b>를 고르면 잡도리 일정이 돼. <b>그냥 적어두기</b>는 조용히 달력에만 남아.</p>
+      <p class="onb-body">일정을 올릴 때 종류를 <b>${persona().name} 잡도리</b>로 고르면 내가 붙어. <b>일반 일정</b>은 조용히 달력에만 남아.</p>
       <p class="onb-sub">${fillLine(S.onbIntro, { first: S.stages[0].name, last: S.stages[4].name })}</p>
       <div class="scale" role="radiogroup" aria-label="${S.title} 단계">${S.stages.map((x) => `<button role="radio" aria-checked="${x.id === sg}" class="scale-step ${x.id === sg ? 'on' : ''}" style="--hc:${heatVar(x.id)}" data-act="onbStage" data-s="${x.id}"><i></i><b>${x.name}</b><span>${lv(x.min)}~</span></button>`).join('')}</div>
       <p class="scale-desc"><b>${st.name}</b> · ${st.desc}<br><q>${persona().lines.sample[sg]}</q>${TTS.ok() ? `<button class="say-mini light" data-act="speakSample" data-s="${sg}" aria-label="${st.name} 단계 목소리 들어 보기">${icon('speaker')}</button>` : ''}</p>`;
@@ -305,12 +314,8 @@ function heatPips(h) {
 function speechHTML(line, cls = 'on-dark', stage = 0) {
   return `<div class="speech-wrap"><p class="speech ${cls}" data-tpl="${esc(line.id)}" data-stage="${stage}" aria-live="polite">${L('speech', line.text)}</p>${TTS.ok() ? `<button class="say-btn ${cls}" data-act="speak" aria-label="${persona().name} 말 소리로 듣기">${icon('speaker')}</button>` : ''}</div>`;
 }
-function personaMenu() {
-  if (!ui.menuOpen) return '';
-  const items = [['menuAdd', 'plus', '잡도리 일정 올리기'], ['menuHeat', 'sliders', scaleOf().title], ['openMonth', 'calendar', '월간 달력'], ['openCloset', 'shirt', '옷 갈아입기']];
-  const fresh = ui.menuFresh; ui.menuFresh = false; // 메뉴를 막 열었을 때만 펼치는 애니메이션
-  return `<div class="p-menu ${fresh ? 'fresh' : ''}" role="group" aria-label="${persona().name} 메뉴">${items.map(([a, ic, l]) => `<button class="p-menu-item" data-act="${a}">${icon(ic)}<span>${l}</span></button>`).join('')}</div>`;
-}
+/* 추가 버튼은 화면마다 하나: 오른쪽 아래 + (오늘·달력 화면) */
+function fabHTML(date) { return `<button class="fab" data-act="openAdd" data-date="${date}" aria-label="새 일정 올리기">${icon('plus')}</button>`; }
 function viewToday(m) {
   const td = today(), t = now();
   if (!ui.selDate) ui.selDate = td;
@@ -321,7 +326,7 @@ function viewToday(m) {
   if (p.tk) tk = ticketHTML(p.tk);
   else if (!m.tasks.length) tk = `<div class="ticket empty"><div class="tk-main"><p class="tk-label">맡긴 일 없음</p><h2 class="tk-title">미루고 있는 일 하나만 맡겨 주세요</h2><p class="tk-meta">시간을 정해 두면 ${josa(persona().name, '이/가')} 시작부터 마감까지 붙잡아요.</p><button class="btn primary" data-act="openAdd" data-date="${td}">${icon('plus')}할 일 맡기기</button></div></div>`;
   else if (p.next) tk = `<div class="ticket quiet"><div class="tk-main"><p class="tk-label">다음 잡도리</p><h2 class="tk-title">${esc(p.next.task.title)}</h2><p class="tk-meta">${icon('clock')}${fmtDateShort(p.next.date)} ${timeRange(p.next.task)}</p><button class="btn secondary" data-act="openTask" data-key="${p.next.key}">일정 보기</button></div></div>`;
-  else tk = `<div class="ticket quiet"><div class="tk-main"><p class="tk-label">오늘 몫 끝</p><h2 class="tk-title">새로 맡길 일이 생기면 올려 주세요</h2><button class="btn secondary" data-act="openAdd" data-date="${td}">${icon('plus')}올리기</button></div></div>`;
+  else tk = `<div class="ticket quiet"><div class="tk-main"><p class="tk-label">오늘 몫 끝</p><h2 class="tk-title">새로 맡길 일이 생기면 + 로 올려 주세요</h2></div></div>`;
   const S = scaleOf(m);
   // 큰 숫자 위 이름: 곧 시작 = 시작값 / 진행 중 = 지금 세기 / 맡은 일 없음 = 다음 일정의 최저 시작값
   const heatLabel = p.tk ? (p.tk.kind === 'upcoming' ? '시작 ' + S.short : S.title) : S.floor;
@@ -330,10 +335,9 @@ function viewToday(m) {
     <div class="stove-band">
       <header class="hdr on-dark">
         <div><h1 id="today-h" class="hdr-title">${fmtDateLong(td)}</h1><p class="hdr-sub">${L('clock', fmtHM(t))} · ${esc(m.nickname)} 님 전담 ${persona().name}</p></div>
-        <button class="btn ghost-light sm" data-act="openAdd" data-date="${sel}">${icon('plus')}올리기</button>
       </header>
       <div class="persona-row">
-        <button class="persona-mascot" data-act="mascotTap" aria-expanded="${!!ui.menuOpen}" aria-label="${persona().name} 메뉴 ${ui.menuOpen ? '닫기' : '열기'}">${mascot(m, { ...p.mc, label: `${persona().name}, ${EXPR_LABEL[p.mc.expr]}, ${lvs(p.heat)}` })}</button>
+        <button class="persona-mascot" data-act="mascotTap" aria-label="${persona().name} 쓰다듬기">${mascot(m, { ...p.mc, label: `${persona().name}, ${EXPR_LABEL[p.mc.expr]}, ${lvs(p.heat)}` })}</button>
         <div class="persona-temp">
           <p class="pt-label">${heatLabel}</p>
           ${degHTML(p.heat, 'heat', 'xl')}
@@ -341,13 +345,12 @@ function viewToday(m) {
           <p class="pt-stage">${stageChip(p.heat, true)}<span>${stageOf(p.heat).desc}</span></p>
         </div>
       </div>
-      ${personaMenu()}
       ${speechHTML(p.line, 'on-dark', p.stage)}
       ${tk}
     </div>
     <div class="paper">
-      <div class="sec-head"><h2 class="sec-title">이번 주</h2><button class="link-btn" data-act="openMonth" aria-label="월간 달력 펼치기">월간 보기${icon('down')}</button></div>
-      <div class="wk-swipe" data-swipe="month">${weekStrip(m, sel)}<p class="wk-hint" aria-hidden="true">${icon('down')}아래로 쓸면 월간 달력</p></div>
+      <div class="sec-head"><h2 class="sec-title">이번 주</h2><button class="link-btn" data-act="goCalendar" data-mode="month">달력에서 보기${icon('chevron')}</button></div>
+      ${weekStrip(m, sel)}
       <div class="sec-head mt"><h2 class="sec-title">${selTitle}</h2>${sel !== td ? `<button class="link-btn" data-act="selDate" data-date="${td}">오늘로</button>` : ''}</div>
       ${dayList(m, sel)}
       <button class="floor-note" data-act="openFloorInfo">${icon(S.icon)}<span>${S.floor} <b>${lv(f)}</b>${m.penalty ? ` · ${S.extra} ${m.penalty}${S.extraUnit}` : ''} · 실패하면 +${HEAT_POLICY.failStep}</span>${icon('chevron')}</button>
@@ -357,6 +360,15 @@ function viewToday(m) {
 }
 
 /* ---------- 달력 ---------- */
+/* ---------- 달력 (일·주·월) ----------
+   ui.calMode: 'day' | 'week' | 'month'  ·  ui.selDate: 고른 날짜(세 보기가 같이 씀)  ·  ui.calMonth: 월간에 보이는 달
+   ui.range: 월간 기간 선택 중 { a: 시작 날짜 | null }  ·  ui.slot: 일간 시간 선택 중 { date, from: 분 } */
+const HOUR_H = 44; // 일간 시간표 한 시간 높이(px)
+function monthChips(m, d) {
+  const occs = occurrencesCovering(m, d);
+  const show = occs.slice(0, 2).map((o) => `<span class="mo-chip c-${taskColor(o.task)} ${o.kind === 'done' ? 'done' : ''} ${o.kind === 'failed' ? 'bad' : ''} ${o.dayNo > 1 ? 'cont' : ''}">${o.dayNo > 1 ? '' : esc(o.task.title)}</span>`).join('');
+  return show + (occs.length > 2 ? `<span class="mo-more">+${occs.length - 2}</span>` : '');
+}
 function monthGridHTML(m, month, sel, act) {
   const td = today();
   const [y, mo] = month.split('-').map(Number);
@@ -364,55 +376,90 @@ function monthGridHTML(m, month, sel, act) {
   const start = weekStartOf(first);
   const lastDay = new Date(y, mo, 0).getDate();
   const cellsN = Math.ceil((daysBetween(start, first) + lastDay) / 7) * 7;
+  const R = ui.range;
   let cells = '';
   for (let i = 0; i < cellsN; i++) {
     const d = addDays(start, i), out = d.slice(0, 7) !== month;
     const dm = dayMarks(m, d);
-    cells += `<button class="mo-cell ${out ? 'out' : ''} ${d === sel ? 'sel' : ''} ${d === td ? 'today' : ''}" data-act="${act}" data-date="${d}" aria-pressed="${d === sel}" aria-label="${fmtDateLong(d)}${d === td ? ', 오늘' : ''}${dm.label ? ', ' + dm.label : ''}"><span class="mo-n">${parseYmd(d).getDate()}</span><span class="mo-m">${dm.mark}</span></button>`;
+    const inRange = R && R.a && d === R.a;
+    cells += `<button class="mo-cell ${out ? 'out' : ''} ${d === sel && !R ? 'sel' : ''} ${d === td ? 'today' : ''} ${inRange ? 'range-a' : ''} wd${i % 7}" data-act="${act}" data-date="${d}" aria-pressed="${d === sel}" aria-label="${fmtDateLong(d)}${d === td ? ', 오늘' : ''}${dm.label ? ', ' + dm.label : ''}"><span class="mo-n">${parseYmd(d).getDate()}</span><span class="mo-chips">${monthChips(m, d)}</span></button>`;
   }
-  return `<div class="mo-head" aria-hidden="true">${WEEK_ORDER.map((w) => `<span>${WD[w]}</span>`).join('')}</div><div class="mo-grid">${cells}</div>`;
+  return `<div class="mo-head" aria-hidden="true">${WEEK_ORDER.map((w, i) => `<span class="wd${i}">${WD[w]}</span>`).join('')}</div><div class="mo-grid">${cells}</div>`;
+}
+function weekAgendaHTML(m, sel) {
+  const td = today(), ws = weekStartOf(sel);
+  let days = '';
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(ws, i), occs = occurrencesCovering(m, d);
+    days += `<div class="ag-day ${d === sel ? 'sel' : ''} ${d === td ? 'today' : ''}">
+      <button class="ag-date wd${i}" data-act="calPick" data-date="${d}" aria-pressed="${d === sel}"><b>${WD[WEEK_ORDER[i]]}</b><span>${parseYmd(d).getDate()}</span></button>
+      <div class="ag-items">${occs.length ? `<ul class="rows tight">${occs.map(rowOcc).join('')}</ul>` : '<p class="ag-empty">비어 있음</p>'}</div>
+    </div>`;
+  }
+  return `<div class="agenda">${days}</div>`;
+}
+/* 일간 시간표: 맨 위 종일 줄 + 0~24시 칸. 빈 칸을 누르면 시작, 한 번 더 누르면 종료 → 등록 폼 */
+function dayGridHTML(m, d) {
+  const occs = occurrencesCovering(m, d);
+  const dayStart = at(d, '00:00'), dayEnd = dayStart + DAY;
+  const allDay = occs.filter((o) => o.task.allDay || (o.w.start <= dayStart && o.w.end >= dayEnd));
+  const timed = occs.filter((o) => !allDay.includes(o));
+  // 겹치는 일정은 옆으로 나눠 놓는다 (단순 열 배치)
+  const cols = [];
+  const placed = timed.map((o) => {
+    const s = Math.max(o.w.start, dayStart), e = Math.min(Math.max(o.w.end, s + 15 * MIN), dayEnd);
+    let c = cols.findIndex((end) => end <= s); if (c < 0) { c = cols.length; cols.push(0); } cols[c] = e;
+    return { o, s, e, c };
+  });
+  const nCol = Math.max(1, cols.length);
+  const blocks = placed.map(({ o, s, e, c }) => {
+    const top = (s - dayStart) / MIN / 60 * HOUR_H, h = Math.max(18, (e - s) / MIN / 60 * HOUR_H - 2);
+    return `<button class="tg-ev c-${taskColor(o.task)} ${o.kind === 'done' ? 'done' : ''}" style="top:${top}px;height:${h}px;left:calc(${(c / nCol) * 100}% + 2px);width:calc(${100 / nCol}% - 4px)" data-act="openTask" data-key="${o.key}"><b>${esc(o.task.title)}</b><span>${fmtHM(s)}–${fmtHM(e === dayEnd ? e - MIN : e)}</span></button>`;
+  }).join('');
+  const sl = ui.slot && ui.slot.date === d ? ui.slot : null;
+  let rows = '';
+  for (let h = 0; h < 24; h++) rows += `<button class="tg-slot ${sl && sl.from === h * 60 ? 'picked' : ''}" data-act="slotTap" data-date="${d}" data-min="${h * 60}" aria-label="${h}시에 일정 ${sl ? '끝내기' : '시작하기'}"><span class="tg-h">${pad(h)}:00</span></button>`;
+  const nowLine = d === today() ? `<i class="tg-now" style="top:${(now() - dayStart) / MIN / 60 * HOUR_H}px" aria-hidden="true"></i>` : '';
+  return `${allDay.length ? `<div class="tg-allday"><span class="tg-h">종일</span><div>${allDay.map((o) => `<button class="mo-chip c-${taskColor(o.task)}" data-act="openTask" data-key="${o.key}">${esc(o.task.title)}${o.days > 1 ? ` · ${o.dayNo}/${o.days}일` : ''}</button>`).join('')}</div></div>` : ''}
+    <p class="hint tg-tip">${sl ? `${pad(sl.from / 60)}:00 시작 · 끝낼 칸을 누르세요 (같은 칸 = 1시간)` : '빈 칸을 누르면 시작, 한 번 더 누르면 종료예요.'}</p>
+    <div class="tgrid" id="tgrid"><div class="tg-rows">${rows}</div><div class="tg-evs">${blocks}${nowLine}</div></div>`;
 }
 function viewCalendar(m) {
   const td = today();
   if (!ui.selDate) ui.selDate = td;
   const sel = ui.selDate;
   if (!ui.calMonth) ui.calMonth = sel.slice(0, 7);
-  if (!ui.calWeek) ui.calWeek = weekStartOf(sel);
   const mode = ui.calMode;
-  let nav, grid;
+  let title, body;
   if (mode === 'month') {
     const [y, mo] = ui.calMonth.split('-').map(Number);
-    nav = `<button class="icon-btn" data-act="calNav" data-delta="-1" aria-label="이전 달">${icon('prev')}</button><h2 class="cal-title">${y}년 ${mo}월</h2><button class="icon-btn" data-act="calNav" data-delta="1" aria-label="다음 달">${icon('next')}</button>`;
-    grid = `${monthGridHTML(m, ui.calMonth, sel, 'calPick')}
-      <div class="sec-head mt"><h2 class="sec-title">${fmtDateLong(sel)}</h2><button class="link-btn" data-act="openAdd" data-date="${sel}">${icon('plus')}이날에 올리기</button></div>
+    title = `${y}년 ${mo}월`;
+    const R = ui.range;
+    body = `${R ? `<div class="range-bar" role="status">${icon('calendar')}<span>${R.a ? `<b>${fmtMD(R.a)}</b> 시작 · 끝나는 날을 누르세요` : '시작하는 날을 누르세요'}</span><button class="link-btn" data-act="rangeCancel">취소</button></div>` : ''}
+      ${monthGridHTML(m, ui.calMonth, sel, R ? 'rangePick' : 'calPick')}
+      <div class="sec-head mt"><h2 class="sec-title">${fmtDateLong(sel)}</h2>${R ? '' : `<button class="link-btn" data-act="rangeStart">${icon('calendar')}기간 정해서 올리기</button>`}</div>
       ${dayList(m, sel)}`;
+  } else if (mode === 'week') {
+    const ws = weekStartOf(sel);
+    title = `${fmtMD(ws)} – ${fmtMD(addDays(ws, 6))}`;
+    body = weekAgendaHTML(m, sel);
   } else {
-    const ws = ui.calWeek, we = addDays(ws, 6); // 일요일 ~ 토요일
-    nav = `<button class="icon-btn" data-act="weekNav" data-delta="-1" aria-label="이전 주">${icon('prev')}</button><h2 class="cal-title">${fmtMD(ws)} – ${fmtMD(we)}</h2><button class="icon-btn" data-act="weekNav" data-delta="1" aria-label="다음 주">${icon('next')}</button>`;
-    let days = '';
-    for (let i = 0; i < 7; i++) {
-      const d = addDays(ws, i), occs = occurrencesOn(m, d);
-      days += `<div class="ag-day ${d === sel ? 'sel' : ''} ${d === td ? 'today' : ''}">
-        <button class="ag-date" data-act="calPick" data-date="${d}" aria-pressed="${d === sel}"><b>${WD[WEEK_ORDER[i]]}</b><span>${parseYmd(d).getDate()}</span></button>
-        <div class="ag-items">${occs.length ? `<ul class="rows tight">${occs.map(rowOcc).join('')}</ul>` : `<button class="ag-empty" data-act="openAdd" data-date="${d}">비어 있음 · 올리기</button>`}</div>
-      </div>`;
-    }
-    grid = `<div class="agenda">${days}</div>`;
+    title = fmtDateLong(sel);
+    body = dayGridHTML(m, sel);
   }
+  const navLabel = { day: '날', week: '주', month: '달' }[mode];
+  const isToday = mode === 'month' ? ui.calMonth === td.slice(0, 7) && sel === td : mode === 'week' ? weekStartOf(sel) === weekStartOf(td) && sel === td : sel === td;
   const html = `<section class="scr calendar" aria-labelledby="cal-h">
-    <header class="hdr"><div><h1 id="cal-h" class="hdr-title">달력</h1><p class="hdr-sub">날짜를 누르면 그날 일정이 보여요</p></div>
-      <button class="btn secondary sm" data-act="openAdd" data-date="${sel}">${icon('plus')}올리기</button></header>
+    <header class="hdr"><div><h1 id="cal-h" class="hdr-title">달력</h1><p class="hdr-sub">옆으로 쓸면 이전·다음 ${navLabel}로 넘어가요</p></div></header>
     <div class="paper">
       <div class="cal-bar">
-        <div class="seg" role="tablist" aria-label="달력 보기 방식">
-          <button role="tab" aria-selected="${mode === 'week'}" class="${mode === 'week' ? 'on' : ''}" data-act="calMode" data-v="week">주간</button>
-          <button role="tab" aria-selected="${mode === 'month'}" class="${mode === 'month' ? 'on' : ''}" data-act="calMode" data-v="month">월간</button>
+        <div class="seg three" role="tablist" aria-label="달력 보기 방식">
+          ${[['day', '일'], ['week', '주'], ['month', '월']].map(([v, l]) => `<button role="tab" aria-selected="${mode === v}" class="${mode === v ? 'on' : ''}" data-act="calMode" data-v="${v}">${l}</button>`).join('')}
         </div>
-        ${sel !== td || (mode === 'month' && ui.calMonth !== td.slice(0, 7)) || (mode === 'week' && ui.calWeek !== weekStartOf(td)) ? '<button class="link-btn" data-act="calToday">오늘로</button>' : ''}
+        <button class="btn secondary sm" data-act="calToday" ${isToday ? 'disabled' : ''}>오늘</button>
       </div>
-      <div class="cal-nav">${nav}</div>
-      ${grid}
-      <p class="legend"><span><span class="dm heat"></span>잡도리</span><span><span class="dm plain"></span>일반</span><span><span class="dm ok">${icon('check')}</span>완료</span><span><span class="dm bad">${icon('x')}</span>실패</span></p>
+      <div class="cal-nav"><button class="icon-btn" data-act="calNav" data-delta="-1" aria-label="이전 ${navLabel}">${icon('prev')}</button><h2 class="cal-title">${title}</h2><button class="icon-btn" data-act="calNav" data-delta="1" aria-label="다음 ${navLabel}">${icon('next')}</button></div>
+      <div class="cal-swipe" data-swipe="cal">${body}</div>
     </div>
   </section>`;
   return { id: 'calendar-' + mode, html };
@@ -577,7 +624,6 @@ function viewMe(m) {
       </ul>
       <button class="list-btn" data-act="openFloorInfo">${icon('info')}<span>${josa(S.floor, '은/는')} 어떻게 정해지나요?</span>${icon('chevron', 'muted')}</button>
       <h2 class="sec-label">${C.name}</h2>
-      <button class="list-btn closet-row" data-act="openCloset"><span class="closet-thumb">${mascot(m, { expr: 'happy', motion: 'none', shadow: false })}</span><span class="lb-text"><b>옷장 · ${(C.costumes()[m.costume] || C.costumes().basic).name}</b><small>${C.name}의 모습을 바꿔요. 표정과 반응은 그대로예요</small></span>${icon('chevron', 'muted')}</button>
       ${scaleModeBlock(m)}
       ${voiceSection()}
       ${NATIVE.on ? notifRow() : `<h2 class="sec-label">앱 설치</h2>

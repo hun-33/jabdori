@@ -93,7 +93,7 @@ function parseDateInput(raw, base) {
 const INPUT_SPEC = {
   date: { kind: 'date', title: '날짜 직접 입력', ph: '예) 12/3 · 12월 3일 · 내일', help: '연도를 안 쓰면 가장 가까운 날로 맞춰요. 지난 날짜면 내년으로 봐요.' },
   start: { kind: 'time', title: '시작 시각 직접 입력', ph: '예) 18:30 · 1830 · 오후 6시 반', help: '24시간제나 오전·오후 둘 다 돼요. 1분 단위로 정할 수 있어요.' },
-  end: { kind: 'time', title: '끝 시각 직접 입력', ph: '예) 20:00 · 90분 · 1시간 30분', help: '끝 시각이나 걸리는 시간(90분, 1시간 반)을 적어 주세요. 시작보다 이르면 다음 날로 봐요.' },
+  end: { kind: 'time', title: '종료 시각 직접 입력', ph: '예) 20:00 · 90분 · 1시간 30분', help: '종료 시각이나 걸리는 시간(90분, 1시간 반)을 적어 주세요. 같은 날 시작보다 이르면 다음 날로 봐요.' },
   dl: { kind: 'datetime', title: '마감 직접 입력', ph: '예) 12/3 20:00 · 20:00 · 내일 9시', help: '날짜만 적으면 시각은 그대로, 시각만 적으면 날짜는 그대로 둬요.' },
 };
 const INPUT_MAX_DAYS = 365;
@@ -123,20 +123,20 @@ function evalInput(target, raw) {
   if (target === 'start' || target === 'end') {
     if (target === 'end') {
       const du = parseDurationInput(raw);
-      if (du.ok) {
+      if (du.ok) { // 걸리는 시간으로 적으면 종료 = 시작 + 그 시간 (날짜를 넘기면 종료 날짜도 넘어간다)
         if (du.min < 5) return { ok: false, error: '5분 이상으로 적어 주세요.' };
-        if (du.min > 12 * 60) return { ok: false, error: '한 번에 12시간 넘게 잡을 수는 없어요. 나눠서 올려 주세요.' };
-        const endMin = (hmToMin(f.start) + du.min) % 1440;
-        return { ok: true, patch: { end: `${pad(Math.floor(endMin / 60))}:${pad(endMin % 60)}` }, label: `${du.min}분 동안` };
+        if (du.min > 31 * 1440) return { ok: false, error: '한 일정은 32일까지 이어질 수 있어요.' };
+        const e = at(f.date, f.start) + du.min * MIN;
+        return { ok: true, patch: { end: fmtHM(e), endDate: ymd(e) }, label: `${fmtDur(du.min)} 동안` };
       }
     }
     const r = parseTimeInput(raw);
     if (!r.ok) return r;
     if (target === 'end') {
-      if (r.hm === f.start) return { ok: false, error: '끝 시각이 시작 시각과 같아요.' };
-      let d = hmToMin(r.hm) - hmToMin(f.start); if (d <= 0) d += 1440;
-      if (d > 12 * 60) return { ok: false, error: `시작 ${f.start}부터 ${r.hm}까지는 12시간이 넘어요. 시각을 다시 확인해 주세요.` };
-      return { ok: true, patch: { end: r.hm }, label: r.hm };
+      // 시각만 적으면 종료 날짜는 그대로. 같은 날인데 시작보다 이르면 다음 날로 본다
+      if (f.endDate === f.date && r.hm === f.start) return { ok: false, error: '종료 시각이 시작 시각과 같아요.' };
+      const endDate = f.endDate === f.date && hmToMin(r.hm) < hmToMin(f.start) ? addDays(f.date, 1) : f.endDate;
+      return { ok: true, patch: { end: r.hm, endDate }, label: endDate !== f.date ? `${fmtMD(endDate)} ${r.hm}` : r.hm };
     }
     return { ok: true, patch: { start: r.hm }, label: r.hm };
   }
@@ -214,14 +214,15 @@ Object.assign(ACT, {
     const field = $('#in-field'); if (field) st.value = field.value;
     const r = evalInput(st.target, st.value);
     if (!r.ok) { st.error = r.error; st.preview = ''; render(); return; }
+    const span = daysBetween(ui.form.date, ui.form.endDate); // 시작 날짜를 바꾸면 종료 날짜도 같은 간격으로 따라간다
     Object.assign(ui.form, r.patch);
     const f = ui.form;
     if (r.patch.date) {
+      f.endDate = addDays(f.date, Math.max(0, span));
       if (f.repeatKind === 'weekly' && f.days.length === 1) f.days = [weekday(f.date)];
       if (!f._dlTouched || f.dlDate < f.date) f.dlDate = f.date;
       delete f.errors.date;
     }
-    if (r.patch.end) f.durMode = 'custom';
     if (r.patch.start || r.patch.end) delete f.errors.time;
     if (r.patch.dlDate) delete f.errors.deadline;
     const tg = st.target;

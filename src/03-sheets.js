@@ -55,9 +55,10 @@ function viewTaskSheet(m, key) {
   const h = jab ? heatOf(st).total : null;
   const run = st.run;
   const facts = [
-    ['날짜', fmtDateLong(d)],
-    ['시간', `${timeRange(task)} (${fmtDur(task.duration)})`],
+    ['날짜', spanDays(task) ? `${fmtDateShort(d)} – ${fmtDateShort(addDays(d, spanDays(task)))}` : fmtDateLong(d)],
+    ['시간', task.allDay ? '종일' : `${timeRange(task)} (${fmtDur(durOf(task))})`],
     ['반복', repeatText(task)],
+    ...(task.memo ? [['메모', esc(task.memo)]] : []),
   ];
   if (jab) {
     facts.push(['마감', st.w.deadline ? `${fmtDateShort(ymd(st.w.deadline))} ${fmtHM(st.w.deadline)}` : '마감 없음']);
@@ -236,49 +237,61 @@ function viewSlackPopup(m) {
 
 /* ---------- 일정 등록·수정 폼 (FN02) — 기획안 v5 '상단 추가 화면' ---------- */
 // 순서: 종류 → 이름 → 반복 주기(주/일) → 날짜 → 수행 시간(스크롤) → 잡도리 강도 → 데드라인(최하단)
-function newDraft(m, date, type = 'jab') {
+/* ---------- 일정 입력 초안 ----------
+   한 폼으로 빠른 등록(제목·종류·시작·종료)과 상세 설정(반복·알림·색상·메모·강도·마감)을 같이 다룬다.
+   f.more = 상세 설정 펼침, f.pick = 지금 열린 날짜·시간 선택기('start' | 'end' | 'dl' | null) */
+const COLORS = [['coral', '산호'], ['sun', '노랑'], ['mint', '민트'], ['sky', '하늘'], ['lilac', '라일락'], ['stone', '회색']];
+const ALARMS = [[0, '정각'], [5, '5분 전'], [10, '10분 전'], [30, '30분 전'], [60, '1시간 전'], [1440, '하루 전']];
+function newDraft(m, date, type = 'jab', range) {
   const f = floorOf(m);
   const d = date && date >= today() ? date : today();
+  const r = range || {};
   return {
-    id: null, type, title: '', date: d,
+    id: null, type, title: '', date: d, start: r.start || '18:00', endDate: r.endDate || d, end: r.end || '20:00', allDay: false,
     repeatKind: 'none', days: [weekday(d)], every: 1,
-    start: '18:00', durMode: 120, end: '20:00',
-    heat: f, minHeat: sliderMinFor(m),
-    dlOn: false, dlDate: d, dlTime: '20:00',
-    errors: {},
+    heat: f, minHeat: sliderMinFor(m), jabOn: true,
+    dlMode: 'off', dlDate: d, dlTime: '20:00',
+    alarms: [], color: type === 'jab' ? 'coral' : 'sky', memo: '',
+    more: false, pick: null, errors: {},
   };
 }
 function draftFromTask(m, t) {
-  const kind = t.repeat.kind === 'daily' ? 'interval' : t.repeat.kind;
+  const kind = t.repeat.kind === 'interval' ? 'daily' : t.repeat.kind;
+  const dl = t.deadline && t.deadline.enabled ? (t.deadline.sameAsEnd ? 'end' : 'custom') : 'off';
   return {
     id: t.id, type: t.type, title: t.title, date: t.date, origDate: t.date,
-    repeatKind: kind, days: t.repeat.days ? [...t.repeat.days] : [weekday(t.date)], every: t.repeat.kind === 'daily' ? 1 : t.repeat.every || 1,
-    start: t.start, durMode: [30, 60, 90, 120].includes(t.duration) ? t.duration : 'custom', end: minToHm(hmToMin(t.start) + t.duration),
-    heat: t.heat ?? floorOf(m), minHeat: sliderMinFor(m, t.type === 'jab' ? t : null),
-    dlOn: !!(t.deadline && t.deadline.enabled), dlDate: t.deadline ? t.deadline.date : t.date, dlTime: t.deadline ? t.deadline.time : '20:00',
-    errors: {},
+    start: t.start, endDate: t.endDate || t.date, end: t.end || minToHm(hmToMin(t.start) + durOf(t)), allDay: !!t.allDay,
+    repeatKind: kind, days: t.repeat.days ? [...t.repeat.days] : [weekday(t.date)], every: t.repeat.every || 1,
+    heat: t.heat ?? floorOf(m), minHeat: sliderMinFor(m, t.type === 'jab' ? t : null), jabOn: t.jabOn !== false,
+    dlMode: dl, dlDate: t.deadline ? t.deadline.date : t.date, dlTime: t.deadline ? t.deadline.time : '20:00',
+    alarms: [...(t.alarms || [])], color: t.color || (t.type === 'jab' ? 'coral' : 'sky'), memo: t.memo || '',
+    more: true, pick: null, errors: {},
   };
 }
-function draftDuration(f) {
-  if (f.durMode !== 'custom') return f.durMode;
-  let d = hmToMin(f.end) - hmToMin(f.start);
-  if (d <= 0) d += 1440; // 다음 날로 넘어감
-  return d;
-}
+/* 초안의 시작·종료 시각(ms)과 걸리는 시간(분) */
+function draftStartMs(f) { return at(f.date, f.allDay ? '00:00' : f.start); }
+function draftEndMs(f) { return f.allDay ? at(addDays(f.endDate, 1), '00:00') : at(f.endDate, f.end); }
+function draftDuration(f) { return Math.round((draftEndMs(f) - draftStartMs(f)) / MIN); }
 function draftSummary(f) {
+  const days = daysBetween(f.date, f.endDate) + 1;
+  if (f.allDay) return days > 1 ? `종일 · ${days}일 동안` : '종일';
   const d = draftDuration(f);
-  const endMin = hmToMin(f.start) + d;
-  return `${f.start} – ${minToHm(endMin)} · ${fmtDur(d)}${endMin >= 1440 ? ' (다음 날 끝나요)' : ''}`;
+  if (d <= 0) return '종료가 시작보다 앞이에요';
+  return days > 1 ? `${fmtDur(d)} · ${days}일에 걸친 일정` : fmtDur(d);
 }
+/* 마감: 'off' 없음 | 'end' 종료 일시가 곧 마감 | 'custom' 따로 정함 */
+function draftDeadlineMs(f) { return f.dlMode === 'end' ? draftEndMs(f) : f.dlMode === 'custom' ? at(f.dlDate, f.dlTime) : null; }
 function draftDeadlineHint(f) {
-  if (!f.dlOn) return f.type === 'jab' ? '마감이 없으면 예정 종료 시각까지 강도가 천천히 올라요.' : '';
-  const start = at(f.date, f.start), end = start + draftDuration(f) * MIN, dl = at(f.dlDate, f.dlTime);
+  if (f.type !== 'jab') return '';
+  if (f.dlMode === 'off') return '마감이 없으면 종료 시각까지 천천히 부풀어요.';
+  const start = draftStartMs(f), dl = draftDeadlineMs(f);
   if (dl <= start) return '';
-  let s = `시작하고 ${fmtDur((dl - start) / MIN)} 뒤가 마감이에요.`;
-  if (dl < end) s += ` 예정 종료(${fmtHM(end)})보다 빨라요.`;
+  let s = f.dlMode === 'end' ? `종료 시각(${fmtHM(dl)})이 마감이에요.` : `시작하고 ${fmtDur((dl - start) / MIN)} 뒤가 마감이에요.`;
   if (f.repeatKind !== 'none') s += ' 반복 회차마다 같은 간격으로 적용돼요.';
   return s;
 }
+/* 화면에 보일 날짜·시간 문구 */
+function whenText(dateStr, hm, allDay) { return allDay ? fmtDateShort(dateStr) : `${fmtDateShort(dateStr)} ${hm}`; }
 function heatPreview(h) {
   const s = stageOf(h);
   return `<div class="hp-mascot">${mascot(member(), { ...mascotForStage(s.id), label: `${persona().name} ${s.name} 단계` })}</div>
@@ -316,143 +329,134 @@ function timeWheels(prefix, hm, label) {
 function subLabel(text, target) {
   return `<div class="sub-row"><p class="sub-label">${text}</p><button class="in-link" data-act="wheelInput" data-target="${target}" aria-label="${text} 직접 입력">${icon('edit')}직접 입력</button></div>`;
 }
-
+/* 시작·종료·마감 한 줄: 누르면 그 아래에 날짜·시간 선택기가 열린다 */
+function whenRow(f, key, label, dateStr, hm) {
+  const open = f.pick === key;
+  return `<button class="when-row ${open ? 'open' : ''}" data-act="formPick" data-v="${key}" aria-expanded="${open}"><span class="wr-label">${label}</span><span class="wr-date">${fmtDateShort(dateStr)}</span>${f.allDay && key !== 'dl' ? '' : `<span class="wr-time">${hm}</span>`}</button>`;
+}
+function pickerFor(f, key) {
+  if (f.pick !== key) return '';
+  const td = today();
+  if (key === 'start') {
+    const from = f.id && f.date < td ? f.date : td;
+    return `<div class="picker"><div class="sub-row"><p class="sub-label">시작 날짜·시각</p><span class="in-links"><button class="in-link" data-act="wheelInput" data-target="date" aria-label="시작 날짜 직접 입력">${icon('edit')}날짜</button>${f.allDay ? '' : `<button class="in-link" data-act="wheelInput" data-target="start" aria-label="시작 시각 직접 입력">${icon('edit')}시각</button>`}</span></div><div class="wheels ${f.allDay ? 'one' : 'dl'}" role="group" aria-label="시작 날짜와 시각">${wheelCol('date', dateItems(from, Math.max(366, daysBetween(from, f.date) + 30), td), f.date, '시작 날짜')}${f.allDay ? '' : wheelCol('start-h', HOURS, splitHM(f.start)[0], '시작 시', '시') + wheelCol('start-m', minsWith(splitHM(f.start)[1]), splitHM(f.start)[1], '시작 분', '분')}</div></div>`;
+  }
+  if (key === 'end') {
+    return `<div class="picker">${f.allDay ? '<p class="sub-label">종료 날짜</p>' : subLabel('종료 날짜·시각', 'end')}<div class="wheels ${f.allDay ? 'one' : 'dl'}" role="group" aria-label="종료 날짜와 시각">${wheelCol('end-date', dateItems(f.date, Math.max(32, daysBetween(f.date, f.endDate) + 15), td), f.endDate, '종료 날짜')}${f.allDay ? '' : wheelCol('end-h', HOURS, splitHM(f.end)[0], '종료 시', '시') + wheelCol('end-m', minsWith(splitHM(f.end)[1]), splitHM(f.end)[1], '종료 분', '분')}</div>
+      <div class="chips quick-dur" role="group" aria-label="걸리는 시간으로 종료 정하기">${[[30, '30분'], [60, '1시간'], [120, '2시간'], [180, '3시간']].map(([v, l]) => `<button class="chip" data-act="formDur" data-v="${v}">${l}</button>`).join('')}</div></div>`;
+  }
+  return `<div class="picker">${subLabel('마감 날짜·시각', 'dl')}<div class="wheels dl" role="group" aria-label="마감 날짜와 시각">${wheelCol('dl-date', dateItems(f.date, f.repeatKind !== 'none' ? 7 : Math.max(61, daysBetween(f.date, f.dlDate) + 15), td), f.dlDate, '마감 날짜')}${wheelCol('dl-h', HOURS, splitHM(f.dlTime)[0], '마감 시', '시')}${wheelCol('dl-m', minsWith(splitHM(f.dlTime)[1]), splitHM(f.dlTime)[1], '마감 분', '분')}</div></div>`;
+}
 function viewForm(m) {
   const f = ui.form;
   const jab = f.type === 'jab';
   const td = today();
-  const durOpts = [[30, '30분'], [60, '1시간'], [90, '1시간 30분'], [120, '2시간'], ['custom', '직접']];
-  const rk = [['none', '반복 안 함'], ['weekly', '주 단위'], ['interval', '일 단위']];
   const minH = f.minHeat;
   const floor = floorOf(m);
-  const dateFrom = f.id && f.date < td ? f.date : td;
   const S = scaleOf(m);
-  const tip = jab ? `잡도리할 일이면 ${S.short}${jo(S.short, '와/과')} 마감까지 정해 줘. 마감 ${HEAT_POLICY.urgentWindow}분 전부터 내가 더 세게 말할게.` : '그냥 적어 두는 일은 내가 잔소리 안 해. 달력에만 남아.';
+  const P = persona();
+  const rk = [['none', '안 함'], ['daily', '매일'], ['weekly', '매주'], ['monthly', '매월'], ['yearly', '매년']];
+  const unit = { daily: '일', weekly: '주', monthly: '달', yearly: '년' }[f.repeatKind];
+  const repeatSub = f.repeatKind === 'none' ? '' : `
+        <div class="stepper" role="group" aria-label="반복 간격"><button class="icon-btn" data-act="formEvery" data-delta="-1" aria-label="간격 줄이기" ${f.every <= 1 ? 'disabled' : ''}>−</button><b aria-live="polite">${f.every === 1 ? rk.find((x) => x[0] === f.repeatKind)[1] : f.every + unit + '마다'}</b><button class="icon-btn" data-act="formEvery" data-delta="1" aria-label="간격 늘리기" ${f.every >= 30 ? 'disabled' : ''}>+</button></div>
+        ${f.repeatKind === 'weekly' ? `<p class="sub-label">반복할 요일</p><div class="days" role="group" aria-label="반복할 요일">${WEEK_ORDER.map((d) => `<button class="day ${f.days.includes(d) ? 'on' : ''}" aria-pressed="${f.days.includes(d)}" data-act="formDay" data-d="${d}">${WD[d]}</button>`).join('')}</div>${fieldErr(f, 'days')}` : ''}
+        <p class="hint" id="rep-hint">${fmtMD(f.date)}부터 ${repeatText({ date: f.date, repeat: { kind: f.repeatKind, every: f.every, days: f.days } })} 반복해요.</p>`;
   const heatSec = jab ? `
-    <section class="f-sec" aria-labelledby="lb-heat" id="sec-heat">
-      <div class="f-row-head"><h3 id="lb-heat" class="f-label">${S.title}</h3><span class="f-aside">${m.penalty ? `${icon('lock')}${S.floor} ${lv(floor)}` : `기본 ${lv(floor)}`}</span></div>
-      <div class="heat-pick">
-        <div class="heat-preview" id="heat-preview">${heatPreview(f.heat)}</div>
-        <div class="slider-wrap" style="--min:${minH}">
-          <div class="slider-track" aria-hidden="true">${S.stages.map((s, i, a) => `<i style="--hc:${heatVar(s.id)};left:${s.min}%;width:${(a[i + 1] ? a[i + 1].min : 100) - s.min}%"></i>`).join('')}<b class="slider-lock" style="width:${minH}%"></b></div>
-          <input type="range" id="f-heat" class="slider" min="0" max="100" step="5" value="${f.heat}" data-field="heat" aria-label="잡도리 시작 ${S.short} (${S.title})" aria-valuetext="${lvs(f.heat)}, ${stageOf(f.heat).name}">
-          <div class="slider-scale" aria-hidden="true">${S.stages.map((s) => `<span style="left:${s.min}%">${s.name}</span>`).join('')}</div>
+      <section class="f-sec" aria-labelledby="lb-heat" id="sec-heat">
+        <div class="f-row-head"><h3 id="lb-heat" class="f-label">${S.title}</h3><span class="f-aside">${m.penalty ? `${icon('lock')}${S.floor} ${lv(floor)}` : `기본 ${lv(floor)}`}</span></div>
+        <div class="heat-pick">
+          <div class="heat-preview" id="heat-preview">${heatPreview(f.heat)}</div>
+          <div class="slider-wrap" style="--min:${minH}">
+            <div class="slider-track" aria-hidden="true">${S.stages.map((s, i, a) => `<i style="--hc:${heatVar(s.id)};left:${s.min}%;width:${(a[i + 1] ? a[i + 1].min : 100) - s.min}%"></i>`).join('')}<b class="slider-lock" style="width:${minH}%"></b></div>
+            <input type="range" id="f-heat" class="slider" min="0" max="100" step="5" value="${f.heat}" data-field="heat" aria-label="잡도리 시작 ${S.short} (${S.title})" aria-valuetext="${lvs(f.heat)}, ${stageOf(f.heat).name}">
+            <div class="slider-scale" aria-hidden="true">${S.stages.map((s) => `<span style="left:${s.min}%">${s.name}</span>`).join('')}</div>
+          </div>
         </div>
-      </div>
-      ${m.penalty && !f.id ? `<p class="compare">${icon(S.icon)}<span>지난 실패로 ${josa(S.floor, '이/가')} <b>${lv(m.initialHeat)} → ${lv(floor)}</b>${jo(lv(floor), '으로/로')} 올랐어요. 이 일정은 ${lvs(floor)} 아래로 못 내려요.</span></p>` : `<p class="hint">${minH > HEAT_POLICY.sliderMin ? `${lvs(minH)} 아래로는 내릴 수 없어요.` : `${lvs(HEAT_POLICY.sliderMin)}부터 고를 수 있어요. 실패하면 다음 일정부터 ${josa(S.floor, '이/가')} 올라가요.`}</p>`}
-    </section>
-    <section class="f-sec" aria-labelledby="lb-dl">
-      <h3 id="lb-dl" class="f-label">데드라인</h3>
-      <div class="seg wide" role="radiogroup" aria-labelledby="lb-dl">
-        <button role="radio" aria-checked="${!f.dlOn}" class="${!f.dlOn ? 'on' : ''}" data-act="formDl" data-v="off">마감 없음</button>
-        <button role="radio" aria-checked="${f.dlOn}" class="${f.dlOn ? 'on' : ''}" data-act="formDl" data-v="on">마감 있음</button>
-      </div>
-      ${f.dlOn ? `${subLabel('마감 월·일·시·분', 'dl')}
-        <div class="wheels dl" role="group" aria-label="마감 날짜와 시각">${wheelCol('dl-date', dateItems(f.date, f.repeatKind !== 'none' ? 7 : Math.max(61, daysBetween(f.date, f.dlDate) + 15), td), f.dlDate, '마감 날짜')}${wheelCol('dl-h', HOURS, splitHM(f.dlTime)[0], '마감 시', '시')}${wheelCol('dl-m', minsWith(splitHM(f.dlTime)[1]), splitHM(f.dlTime)[1], '마감 분', '분')}</div>
-        <button class="link-btn" data-act="formFitDeadline">${icon('clock')}끝나는 시간을 마감에 맞추기</button>` : ''}
-      ${fieldErr(f, 'deadline')}
-      <p class="hint" id="dl-hint">${draftDeadlineHint(f)}</p>
-    </section>` : '';
-  const repeatSub = f.repeatKind === 'weekly'
-    ? `<p class="sub-label">반복할 요일</p><div class="days" role="group" aria-label="반복할 요일">${WEEK_ORDER.map((d) => `<button class="day ${f.days.includes(d) ? 'on' : ''}" aria-pressed="${f.days.includes(d)}" data-act="formDay" data-d="${d}">${WD[d]}</button>`).join('')}</div>${fieldErr(f, 'days')}`
-    : f.repeatKind === 'interval'
-      ? `<p class="sub-label">반복 간격</p><div class="stepper" role="group" aria-label="반복 간격"><button class="icon-btn" data-act="formEvery" data-delta="-1" aria-label="하루 줄이기" ${f.every <= 1 ? 'disabled' : ''}>−</button><b aria-live="polite">${f.every === 1 ? '매일' : f.every + '일마다'}</b><button class="icon-btn" data-act="formEvery" data-delta="1" aria-label="하루 늘리기" ${f.every >= 30 ? 'disabled' : ''}>+</button></div>`
-      : '';
-  return sheetWrap(`<div class="sheet-head"><div><h2 id="sheet-title" class="sheet-title">${f.id ? '일정 고치기' : '새 일정 올리기'}</h2></div><button class="icon-btn" data-act="formClose" aria-label="닫기">${icon('close')}</button></div>
-    <div class="sheet-body form-body">
-      <div class="form-tip"><span class="tip-mascot">${mascot(m, { expr: 'focus', pose: 'check', motion: 'check', shadow: false })}</span><p>${tip}</p></div>
-      <section class="f-sec" aria-labelledby="lb-type">
-        <h3 id="lb-type" class="f-label">어떻게 관리할까요?</h3>
-        <div class="type-pick" role="radiogroup" aria-labelledby="lb-type">
-          <button role="radio" aria-checked="${jab}" class="type-opt ${jab ? 'on' : ''}" data-act="formType" data-v="jab" ${f.id ? 'disabled' : ''}>${icon(scaleOf().icon)}<b>${persona().name}한테 맡기기</b><span>잡도리 일정 · 시간 맞춰 붙잡아요</span></button>
-          <button role="radio" aria-checked="${!jab}" class="type-opt ${!jab ? 'on' : ''}" data-act="formType" data-v="normal" ${f.id ? 'disabled' : ''}>${icon('edit')}<b>그냥 적어두기</b><span>일반 일정 · 달력에만 남아요</span></button>
+        ${m.penalty && !f.id ? `<p class="compare">${icon(S.icon)}<span>지난 실패로 ${josa(S.floor, '이/가')} <b>${lv(m.initialHeat)} → ${lv(floor)}</b>${jo(lv(floor), '으로/로')} 올랐어요. 이 일정은 ${lvs(floor)} 아래로 못 내려요.</span></p>` : `<p class="hint">${minH > HEAT_POLICY.sliderMin ? `${lvs(minH)} 아래로는 내릴 수 없어요.` : `${lvs(HEAT_POLICY.sliderMin)}부터 고를 수 있어요. 실패하면 다음 일정부터 ${josa(S.floor, '이/가')} 올라가요.`}</p>`}
+      </section>
+      <section class="f-sec" aria-labelledby="lb-dl">
+        <h3 id="lb-dl" class="f-label">마감</h3>
+        <div class="seg wide three" role="radiogroup" aria-labelledby="lb-dl">
+          ${[['off', '마감 없음'], ['end', '종료 = 마감'], ['custom', '따로 정하기']].map(([v, l]) => `<button role="radio" aria-checked="${f.dlMode === v}" class="${f.dlMode === v ? 'on' : ''}" data-act="formDl" data-v="${v}">${l}</button>`).join('')}
         </div>
-        ${f.id ? '<p class="hint">일정 종류는 올린 뒤에는 바꿀 수 없어요.</p>' : ''}
+        ${f.dlMode === 'custom' ? whenRow(f, 'dl', '마감', f.dlDate, f.dlTime) + pickerFor(f, 'dl') : ''}
+        ${fieldErr(f, 'deadline')}
+        <p class="hint" id="dl-hint">${draftDeadlineHint(f)}</p>
+      </section>
+      ${f.id ? `<section class="f-sec"><div class="f-row-head"><h3 class="f-label">잡도리 켜기</h3><button class="switch ${f.jabOn ? 'on' : ''}" role="switch" aria-checked="${f.jabOn}" aria-label="잡도리 켜기" data-act="formJabOn"><i></i></button></div><p class="hint">끄면 설정은 그대로 두고 일반 일정처럼 조용히 달력에만 남아요.</p></section>` : ''}` : '';
+  const more = f.more ? `
+      <section class="f-sec" aria-labelledby="lb-rep">
+        <h3 id="lb-rep" class="f-label">반복</h3>
+        <div class="chips" role="radiogroup" aria-labelledby="lb-rep">${rk.map(([v, l]) => `<button role="radio" aria-checked="${f.repeatKind === v}" class="chip ${f.repeatKind === v ? 'on' : ''}" data-act="formRepeat" data-v="${v}">${l}</button>`).join('')}</div>
+        ${repeatSub}
+      </section>
+      <section class="f-sec" aria-labelledby="lb-alarm">
+        <h3 id="lb-alarm" class="f-label">알림</h3>
+        <div class="chips" role="group" aria-labelledby="lb-alarm">${ALARMS.map(([v, l]) => `<button class="chip ${f.alarms.includes(v) ? 'on' : ''}" aria-pressed="${f.alarms.includes(v)}" data-act="formAlarm" data-v="${v}">${l}</button>`).join('')}</div>
+        <p class="hint">${f.alarms.length ? '시작 ' + [...f.alarms].sort((a, b) => b - a).map((v) => ALARMS.find((x) => x[0] === v)[1]).join(', ') + '에 알려요.' : '따로 알리지 않아요.'}${jab ? ' 잡도리 일정은 시작·마감 때 미루먼지가 따로 불러요.' : ''}</p>
+      </section>
+      <section class="f-sec" aria-labelledby="lb-color">
+        <h3 id="lb-color" class="f-label">색상</h3>
+        <div class="swatches" role="radiogroup" aria-labelledby="lb-color">${COLORS.map(([v, l]) => `<button role="radio" aria-checked="${f.color === v}" class="sw c-${v} ${f.color === v ? 'on' : ''}" data-act="formColor" data-v="${v}" aria-label="${l}">${f.color === v ? icon('check') : ''}</button>`).join('')}</div>
       </section>
       <section class="f-sec">
-        <div class="f-row-head"><label for="f-title" class="f-label">일정 이름</label><span class="f-aside" id="title-count">${f.title.length}/30</span></div>
+        <label for="f-memo" class="f-label">메모</label>
+        <textarea id="f-memo" class="txt memo" data-field="memo" maxlength="200" rows="2" placeholder="필요한 것만 짧게">${esc(f.memo)}</textarea>
+      </section>
+      ${heatSec}` : '';
+  return sheetWrap(`<div class="sheet-head"><div><h2 id="sheet-title" class="sheet-title">${f.id ? '일정 고치기' : '새 일정'}</h2></div><button class="icon-btn" data-act="formClose" aria-label="닫기">${icon('close')}</button></div>
+    <div class="sheet-body form-body">
+      <section class="f-sec">
+        <div class="f-row-head"><label for="f-title" class="f-label">제목</label><span class="f-aside" id="title-count">${f.title.length}/30</span></div>
         <input id="f-title" class="txt" data-field="title" maxlength="30" autocomplete="off" placeholder="예: 데이터베이스 과제" value="${esc(f.title)}" ${f.errors.title ? 'aria-invalid="true" aria-describedby="err-title"' : ''}>
         ${fieldErr(f, 'title')}
       </section>
-      <section class="f-sec" aria-labelledby="lb-rep">
-        <h3 id="lb-rep" class="f-label">반복 주기</h3>
-        <div class="chips" role="radiogroup" aria-labelledby="lb-rep">${rk.map(([v, l]) => `<button role="radio" aria-checked="${f.repeatKind === v}" class="chip ${f.repeatKind === v ? 'on' : ''}" data-act="formRepeat" data-v="${v}">${l}</button>`).join('')}</div>
-        ${repeatSub}
-        ${subLabel(f.repeatKind === 'none' ? '날짜' : '시작 날짜', 'date')}
-        <div class="wheels one" role="group" aria-label="날짜">${wheelCol('date', dateItems(dateFrom, Math.max(91, daysBetween(dateFrom, f.date) + 30), td), f.date, '날짜')}</div>
-        ${fieldErr(f, 'date')}
-        <p class="hint" id="rep-hint">${f.repeatKind === 'weekly' ? `${fmtMD(f.date)}부터 매주 ${f.days.length ? [...f.days].sort((a, b) => dayRank(a) - dayRank(b)).map((x) => WD[x]).join('·') + '요일' : '(요일을 골라 주세요)'}에 반복해요.` : f.repeatKind === 'interval' ? `${fmtMD(f.date)}부터 ${f.every === 1 ? '매일' : f.every + '일마다'} 반복해요.` : ''}</p>
+      <section class="f-sec" aria-labelledby="lb-type">
+        <h3 id="lb-type" class="f-label">종류</h3>
+        <div class="seg wide" role="radiogroup" aria-labelledby="lb-type">
+          <button role="radio" aria-checked="${jab}" class="${jab ? 'on' : ''}" data-act="formType" data-v="jab" ${f.id ? 'disabled' : ''}>${P.name} 잡도리</button>
+          <button role="radio" aria-checked="${!jab}" class="${!jab ? 'on' : ''}" data-act="formType" data-v="normal" ${f.id ? 'disabled' : ''}>일반 일정</button>
+        </div>
+        <p class="hint">${f.id ? '종류는 올린 뒤에는 바꿀 수 없어요. 잡도리는 아래에서 끌 수 있어요.' : jab ? `시작부터 마감까지 ${P.name}${jo(P.name, '이/가')} 붙어서 잔소리해요.` : '달력에만 조용히 남아요.'}</p>
       </section>
-      <section class="f-sec" aria-labelledby="lb-time">
-        <h3 id="lb-time" class="f-label">수행 시간</h3>
-        ${subLabel('시작 시각', 'start')}
-        ${timeWheels('start', f.start, '시작')}
-        <p class="sub-label">걸리는 시간</p>
-        <div class="chips" role="radiogroup" aria-label="걸리는 시간">${durOpts.map(([v, l]) => `<button role="radio" aria-checked="${f.durMode === v}" class="chip ${f.durMode === v ? 'on' : ''}" data-act="formDur" data-v="${v}">${l}</button>`).join('')}</div>
-        ${f.durMode === 'custom' ? `${subLabel('끝 시각', 'end')}${timeWheels('end', f.end, '끝')}` : ''}
+      <section class="f-sec when" aria-labelledby="lb-time">
+        <div class="f-row-head"><h3 id="lb-time" class="f-label">시간</h3>
+          <span class="allday"><span>종일</span><button class="switch sm ${f.allDay ? 'on' : ''}" role="switch" aria-checked="${f.allDay}" aria-label="종일 일정" data-act="formAllDay" ${jab ? 'disabled' : ''}><i></i></button></span></div>
+        ${whenRow(f, 'start', '시작', f.date, f.start)}${pickerFor(f, 'start')}
+        ${whenRow(f, 'end', '종료', f.endDate, f.end)}${pickerFor(f, 'end')}
         <p class="summary" id="time-summary">${icon('clock')}<span>${draftSummary(f)}</span></p>
-        ${fieldErr(f, 'time')}
-        <p class="hint" id="start-hint">${f.date === td && at(f.date, f.start) < now() ? '시작 시각이 이미 지났어요. 올리면 바로 잡도리가 시작돼요.' : ''}</p>
+        ${fieldErr(f, 'date')}${fieldErr(f, 'time')}
+        <p class="hint" id="start-hint">${jab ? (f.date === td && !f.allDay && at(f.date, f.start) < now() ? '시작 시각이 이미 지났어요. 올리면 바로 잡도리가 시작돼요.' : '') : ''}${jab ? (f.allDay ? '' : '') : ''}</p>
       </section>
-      ${heatSec}
+      <button class="more-btn" data-act="formMore" aria-expanded="${f.more}">${f.more ? '상세 설정 접기' : `상세 설정 · 반복, 알림, 색상, 메모${jab ? `, ${S.short}, 마감` : ''}`}${icon(f.more ? 'prev' : 'next')}</button>
+      ${more}
     </div>
-    <div class="sheet-foot"><button class="btn primary block" data-act="formSave">${f.id ? '고친 내용 저장' : jab ? `${persona().name}한테 맡기기` : '올리기'}</button></div>`, { full: true, cls: 'form-sheet from-top' });
+    <div class="sheet-foot"><button class="btn primary block" data-act="formSave">${f.id ? '고친 내용 저장' : jab ? `${P.name}한테 맡기기` : '저장'}</button></div>`, { full: true, cls: 'form-sheet from-top' });
 }
 function validateDraft(m, f) {
   const e = {};
   const title = f.title.trim();
-  if (!title) e.title = '일정 이름을 적어 주세요.';
-  else if (title.length > 30) e.title = '이름은 30자까지 쓸 수 있어요.';
-  if (!f.date) e.date = '날짜를 골라 주세요.';
+  if (!title) e.title = '제목을 적어 주세요.';
+  else if (title.length > 30) e.title = '제목은 30자까지 쓸 수 있어요.';
+  if (!f.date || !f.endDate) e.date = '시작·종료 날짜를 골라 주세요.';
   else if (!f.id && f.date < today()) e.date = '지난 날짜에는 새 일정을 올릴 수 없어요.';
-  if (f.repeatKind === 'weekly' && !f.days.length) e.days = '반복할 요일을 하나 이상 골라 주세요.';
-  if (f.repeatKind === 'interval' && (f.every < 1 || f.every > 30)) e.days = '반복 간격은 1일에서 30일 사이로 정해 주세요.';
-  if (!f.start) e.time = '시작 시각을 정해 주세요.';
-  else if (f.durMode === 'custom') {
-    if (!f.end) e.time = '끝 시각을 정해 주세요.';
-    else if (f.end === f.start) e.time = '끝 시각이 시작 시각과 같아요.';
-    else if (draftDuration(f) > 12 * 60) e.time = '한 번에 12시간 넘게 잡을 수는 없어요. 나눠서 올려 주세요.';
+  else if (f.endDate < f.date) e.date = '종료 날짜가 시작 날짜보다 앞이에요.';
+  if (!e.date) {
+    const d = draftDuration(f);
+    if (d <= 0) e.time = '종료 시각이 시작 시각보다 뒤여야 해요.';
+    else if (daysBetween(f.date, f.endDate) > 31) e.time = '한 일정은 32일까지 이어질 수 있어요. 나눠서 올려 주세요.';
   }
-  if (f.type === 'jab' && f.dlOn) {
+  if (f.repeatKind === 'weekly' && !f.days.length) e.days = '반복할 요일을 하나 이상 골라 주세요.';
+  if (f.type === 'jab' && f.dlMode === 'custom') {
     if (!f.dlDate || !f.dlTime) e.deadline = '마감 날짜와 시각을 모두 정해 주세요.';
-    else if (f.start && at(f.dlDate, f.dlTime) <= at(f.date, f.start)) e.deadline = '마감은 시작 시각보다 뒤여야 해요.';
+    else if (at(f.dlDate, f.dlTime) <= draftStartMs(f)) e.deadline = '마감은 시작 시각보다 뒤여야 해요.';
     else if (f.repeatKind !== 'none' && daysBetween(f.date, f.dlDate) > 6) e.deadline = '반복 일정의 마감은 시작일부터 7일 안으로 정해 주세요.';
   }
   return e;
 }
 function findDuplicate(m, f) {
   const title = f.title.trim();
-  return m.tasks.find((t) => t.id !== f.id && t.title.trim() === title && t.type === f.type && t.start === f.start && (occursOn(t, f.date) || t.date === f.date));
-}
-
-/* ---------- 하단 추가 화면: 월간 달력 (기획안 v5) ---------- */
-function viewMonthSheet(m) {
-  const sel = ui.selDate || today();
-  if (!ui.calMonth) ui.calMonth = sel.slice(0, 7);
-  const [y, mo] = ui.calMonth.split('-').map(Number);
-  return sheetWrap(`${sheetHead('월간 달력', 'closeSheet', '날짜를 누르면 그날 일정이 보여요')}
-    <div class="sheet-body month-body">
-      <div class="cal-nav"><button class="icon-btn" data-act="monthNav" data-delta="-1" aria-label="이전 달">${icon('prev')}</button><h3 class="cal-title">${y}년 ${mo}월</h3><button class="icon-btn" data-act="monthNav" data-delta="1" aria-label="다음 달">${icon('next')}</button></div>
-      ${monthGridHTML(m, ui.calMonth, sel, 'monthPick')}
-      <div class="sec-head mt"><h3 class="sec-title">${fmtDateLong(sel)}</h3></div>
-      ${dayList(m, sel)}
-    </div>
-    <div class="sheet-foot"><button class="btn primary block" data-act="openAdd" data-date="${sel}">${icon('plus')}${fmtMD(sel)}에 일정 올리기</button></div>`, { full: true, cls: 'month-sheet' });
-}
-
-/* ---------- 옷장 (코스튬 선택) ---------- */
-function costumeRow(m) {
-  const cur = m.costume || 'basic', C = charOf(m);
-  return `<div class="closet-row-inline" role="radiogroup" aria-label="${C.name} 모습">${Object.entries(C.costumes()).map(([id, c]) => `<button role="radio" aria-checked="${cur === id}" class="cos-opt ${cur === id ? 'on' : ''}" data-act="setCostume" data-v="${id}"><span class="cos-art">${C.art({ expr: 'default', motion: 'none', costume: id, shadow: false, label: c.name })}</span><b>${c.name}</b></button>`).join('')}</div>`;
-}
-function viewCloset(m) {
-  const C = charOf(m), list = C.costumes(), cur = list[m.costume] ? m.costume : 'basic';
-  return sheetWrap(`${sheetHead(`${C.name} 옷장`, 'closeSheet', '모습만 바뀌고, 표정과 잔소리는 그대로예요')}
-    <div class="sheet-body">
-      <div class="closet-preview">${mascot(m, { expr: 'happy', pose: 'cheer', motion: 'bounce' })}<p><b>${list[cur].name}</b> · ${list[cur].tagline}</p></div>
-      <div class="closet-grid" role="radiogroup" aria-label="코스튬">${Object.entries(list).map(([id, c]) => `<button role="radio" aria-checked="${cur === id}" class="cos-opt ${cur === id ? 'on' : ''}" data-act="setCostume" data-v="${id}"><span class="cos-art">${C.art({ expr: 'default', motion: 'none', costume: id, shadow: false, label: c.name })}</span><b>${c.name}</b><small>${c.tagline}</small></button>`).join('')}</div>
-    </div>
-    <div class="sheet-foot"><button class="btn primary block" data-act="closeSheet">이 모습으로 할게요</button></div>`);
+  return m.tasks.find((t) => t.id !== f.id && t.title.trim() === title && t.type === f.type && (t.allDay ? f.allDay : t.start === f.start) && (occursOn(t, f.date) || t.date === f.date));
 }
 
 /* ---------- 앱 설치 안내 (PWA) ---------- */

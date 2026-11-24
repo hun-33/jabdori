@@ -135,7 +135,7 @@ const STAGE_BANDS = [
   { id: 4, min: 70, desc: '도발 섞인 독촉이 들어가요.' },
   { id: 5, min: 90, desc: '봐주는 거 없어요. 최고 수위예요.' },
 ];
-function makeScale(def) { return { ...def, stages: STAGE_BANDS.map((b, i) => ({ ...b, name: def.names[i] })) }; }
+function makeScale(def) { return { ...def, stages: STAGE_BANDS.map((b, i) => ({ ...b, name: def.names[i], ...(def.moods ? { mood: def.moods[i] } : {}), ...(def.descs ? { desc: def.descs[i] } : {}) })) }; }
 const SCALES = {
   mireum: makeScale({
     id: 'mireum',
@@ -147,6 +147,9 @@ const SCALES = {
     clear: '먼지 털기',       // 연속 성공으로 가산 한 칸을 푸는 일
     icon: 'dust',
     names: ['좋음', '보통', '나쁨', '매우 나쁨', '최악'],
+    // 몸 상태 이름 — 표정·발성의 기준 (모양을 바꾸지 않고 표정·자세·먼지 효과로만 보여 준다)
+    moods: ['몽글', '갸웃', '뭉게뭉게', '쭈뼛', '빵빵'],
+    descs: ['몽글 · 작고 말랑해요. 시작만 살짝 챙겨요.', '갸웃 · 어라? 하고 가볍게 콕 찔러요.', '뭉게뭉게 · 답답해져요. 미루면 바로 재촉해요.', '쭈뼛 · 털이 곤두서요. 세게 독촉해요.', '빵빵 · 터지기 직전! 봐주는 거 없어요.'],
     blurb: '미루먼지가 얼마나 짙게 퍼졌는지로 잡도리 세기를 보여 줘요. 미룰수록 짙어지고 미루먼지도 커져요.',
     onbIntro: '잡도리 세기는 내 먼지 농도로 보여 줘. 미룰수록 짙어지고, 나도 커져. 단계를 눌러 봐.',
     onbFailTitle: '끝내면 도장,<br>놓치면 먼지가 쌓여.',
@@ -178,76 +181,113 @@ function lvs(h, m) { const S = scaleOf(m); return `${S.short} ${h}${S.unit}`; }
 function extraText(n, m) { const S = scaleOf(m); return `${S.extra} ${n}${S.extraUnit} (+${n * HEAT_POLICY.failStep})`; }
 
 /* ---------- 캐릭터: 미루먼지 (공식 마스코트, 그림은 01b-mireum.js) ---------- */
+/* ---------- 미루먼지 발성 사전 (말버릇은 여기 한 곳에서만 관리) ----------
+   새 발성을 넣을 때는 뜻이 겹치지 않는지 먼저 확인한다. 대사는 아래 lines에서 이 발성을 골라 쓴다 */
+const MIREUM_VOCALS = {
+  '퐁!': '등장, 새 일정 발견, 시작',
+  '폴폴…': '평상시, 심심함, 대기',
+  '어라라?': '의심, 예상과 다른 상황',
+  '킁킁': '딴짓 냄새 감지',
+  '사각사각': '공부·작업 소리, 집중 중',
+  '뭉게뭉게': '답답함이 쌓이는 상태 (3단계)',
+  '쭈뼛쭈뼛': '긴장, 강한 독촉 직전 (4단계)',
+  '빵빵!': '최고 단계, 터지기 직전 (5단계)',
+  '털털!': '완료·성공, 먼지가 털려 나감',
+  '푸흐흐': '장난스러운 웃음',
+  '히잉…': '실망, 시무룩함',
+  '뿌우?': '궁금함, 재촉, 가벼운 항의',
+};
+/* 미루먼지 말투 원칙 (DESIGN.md 23절)
+   1 몸 상태로 반응 (몽글 → 갸웃 → 뭉게뭉게 → 쭈뼛 → 빵빵)   2 먼지의 감각(냄새·소리·털림)으로 세상을 본다
+   3 감탄사 먼저, 한 줄 15자 안팎   4 잔소리 이유도 먼지답게 ("나 터진다아!")   5 말끝을 늘이고 튄다(~다아 ~잖아아)
+   6 사람식 조언(시간 관리 팁·공부법)은 하지 않는다. 일정명·시각·남은 시간은 정확히. 모욕은 하지 않는다 */
 const CHAR_MIREUM = {
   id: 'mireum',
   name: '미루먼지',
-  role: '1:1 전담 잡도리 매니저',
-  traits: ['미룬 일에서 태어난 작은 구름', '미룰수록 부풀고 털이 곤두섬', '잘하면 진심으로 기뻐함', '모욕은 안 함'],
-  // 소개 문구 (로그인·온보딩). 캐릭터마다 자기 말투로 채운다
+  role: '1:1 전담 잡도리 먼지',
+  traits: ['미룬 일에서 폴폴 태어난 작은 먼지 구름', '미룰수록 뭉게뭉게 커지고 털이 쭈뼛', '끝내면 털털 작아짐', '독설은 해도 모욕은 안 함'],
+  vocals: MIREUM_VOCALS,
   intro: {
-    tagline: '미룬 일에서 태어난 잔소리 구름, 미루먼지가 옆에 붙어 줄게.',
-    helloTitle: '오늘도 미룰 거야?<br>이제 내가 옆에 있어.',
-    helloBody: '나는 네가 미룬 일에서 태어난 구름이야. 할 일을 맡기면 시작부터 마감까지 붙잡아 줄게. 네가 미룰수록 나는 커지고, 끝내면 다시 작아져.',
-    meetBody: '평소엔 말랑한데, 네가 미루면 부풀어 오르고 털이 곤두서. 화내는 이유는 하나야. 네 마감.',
+    tagline: '미루는 너와 함께하는 작은 구름, 미루먼지!',
+    helloTitle: '퐁! 나 불렀어어?<br>오늘도 미룰 거야?',
+    helloBody: '나는 네가 미룬 일에서 폴폴 태어난 먼지야. 일을 맡기면 시작부터 마감까지 옆에 붙어 있을게. 미루면 내가 뭉게뭉게 커지고, 끝내면 털털 작아져.',
+    meetBody: '평소엔 몽글몽글 말랑해. 근데 네가 미루면 털이 쭈뼛, 몸이 빵빵해져. 그럼 나 갑갑하거든!',
   },
   lines: {
-    empty: ['오늘도 미룰 거야? 맡길 일부터 하나 올려 봐.', '할 일 없어? 진짜로? 미뤄 둔 거 하나쯤은 있을 텐데.', '심심하다… 미루는 일 생기면 바로 나한테 맡겨.'],
-    noneToday: ['오늘은 내가 맡은 일이 없어. 쉬는 날이면 제대로 쉬어.', '오늘 잡도리는 없음. 다음 일정은 내가 기억하고 있어.'],
-    allDone: ['오늘 맡긴 일 다 끝냈어. 나 오늘은 작아져서 쉰다.', '다 했네! 이런 날만 있으면 내가 사라지겠다.', '오늘 몫은 끝. 남은 시간은 마음 편히 써.'],
-    upcoming: ['{title}, {startIn} 뒤 시작이야. 기다리고 있을게.', '{startIn} 남았어. 시작할 때 딴소리하기 없기.', '곧 {title} 시간이야. 내가 계속 보고 있다?'],
-    due: ['{title} 시작할 시간이야. 지금 바로 가자.', '이제 슬슬 움직여야 하지 않아?', '땡. {title} 시작 시간이다.'],
+    empty: ['폴폴… 심심해애. 미룬 거 하나만 던져 줘!', '뿌우? 할 일 없어? 진짜아?', '킁킁… 어디 미룬 일 냄새 안 나?'],
+    noneToday: ['오늘은 쉬는 날! 나 구석에서 낮잠 잔다아.', '폴폴… 오늘 맡은 일 없음. 푹 쉬어어.', '오늘은 조용~ 다음 일정은 내가 기억해 둘게!'],
+    allDone: ['털털! 오늘 몫 끝! 나 홀쭉해졌어어!', '우와아! 다 했다! 이러다 나 사라지겠다?', '오늘은 먼지 한 톨 없어! 푹 쉬어어.'],
+    upcoming: ['{title}! {startIn} 뒤다? 나 대기 중!', '폴폴… {startIn} 남았어. 딴소리하기 없기!', '곧 {title} 시간! 나 보고 있다아?'],
+    due: ['퐁! {title} 시간이야! 가자 가자!', '퐁! 시작 시간이다아! 열기만 해!', '땡! {title} 시작! 어서어!'],
     late: {
-      1: ['{late} 지났어. 천천히라도 시작해 볼까?', '아직 시작 전이네. 부담 갖지 말고 하나만 열어 봐.', '이제 슬슬 움직여야 하지 않아?'],
-      2: ['아직 시작 안 했어? {late} 지났다.', '슬슬 시작하자. {title} 혼자 안 끝난다.', '미루는 거 다 보여. 지금 열기만 해.'],
-      3: ['아직 시작 안 했어? {late}째 기다리는 중이야.', '오늘도 미룰 거야? 앉기만 해.', '{late} 늦었어. 더 늦으면 나 부풀어 오른다.'],
-      4: ['{late}째 그대로네. 나 점점 커진다.', '핑계 생각할 시간에 첫 줄 써. 폰 내려놔.', '{left}. 이 속도면 진짜 큰일 나.'],
-      5: ['{left}인데 아직도 시작 전이야?', '이제 진짜 시작해. 더는 안 봐준다.', '털 다 곤두섰어. 당장 열어.'],
+      1: ['어라? {late} 지났는데에… 살짝만 열어 볼래?', '어라라? 아직이야? 한 줄만 해 봐아.', '폴폴… {title} 기다리는 중이야아.'],
+      2: ['뿌우? 아직도 안 열었어어?', '어라? {late} 지났다? 나 갸웃갸웃해.', '킁킁… 미루는 냄새 난다아?'],
+      3: ['뭉게뭉게… 나 답답해지는데에?', '{late}째야! 나 부풀기 시작했어어.', '뿌우! {title} 혼자 안 끝난다구!'],
+      4: ['털이 쭈뼛쭈뼛! 폰 내려놔아!', '{late}째 그대로야! 나 따끔따끔해!', '{left}! 이러다 진짜 큰일 난다구!'],
+      5: ['빵빵! 나 터지기 직전이야아! 지금 열어!', '{left}인데 아직이야? 빵빵해애!', '으아아! 더는 못 참아! 당장 시작!'],
     },
-    justStarted: ['좋아, 시작했네! 첫 10분만 버티면 탄력 붙는다.', '시작한 거 봤다. 이제 딴 데 보지 마.', '출발 좋다. 나는 옆에서 체크하고 있을게.'],
+    justStarted: ['오오? 시작했다! 나 쪼끄매진다아!', '퐁! 출발! 나 옆에서 보고 있을게.', '푸흐흐, 시작한 거 봤다아!'],
     running: {
-      1: ['좋아, 이 페이스면 충분해.', '조용히 지켜볼게. 하던 거 계속해.', '천천히 가도 돼. 멈추지만 마.'],
-      2: ['잘 가고 있어. 중간에 딴 데 새지 말고.', '내가 계속 보고 있다? 리듬 좋아.', '{elapsed} 했어. 리듬 좋다.'],
-      3: ['{elapsed} 했어. 아직 갈 길 남았다?', '손 멈추지 마. 지금 리듬 좋아.', '{left}. 속도 조금만 더 내 보자.'],
-      4: ['{left}. 이대로면 빠듯해.', '폰 내려놔. 딴생각 들면 한 줄 더 써.', '먼지 슬슬 짙어진다. 속도 올려.'],
-      5: ['{left}. 지금 아니면 없다.', '나 지금 터지기 직전이야. 끝까지 밀어붙여.', '마지막 스퍼트. 여기서 딴짓하면 진짜 화낸다.'],
+      1: ['사각사각… 좋아, 그 소리 좋아아.', '몽글몽글… 이 속도 딱 좋아.', '쉿, 나 조용히 떠다닐게.'],
+      2: ['사각사각… 리듬 좋다아!', '{elapsed} 했어! 나 살짝 작아졌다?', '킁킁… 집중하는 냄새 좋아.'],
+      3: ['{elapsed} 했어! 아직 남았다아?', '{left}! 조금만 더 빨리이!', '손 멈추면 나 뭉게뭉게 해애.'],
+      4: ['{left}! 빠듯해애!', '쭈뼛! 딴생각 금지! 한 줄 더!', '먼지 짙어진다아! 속도 올려!'],
+      5: ['{left}! 지금 아니면 없어어!', '빵빵! 끝까지 밀어붙여어!', '마지막! 여기서 딴짓하면 나 터진다?'],
     },
-    urgent: ['마감 {remain} 전. 이제 다듬지 말고 마무리부터 해.', '{remain} 남았다. 제출할 곳은 열어 놨지?', '털 곤두선다. {remain} 안에 끝내.', '여기서 놓치면 다음 판은 더 세게 간다.', '완벽 말고 완료. {remain} 남았어.'],
-    overdue: ['마감 시간이야. 끝냈어, 못 끝냈어? 솔직하게.', '땡. 마감이다. 결과부터 말해 봐.'],
-    missedStart: ['시작도 안 했는데 마감이 지났어. 결과 정리하자.', '또 미뤘네… 이번 건 솔직하게 기록하자.'],
-    overPlan: ['예정 시간 지났어. 끝났으면 끝났다고 말해.', '예정보다 길어지네. 마무리 지점 정하고 가자.'],
-    break: ['쉬는 중. {breakLeft} 남았어. 딱 그만큼만.', '물 한 잔 마시고 와. {breakLeft} 뒤에 부른다.', '숨 돌려. 대신 {breakLeft} 뒤엔 바로 돌아와.'],
-    breakOver: ['휴식 {over} 넘겼어. 이제 돌아와.', '5분이라며. 벌써 {over} 더 쉬었다.', '쉬는 시간 끝난 지 {over}. 나 다시 부푼다?'],
-    slackAsk: ['잠깐, 지금 {app} 켰지?', '{title} 하다가 {app}? 설명해 봐.', '딴짓 감지! {app}에서 뭐 하는 중이야?'],
-    slackStudy: ['강의 영상이면 인정. 대신 10분 뒤에 다시 확인한다.', '공부용이라니 믿어 볼게. 10분 뒤에 또 볼 거야.'],
-    slackRest: ['5분만이다. 시계 보고 있을게.', '좋아, 5분 휴식. 넘기면 나 다시 커진다.'],
-    slackFocus: ['좋아. 그 말 믿는다. 바로 돌아가.', '그래, 그거면 됐어. 창 닫고 이어서 해.'],
-    slackIdle: ['지금은 맡긴 일이 없으니 봐줄게. 대신 시작 시간엔 안 봐준다.'],
-    slackBreak: ['쉬는 시간이니까 봐줄게. 휴식 끝나면 바로 닫아.'],
-    studyCheck: ['10분 지났어. 아직 강의 보는 중이야?'],
-    studyMore: ['좋아, 딱 10분만 더. 그다음엔 과제다.'],
-    studyBack: ['그래, 이제 진짜 과제다. 가자.'],
-    doneEarly: ['오! 드디어 해냈어! 마감 {margin} 전이야.', '이번에는 진짜 잘했어!', '봐, 하면 되잖아. 나 지금 엄청 작아졌어.'],
-    doneClose: ['아슬아슬했지만 해냈다. 다음엔 조금만 일찍 하자.', '마감 직전에 끝냈네. 심장 쫄깃했다.', '해냈으면 됐어. 다음엔 덜 부풀게 해 줘.'],
-    doneNone: ['오! 드디어 해냈어! {title} 끝.', '끝냈네. 오늘 할 일 하나 지웠다.'],
-    doneProud: ['연속으로 해냈어! 나 너무 뿌듯해.', '이번에는 진짜 잘했어! 이 흐름 그대로 가자.'],
-    dayFail: ['또 미뤘네… 오늘 먼지 한 겹 더 쌓였다.', '오늘은 놓친 게 있어. 내일은 먼지 털 일만 만들자.'],
-    failed: ['또 미뤘네… 다음엔 봐주지 않는다.', '이번 건 놓쳤다. 먼지 한 겹 더 쌓고 다음 판 간다.', '실망이야… 그래도 포기 안 해. 다음에 갚아.'],
-    cooled: ['세 번 연속 해냈네! 약속대로 쌓인 먼지 한 겹 털어 줄게.'],
-    saved: ['오, 새 일정이다. {title}, 내가 확인했어.', '{title} 접수. {start}에 내가 부를게.'],
-    welcome: ['반가워! 오늘도 미룰 거야?', '왔구나. 내가 계속 보고 있었어.'],
+    urgent: ['{remain} 남았어! 마무리, 마무리이!', '쭈뼛! {remain}! 다듬지 말고 끝내!', '{remain}! 제출할 곳 열어 놨어?', '으아아! 마감 온다! {remain} 남았다구!', '빵빵! {remain}! 일단 내고 보자아!'],
+    overdue: ['땡! 마감이야! 끝냈어, 못 끝냈어?', '마감 왔다아! 결과 말해 줘!', '뿌우? 마감이야. 솔직하게 알려 줘.'],
+    missedStart: ['히잉… 시작도 못 하고 마감 지났어.', '어라라… 마감이 먼저 와 버렸다.', '히잉… 이번 건 솔직하게 적어 두자.'],
+    overPlan: ['어라? 예정 시간 지났다? 끝났어?', '뿌우? 끝났으면 끝났다고 해 줘!', '폴폴… 길어지네? 어디까지 할 거야?'],
+    break: ['후우~ {breakLeft}만 둥실 쉬자아.', '물 한 모금! {breakLeft} 뒤에 콕 부를게.', '몽글… {breakLeft}만이다? 나 시계 본다.'],
+    breakOver: ['뿌우? 이제 다시 콕!', '휴식 {over} 넘었어! 돌아와아!', '어라? 5분이라며! 벌써 {over} 더 쉬었다?'],
+    slackAsk: ['킁킁… {app} 냄새 난다아?', '어라라? {title} 하다가 {app}?', '킁킁! 딴짓 냄새! {app}에서 뭐 해?'],
+    slackStudy: ['공부용이면 인정! 10분 뒤에 또 킁킁할게.', '푸흐흐, 믿어 볼게. 10분 뒤에 다시 본다?', '사각사각 소리 나는 거 맞지? 10분 뒤 확인!'],
+    slackRest: ['5분만이다? 나 시계 보고 있을게.', '후우~ 5분 휴식! 넘기면 나 뭉게뭉게.', '좋아, 5분! 콕 부를 거야.'],
+    slackFocus: ['좋아! 그 말 믿는다. 바로 돌아가아!', '퐁! 창 닫고 이어서 가자!', '푸흐흐, 다시 사각사각 해 줘.'],
+    slackIdle: ['지금은 봐줄게. 시작 땐 안 봐준다?', '폴폴… 지금은 자유 시간! 시작 땐 콕!', '킁킁… 지금은 괜찮아. 대신 시작 땐 바로!'],
+    slackBreak: ['쉬는 시간이니까 봐줄게. 끝나면 바로 닫아!', '후우~ 휴식 중엔 괜찮아. 끝나면 콕!', '몽글… 쉬는 중이니까 통과!'],
+    studyCheck: ['10분 지났어! 아직 강의 보는 중이야?', '킁킁… 10분 됐다! 아직 공부 영상이야?', '뿌우? 10분 지났는데 아직이야?'],
+    studyMore: ['좋아, 딱 10분만 더! 그다음엔 과제다?', '10분 더! 나 또 킁킁하러 온다?', '푸흐흐, 10분만이다아.'],
+    studyBack: ['퐁! 이제 진짜 과제다! 가자!', '좋아아! 사각사각 시작!', '털털! 영상 끄고 출발!'],
+    doneEarly: ['우와아! 해냈다! 마감 {margin} 전이야!', '털털! 먼지 다 날아갔어어!', '봐, 되잖아! 나 엄청 쪼끄매졌어!'],
+    doneClose: ['휴우… 아슬아슬! 그래도 해냈다아!', '마감 직전 골인! 나 심장 쫄깃했어.', '해냈으면 됐어! 다음엔 덜 빵빵하게 해 줘.'],
+    doneNone: ['우와아! {title} 끝!', '털털! 하나 지웠다아!', '퐁! 끝냈네! 나 홀쭉해졌어.'],
+    doneProud: ['우와아! 연속이야! 나 홀쭉해졌어어!', '털털털! 요즘 완전 달라졌는데?', '푸흐흐, 이 흐름 그대로 가자아!'],
+    dayFail: ['히잉… 오늘 먼지 한 겹 더 쌓였어.', '으에에… 놓친 게 있어. 내일은 털어 보자?', '히잉… 오늘은 좀 무거워어.'],
+    failed: ['히잉… 먼지 한 겹 더 쌓였어. 다음엔 꼭이다?', '으에에… 또 한 겹이야아…', '히잉… 그래도 나 안 떠나. 다음 판 가자!'],
+    cooled: ['털털! 세 번 연속! 먼지 한 겹 털어 줄게!', '우와아! 연속 성공! 먼지 한 겹 털털!', '푸흐흐, 세 번이나! 먼지 한 겹 날려 줄게!'],
+    saved: ['오잉! 새 일정이다아! {title} 접수!', '퐁! {title}, {start}에 콕 부를게!', '킁킁… {title} 냄새 기억했어!'],
+    welcome: ['퐁! 나 불렀어어?', '왔다아! 나 계속 떠다니고 있었어.', '폴폴… 반가워! 오늘은 뭐 할 거야?'],
+    poke: ['푸흐흐, 간지러워어!', '퐁! 나 불렀어?', '뿌우? 왜애?', '몽글몽글~ 쓰다듬어 줘서 좋아.'],
     excuse: {
-      time: '시간이 모자랐으면 다음엔 더 일찍 시작하자. 내가 일찍 부를게.',
-      slack: '솔직해서 좋다. 다음엔 딴짓하는 순간 바로 잡는다.',
-      condition: '몸 상태가 안 좋았으면 어쩔 수 없지. 회복부터 해.',
-      hard: '어려웠으면 쪼개서 가자. 다음엔 첫 단계만 맡겨 봐.',
-      none: '말 안 해도 알아. 다음엔 기록 바꿔 보자.',
+      time: '시간이 모자랐구나… 다음엔 더 일찍 콕!',
+      slack: '솔직해서 좋아! 다음엔 딴짓 냄새 나면 바로 킁킁.',
+      condition: '몸이 안 좋았구나… 먼저 푹 쉬어어.',
+      hard: '어려웠구나… 다음엔 첫 단계만 나한테 맡겨 봐.',
+      none: '말 안 해도 괜찮아. 다음 판 가자!',
     },
     sample: { // 단계 설명용 예시 (온보딩·등록 화면)
-      1: '시간 됐어. 천천히라도 시작해 볼까?',
-      2: '아직 시작 안 했어? 슬슬 하자.',
-      3: '오늘도 미룰 거야? 10분째 기다리는 중이야.',
-      4: '핑계 생각할 시간에 첫 줄 써. 폰 내려놔.',
-      5: '털 다 곤두섰어. 당장 해.',
+      1: '어라? 시간 됐다? 살짝만 열어 볼래?',
+      2: '뿌우? 아직도 안 열었어어?',
+      3: '뭉게뭉게… 나 답답해지는데에?',
+      4: '털이 쭈뼛쭈뼛! 폰 내려놔아!',
+      5: '빵빵! 터지기 직전이야아! 지금 열어!',
+    },
+    // 앱 안 배너 (상태가 바뀌는 순간)
+    banner: {
+      start: '퐁! {title} 시간이야! 가자 가자!',
+      urgent: '쭈뼛! {title} 마감 {n}분 전! 마무리이!',
+      due: '땡! {title} 마감이야! 결과 알려 줘!',
+      lateHard: '빵빵! {title} 아직이지? 폰 내려놓고 열어!',
+      breakOver: '뿌우? 쉬는 시간 끝! {title} 다시 콕!',
+    },
+    // 폰 알림 [제목, 본문] — 앱이 꺼져 있어도 이 말투로 온다
+    notif: {
+      start: ['퐁! {title} 시간이야!', '가자 가자! 열기만 해도 돼.'],
+      late: ['뿌우? {title} 아직이야?', '10분째 기다리는 중이야아. 나 갸웃갸웃.'],
+      urgent: ['{title} 마감 30분 전!', '쭈뼛! 다듬지 말고 마무리부터!'],
+      due: ['{title} 마감이야!', '끝냈어, 못 끝냈어? 알려 줘!'],
+      alarm: ['{title} · {before} 시작', '폴폴… 미리 알려 주는 거야.'],
     },
   },
 };
@@ -258,13 +298,13 @@ const CHAR_MIREUM = {
    - lines               : 상황별 대사 (CHAR_MIREUM.lines와 같은 키를 모두 채운다)
    - scale               : 자기 세계관 눈금 (SCALES에 하나 추가)
    - voice               : TTS 목소리 { pitch 높낮이, rate 빠르기 } — 기기 목소리를 이 값으로 바꿔 캐릭터처럼 들리게
-   - art(o)              : 그림 함수. o = { expr 표정, pose 자세, motion 동작, fluff 부풂 0~1, costume, label }
+   - art(o)              : 그림 함수. o = { expr 표정, pose 자세, motion 동작, fluff 단계 0~1, label }
+                           모양(실루엣)은 언제나 같다. 표정·자세·작은 동작·먼지 효과로만 감정을 보여 준다
                            표정·자세·동작 이름은 EXPR_LABEL·mascotFor()가 쓰는 이름을 그대로 그려 낸다
-   - costumes()          : 고를 수 있는 옷 목록 */
+   (옷 갈아입기·변신 기능은 없앴다 — 디자인 기준) */
 CHAR_MIREUM.scale = SCALES.mireum;
 CHAR_MIREUM.voice = { pitch: 1.3, rate: 1.05 };
 CHAR_MIREUM.art = (o) => mireumSVG(o);
-CHAR_MIREUM.costumes = () => COSTUMES;
 const CHARACTERS = { mireum: CHAR_MIREUM };
 const DEFAULT_CHARACTER = 'mireum';
 /* 회원에게 배정된 캐릭터 (없거나 지워진 id면 기본 캐릭터) */
@@ -320,6 +360,8 @@ function load() {
       if (s && s.v === 1) {
         if (!s.voice && 'ttsAuto' in s) s.voice = { mode: s.ttsAuto ? 'all' : 'off', speed: 'normal' }; // 옛 '멘트 소리로 듣기' 켜짐 → 모든 멘트
         delete s.ttsAuto;
+        // 옛 일정 구조 변환. 한 일정이 이상해도 나머지 데이터(세션·기록)는 절대 버리지 않는다
+        for (const mm of Object.values(s.members || {})) (mm.tasks || []).forEach((t) => { try { migrateTask(t); } catch (e) { console.warn('일정 변환 건너뜀', t && t.id, e); } });
         return Object.assign(freshState(), s);
       }
     }
@@ -357,7 +399,6 @@ function createMember(kakaoId, profile, consent) {
     onboarded: false,
     characterId: DEFAULT_CHARACTER, // 전담 캐릭터
     scaleMode: 'character',          // 단계 이름: 'character' 캐릭터별 | 'common' 공통
-    costume: 'basic',
     initialHeat: HEAT_POLICY.initialHeat,
     penalty: 0,
     streak: 0,
@@ -372,37 +413,93 @@ function createMember(kakaoId, profile, consent) {
 function occKey(taskId, date) { return taskId + '|' + date; }
 function splitKey(k) { const i = k.lastIndexOf('|'); return [k.slice(0, i), k.slice(i + 1)]; }
 function findTask(m, id) { return m.tasks.find((t) => t.id === id); }
+/* 일정이 며칠에 걸치는지 (0 = 하루 안에 끝남) */
+function spanDays(task) { return task.endDate ? Math.max(0, daysBetween(task.date, task.endDate)) : 0; }
+/* 반복 규칙: { kind: none|daily|weekly|monthly|yearly, every: N, days?: [1~7] }
+   매월은 시작일과 같은 날짜(그 달에 그 날짜가 없으면 건너뜀), 매년은 같은 월·일 */
 function occursOn(task, date) {
   if (date < task.date) return false;
-  const r = task.repeat;
+  if (task.until && date > task.until) return false;
+  const r = task.repeat, every = Math.max(1, r.every || 1);
+  const a = parseYmd(task.date), b = parseYmd(date);
   switch (r.kind) {
     case 'none': return date === task.date;
-    case 'weekly': return r.days.includes(weekday(date));
-    case 'daily': return true;
-    case 'interval': return daysBetween(task.date, date) % r.every === 0;
+    case 'interval': // 예전 저장 형식 (n일마다)
+    case 'daily': return daysBetween(task.date, date) % (r.kind === 'interval' ? r.every : every) === 0;
+    case 'weekly': return r.days.includes(weekday(date)) && Math.floor(daysBetween(weekStartOf(task.date), weekStartOf(date)) / 7) % every === 0;
+    case 'monthly': return b.getDate() === a.getDate() && ((b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth()) % every === 0;
+    case 'yearly': return b.getDate() === a.getDate() && b.getMonth() === a.getMonth() && (b.getFullYear() - a.getFullYear()) % every === 0;
   }
   return false;
 }
+/* 회차의 시작·종료·마감 시각 (ms). 종일 일정은 시작일 0시 ~ 종료일 다음 날 0시 */
 function occWindow(task, date) {
-  const start = at(date, task.start);
-  const end = start + task.duration * MIN;
+  const start = at(date, task.allDay ? '00:00' : task.start);
+  const end = start + durOf(task) * MIN;
   let deadline = null;
   if (task.type === 'jab' && task.deadline && task.deadline.enabled) {
-    const off = daysBetween(task.date, task.deadline.date);
-    deadline = at(addDays(date, off), task.deadline.time);
+    if (task.deadline.sameAsEnd) deadline = end;
+    else deadline = at(addDays(date, daysBetween(task.date, task.deadline.date)), task.deadline.time);
   }
   return { start, end, deadline };
 }
+/* 걸리는 시간(분) — 시작·종료 일시에서 계산 (옛 일정은 저장된 duration) */
+function durOf(task) {
+  if (task.endDate && task.end) {
+    const s = at(task.date, task.allDay ? '00:00' : task.start);
+    const e = task.allDay ? at(addDays(task.endDate, 1), '00:00') : at(task.endDate, task.end);
+    return Math.max(1, Math.round((e - s) / MIN));
+  }
+  return task.duration || 60;
+}
+const REPEAT_UNIT = { daily: '일', weekly: '주', monthly: '달', yearly: '년' };
 function repeatText(task) {
   const r = task.repeat;
   if (r.kind === 'none') return '반복 안 함';
-  if (r.kind === 'daily') return '매일';
-  if (r.kind === 'interval') return `${r.every}일마다`;
-  const d = [...r.days].sort((a, b) => a - b);
-  if (d.length === 7) return '매일';
-  if (d.join() === '1,2,3,4,5') return '평일마다';
-  if (d.join() === '6,7') return '주말마다';
-  return '매주 ' + [...d].sort((a, b) => dayRank(a) - dayRank(b)).map((x) => WD[x]).join('·') + '요일';
+  if (r.kind === 'interval') return r.every === 1 ? '매일' : `${r.every}일마다`;
+  const every = Math.max(1, r.every || 1);
+  const head = every === 1 ? { daily: '매일', weekly: '매주', monthly: '매월', yearly: '매년' }[r.kind] : `${every}${REPEAT_UNIT[r.kind]}마다`;
+  if (r.kind === 'weekly') {
+    const d = [...r.days].sort((x, y) => dayRank(x) - dayRank(y));
+    if (every === 1 && d.length === 7) return '매일';
+    if (every === 1 && d.join() === '1,2,3,4,5') return '평일마다';
+    if (every === 1 && [...d].sort().join() === '6,7') return '주말마다';
+    return `${head} ${d.map((x) => WD[x]).join('·')}요일`;
+  }
+  if (r.kind === 'monthly') return `${head} ${parseYmd(task.date).getDate()}일`;
+  if (r.kind === 'yearly') return `${head} ${fmtMD(task.date)}`;
+  return head;
+}
+/* 옛 일정(날짜 + 시작 + 걸리는 시간)을 새 구조(시작·종료 일시)로 바꾼다. 이미 바뀐 일정은 그대로 */
+function migrateTask(t) {
+  if (!t.repeat) t.repeat = { kind: 'none' };
+  if (!t.start) t.start = '18:00';
+  if (!t.endDate) {
+    const endMin = hmToMin(t.start) + (t.duration || 60);
+    t.endDate = addDays(t.date, Math.floor(endMin / 1440));
+    t.end = minToHm(endMin);
+  }
+  if (t.allDay === undefined) t.allDay = false;
+  if (!t.alarms) t.alarms = [];
+  if (!t.color) t.color = t.type === 'jab' ? 'coral' : 'sky';
+  if (t.memo === undefined) t.memo = '';
+  if (t.repeat.kind === 'interval') t.repeat = { kind: 'daily', every: t.repeat.every || 1 };
+  if (!t.repeat.every) t.repeat.every = 1;
+  if (t.deadline && t.deadline.sameAsEnd === undefined) t.deadline.sameAsEnd = false;
+  if (t.type === 'jab' && t.jabOn === undefined) t.jabOn = true;
+  t.duration = durOf(t);
+  return t;
+}
+/* 그 날짜에 걸쳐 있는 회차 (여러 날 일정은 둘째 날부터도 보인다). dayNo = 일정 며칠째 (1부터) */
+function occurrencesCovering(m, date) {
+  const out = [];
+  for (const t of m.tasks) {
+    for (let k = 0; k <= spanDays(t); k++) {
+      const sd = addDays(date, -k);
+      if (occursOn(t, sd)) { out.push({ ...occState(m, t, sd), dayNo: k + 1, days: spanDays(t) + 1 }); break; }
+    }
+  }
+  return out.sort((a, b) => (b.task.allDay - a.task.allDay) || (a.dayNo > 1) - (b.dayNo > 1) || a.w.start - b.w.start);
 }
 /* 회차의 현재 상태: upcoming / late / running / urgent / break / breakOver / overPlan / overdue / missedStart / done / failed / past (일반 일정: todo / done) */
 function occState(m, task, date, t = now()) {
@@ -410,7 +507,7 @@ function occState(m, task, date, t = now()) {
   const run = m.runs[key];
   const w = occWindow(task, date);
   const base = { key, task, date, w, run };
-  if (task.type === 'normal') return { ...base, kind: run && run.status === 'done' ? 'done' : 'todo' };
+  if (task.type === 'normal' || task.jabOn === false) return { ...base, kind: run && run.status === 'done' ? 'done' : 'todo' };
   if (run && run.status === 'done') return { ...base, kind: 'done' };
   if (run && run.status === 'failed') return { ...base, kind: 'failed' };
   const td = ymd(t);
@@ -530,12 +627,11 @@ function mascotForStage(sg) {
     { expr: 'angry', pose: 'puff', motion: 'puff', fluff: 0.65 },
     { expr: 'furious', pose: 'puff', motion: 'puff', fluff: 1 }][sg];
 }
-/* 현재 회원의 캐릭터·코스튬으로 그리기 */
+/* 현재 회원의 캐릭터로 그리기 */
 function mascot(m, o = {}) {
-  const costume = o.costume || (m && m.costume) || 'basic';
-  const c = charOf(m);
+  const c = charOf(m); // 옷 갈아입기는 없앴다 — 언제나 기본 모습
   const label = o.label || `${c.name}, ${EXPR_LABEL[o.expr] || '기본'}`;
-  return c.art({ ...o, costume, label });
+  return c.art({ ...o, label });
 }
 
 /* ---------- 페르소나 말 만들기 ---------- */
