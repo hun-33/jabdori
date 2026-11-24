@@ -1,0 +1,92 @@
+apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+
+/* ------------------------------------------------------------------
+ * 카카오 네이티브 앱 키
+ *  - android/gradle.properties 의 KAKAO_NATIVE_APP_KEY 에 넣는다.
+ *  - 또는 빌드할 때 -PKAKAO_NATIVE_APP_KEY=... / 환경변수로 넘겨도 된다 (GitHub Actions용).
+ *  - 비어 있으면 앱은 켜지지만 카카오 로그인 버튼이 "키 설정 필요" 안내를 띄운다.
+ * ------------------------------------------------------------------ */
+def kakaoKey = (project.findProperty('KAKAO_NATIVE_APP_KEY') ?: System.getenv('KAKAO_NATIVE_APP_KEY') ?: '').toString().trim()
+
+android {
+    namespace = "com.jabdori.app"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.jabdori.app"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 2
+        versionName "2.0.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // 코드(BuildConfig)와 매니페스트(카카오 리다이렉트 스킴)에서 같은 키를 쓴다
+        buildConfigField "String", "KAKAO_NATIVE_APP_KEY", "\"${kakaoKey}\""
+        manifestPlaceholders = [KAKAO_NATIVE_APP_KEY: (kakaoKey ? kakaoKey : 'not_configured')]
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    buildFeatures {
+        buildConfig true
+    }
+    /* 팀 공용 개발 서명 키: 어느 PC·클라우드에서 빌드해도 같은 키 해시가 나오게 한다.
+     * 카카오 디벨로퍼스에 등록할 키 해시: +NLMMnMAs9uu+AA/aQ5qYLC3q6U=
+     * (플레이 스토어 정식 출시 때는 새 업로드 키를 만들고, Play 앱 서명 키 해시도 카카오에 추가 등록) */
+    signingConfigs {
+        jabdoriDev {
+            storeFile file('../keystore/jabdori-dev.jks')
+            storePassword 'jabdori123'
+            keyAlias 'jabdori'
+            keyPassword 'jabdori123'
+        }
+    }
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.jabdoriDev
+        }
+        release {
+            signingConfig signingConfigs.jabdoriDev
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    // 카카오 로그인 (공식 Kakao SDK for Android)
+    implementation "com.kakao.sdk:v2-user:$kakaoSdkVersion"
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

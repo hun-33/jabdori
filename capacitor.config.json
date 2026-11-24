@@ -1,0 +1,14 @@
+{
+  "appId": "com.jabdori.app",
+  "appName": "잡도리",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_mireum",
+      "iconColor": "#D4532A"
+    }
+  }
+}

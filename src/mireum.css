@@ -1,0 +1,122 @@
+/* =========================================================
+   미루먼지 스타일과 동작 (transform·opacity만 움직인다)
+   ========================================================= */
+.mireum { display: block; width: 100%; height: auto; overflow: visible; --m-body: #FFF7EA; --m-line: #6B574B; --m-face: #3B2E28; --m-cheek: #F2A7A7; --m-shadow: rgba(43, 38, 34, .12); }
+.on-stove .mireum, .stove-band .mireum, .popup .mireum, .heat-preview .mireum, .result.r-bad .mireum { --m-shadow: rgba(10, 8, 7, .32); }
+.mireum .mr-shadow { fill: var(--m-shadow); }
+.mireum .mr-body, .mireum .mr-tuft, .mireum .mr-foot, .mireum .mr-arm { fill: var(--m-body); stroke: var(--m-line); stroke-width: 3.4; stroke-linejoin: round; }
+.mireum .mr-curl { fill: none; stroke: var(--m-line); stroke-width: 3; stroke-linecap: round; }
+.mireum .mr-face path, .mireum .mr-brows path { fill: none; stroke: var(--m-face); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.mireum .mr-face .f { fill: var(--m-face); stroke: none; }
+.mireum .mr-face .hl { fill: #FFFFFF; }
+.mireum .mr-face .thick { stroke-width: 3.8; }
+.mireum .mr-face .tongue { fill: #F08A8A; stroke: none; }
+.mireum .mr-cheek { fill: var(--m-cheek); opacity: .75; }
+.mireum.e-angry .mr-cheek, .mireum.e-furious .mr-cheek { fill: #EE8D7E; opacity: .85; }
+.mireum.e-sleepy .mr-cheek { opacity: .55; }
+/* 효과 */
+.mireum .mr-fx path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.mireum .fx-spark path { fill: #F3CF62; stroke: none; }
+.mireum .fx-q path { stroke: var(--m-line); stroke-width: 4; }
+.mireum .fx-q .dot, .mireum .fx-bang .dot { fill: var(--m-line); }
+.mireum .fx-bang path { stroke: var(--m-line); stroke-width: 4.2; }
+.mireum .fx-vein path { stroke: #E5735F; stroke-width: 4; }
+.mireum .fx-steam path { stroke: #BFB2A2; stroke-width: 4.5; }
+.on-stove .mireum .fx-steam path, .stove-band .mireum .fx-steam path { stroke: #D9CFC0; }
+.mireum .fx-gloom path { stroke: #A99BD8; stroke-width: 3; opacity: .75; }
+.mireum .fx-sweat path { fill: #9CC6EC; stroke: none; }
+.mireum .fx-tears path { stroke: #9CC6EC; stroke-width: 4; }
+.mireum .fx-tears .drop { fill: #9CC6EC; stroke: none; }
+.mireum .fx-zz path { stroke: #A99BD8; stroke-width: 3.6; }
+/* 소품 */
+.mireum .prop-clip .wood { fill: #E9C9A0; stroke: var(--m-line); stroke-width: 3; }
+.mireum .prop-clip .paper { fill: #FFFDF8; stroke: none; }
+.mireum .prop-clip .clip { fill: #B8A587; stroke: var(--m-line); stroke-width: 2.4; }
+.mireum .prop-clip .tick { fill: none; stroke: #8F82C8; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.mireum .prop-clip .ln { stroke: #D8CFC2; stroke-width: 3; stroke-linecap: round; }
+.mireum .prop-flag .pole { stroke: var(--m-line); stroke-width: 3.4; stroke-linecap: round; fill: none; }
+.mireum .prop-flag .cloth { fill: #F6DE8D; stroke: var(--m-line); stroke-width: 2.6; stroke-linejoin: round; }
+.mireum .prop-flag .star { fill: #FFFDF8; }
+/* 코스튬 */
+.mireum .cos-bunny .b { fill: var(--m-body); stroke: var(--m-line); stroke-width: 3.4; }
+.mireum .cos-bunny .in { fill: #F6C6C6; }
+.mireum .cos-wizard .hat, .mireum .cos-wizard .brim { fill: #A99BD8; stroke: var(--m-line); stroke-width: 3.2; stroke-linejoin: round; }
+.mireum .cos-wizard .brim { fill: #9686CF; }
+.mireum .cos-wizard .star { fill: #F3CF62; }
+.mireum .cos-angel .wing { fill: var(--m-body); stroke: var(--m-line); stroke-width: 3; stroke-linejoin: round; }
+.mireum .halo { fill: none; stroke: #F3CF62; stroke-width: 4.5; }
+.mireum .cos-devil .horn, .mireum .cos-devil .tip { fill: #E88B7D; stroke: var(--m-line); stroke-width: 3; stroke-linejoin: round; }
+.mireum .cos-devil .tail { fill: none; stroke: var(--m-line); stroke-width: 3.4; stroke-linecap: round; }
+
+/* ---------- 동작 ---------- */
+.mireum .mr-all, .mireum .mr-scale, .mireum .mr-arm-r, .mireum .mr-arm-l, .mireum .mr-eyes, .mireum .mr-fx { transform-box: view-box; }
+.mireum .mr-all { transform-origin: 120px 200px; }
+.mireum .mr-scale { transform-origin: 120px 200px; transition: transform .5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.mireum .mr-scale.squash { transform: scale(1.06, .9) !important; }
+.mireum .mr-eyes { transform-origin: 120px 130px; }
+.mireum .mr-arm-r { transform-origin: 186px 128px; }
+.mireum .mr-arm-l { transform-origin: 54px 128px; }
+/* 숨쉬기 (기본 대기) + 눈 깜빡임 */
+.mireum.m-breathe .mr-all { animation: mrBreathe 3.2s ease-in-out infinite; }
+.mireum.e-default .mr-eyes, .mireum.e-focus .mr-eyes, .mireum.e-surprised .mr-eyes { animation: mrBlink 4.6s infinite; }
+@keyframes mrBreathe { 0%, 100% { transform: none; } 50% { transform: translate3d(0, -2px, 0) scale(1.012, .99); } }
+@keyframes mrBlink { 0%, 94%, 100% { transform: none; } 96% { transform: scaleY(.12); } }
+/* 둘러보기 (일정 없음·기다림) */
+.mireum.m-look .mr-eyes { animation: mrLook 5s ease-in-out infinite; }
+.mireum.m-look .mr-all { animation: mrBreathe 3.6s ease-in-out infinite; }
+@keyframes mrLook { 0%, 30%, 100% { transform: none; } 40%, 55% { transform: translate3d(-5px, 0, 0); } 65%, 80% { transform: translate3d(5px, -1px, 0); } }
+/* 통통 튀기 (반가움) + 손 흔들기 */
+.mireum.m-bounce .mr-all { animation: mrBounce 1.4s cubic-bezier(0.34, 1.56, 0.64, 1) infinite; }
+.mireum.p-wave .mr-arm-r { animation: mrWave .9s ease-in-out infinite alternate; }
+@keyframes mrBounce { 0%, 60%, 100% { transform: none; } 20% { transform: translate3d(0, -10px, 0) scale(.98, 1.03); } 40% { transform: translate3d(0, 0, 0) scale(1.04, .96); } }
+@keyframes mrWave { from { transform: rotate(-12deg); } to { transform: rotate(16deg); } }
+/* 기뻐서 뛰어오르기 (성공) */
+.mireum.m-jump .mr-all { animation: mrJump 1.1s cubic-bezier(0.34, 1.56, 0.64, 1) 2, mrBreathe 3.2s ease-in-out 2.2s infinite; }
+.mireum.m-jump .fx-spark { animation: mrTwinkle 1.2s ease-in-out infinite; transform-origin: 120px 100px; }
+@keyframes mrJump { 0%, 100% { transform: none; } 15% { transform: scale(1.06, .92); } 45% { transform: translate3d(0, -26px, 0) scale(.96, 1.05); } 75% { transform: scale(1.04, .96); } }
+@keyframes mrTwinkle { 50% { opacity: .35; transform: scale(.9); } }
+/* 화나서 부풀기 (마감 임박·반복 실패) */
+.mireum.m-puff .mr-all { animation: mrPuff 1.6s ease-in-out infinite; }
+.mireum.m-puff.e-furious .mr-all { animation: mrShake .2s linear infinite; }
+.mireum .fx-vein { animation: mrVein 1s ease-in-out infinite; transform-origin: 178px 86px; }
+.mireum .fx-steam .st { animation: mrSteam 1.3s ease-out infinite; transform-origin: center bottom; transform-box: fill-box; opacity: 0; }
+.mireum .fx-steam .s1 { animation-delay: .6s; }
+@keyframes mrPuff { 0%, 100% { transform: none; } 50% { transform: scale(1.03); } }
+@keyframes mrShake { 0%, 100% { transform: none; } 25% { transform: translate3d(-1.5px, 0, 0); } 75% { transform: translate3d(1.5px, 0, 0); } }
+@keyframes mrVein { 50% { transform: scale(.82); } }
+@keyframes mrSteam { 0% { opacity: 0; transform: translate3d(0, 6px, 0) scale(.7); } 30% { opacity: .9; } 100% { opacity: 0; transform: translate3d(0, -14px, 0) scale(1.1); } }
+/* 잔소리하기 (팔 흔들기) */
+.mireum.p-nag .mr-arm-r { animation: mrNag .45s ease-in-out infinite alternate; }
+@keyframes mrNag { from { transform: rotate(-10deg); } to { transform: rotate(14deg); } }
+/* 울면서 주저앉기 (실패) */
+.mireum.m-cry .mr-all { animation: mrSit .6s cubic-bezier(0.16, 1, 0.3, 1) both, mrSob 1.2s ease-in-out .6s infinite; }
+.mireum .fx-tears .drop { animation: mrDrop 1.4s ease-in infinite; transform-box: fill-box; }
+@keyframes mrSit { from { transform: translate3d(0, -10px, 0); } to { transform: translate3d(0, 4px, 0); } }
+@keyframes mrSob { 0%, 100% { transform: translate3d(0, 4px, 0); } 50% { transform: translate3d(0, 6px, 0) scale(1.01, .98); } }
+@keyframes mrDrop { 0% { transform: translate3d(0, -4px, 0); opacity: 0; } 30% { opacity: 1; } 100% { transform: translate3d(0, 14px, 0); opacity: 0; } }
+/* 잠들어 웅크리기 */
+.mireum.m-sleep .mr-all { animation: mrSleep 4.4s ease-in-out infinite; }
+.mireum .fx-zz path { animation: mrZ 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.mireum .fx-zz path + path { animation-delay: 1.3s; }
+@keyframes mrSleep { 0%, 100% { transform: none; } 50% { transform: scale(1.02, .98); } }
+@keyframes mrZ { 0%, 100% { opacity: .2; transform: translate3d(0, 4px, 0); } 50% { opacity: 1; transform: translate3d(2px, -4px, 0); } }
+/* 쫓아오기 (딴짓 감지 팝업 등장) */
+.mireum.m-chase .mr-all { animation: mrChase .7s cubic-bezier(0.16, 1, 0.3, 1) both, mrHop .32s ease-in-out .7s 3; }
+@keyframes mrChase { from { transform: translate3d(140px, 0, 0) rotate(-8deg); } to { transform: none; } }
+@keyframes mrHop { 50% { transform: translate3d(0, -6px, 0); } }
+/* 체크리스트 확인 (일정 등록·집중) */
+.mireum .prop-clip .tick { stroke-dasharray: 16; stroke-dashoffset: 16; }
+.mireum.m-check .prop-clip .tick { animation: mrTick 3.6s ease-out infinite; }
+.mireum.m-check .prop-clip .t2 { animation-delay: .45s; } .mireum.m-check .prop-clip .t3 { animation-delay: .9s; }
+.mireum:not(.m-check) .prop-clip .tick { stroke-dashoffset: 0; }
+.mireum.m-check .mr-all { animation: mrBreathe 3.2s ease-in-out infinite; }
+@keyframes mrTick { 0% { stroke-dashoffset: 16; } 18%, 85% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 16; } }
+
+/* 움직임 줄이기 */
+@media (prefers-reduced-motion: reduce) {
+  .mireum *, .mireum { animation: none !important; transition: none !important; }
+  .mireum .prop-clip .tick { stroke-dashoffset: 0; }
+  .mireum .fx-steam .st { opacity: .8; }
+}
+html.reduce .mireum .prop-clip .tick { stroke-dashoffset: 0; }
+html.reduce .mireum .fx-steam .st { opacity: .8; }

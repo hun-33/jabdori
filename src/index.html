@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2B2622">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="잡도리">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="잡도리앱 프로토타입 — 전담 마스코트 미루먼지가 미루는 일을 잡도리하는 자기관리 앱">
+<title>잡도리 — 미루먼지 (프로토타입)</title>
+<style>
+/*STYLE*/
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="device" id="device">
+    <div class="statusbar" aria-hidden="true"><span id="sb-time">18:00</span><span class="sb-r"><small>가상 시각</small><i></i></span></div>
+    <div id="app">
+      <main id="screen" tabindex="-1"></main>
+      <div id="tabbar"></div>
+      <div id="layer-sheet"></div>
+      <div id="layer-result"></div>
+      <div id="layer-popup"></div>
+      <div id="layer-banner" aria-live="polite"></div>
+      <div id="toast" role="status" aria-live="polite"></div>
+    </div>
+  </div>
+  <aside id="console" aria-label="시연 콘솔 (앱 화면 아님)"></aside>
+</div>
+<button id="console-tab" data-act="cToggle" aria-label="시연 콘솔 열기">시연</button>
+<noscript>이 프로토타입은 자바스크립트를 켜야 동작해요.</noscript>
+<script>
+/*CAPACITOR*/
+</script>
+<script>
+/*SCRIPT*/
+</script>
+</body>
+</html>
