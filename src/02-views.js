@@ -66,7 +66,8 @@ function rowSide(st, t = now()) {
 function timeRange(task) {
   if (task.allDay) return spanDays(task) ? `종일 · ${spanDays(task) + 1}일` : '종일';
   const sd = spanDays(task);
-  return `${task.start}–${task.end || minToHm(hmToMin(task.start) + durOf(task))}${sd ? `(+${sd})` : ''}`;
+  const end = task.end || minToHm(hmToMin(task.start) + durOf(task));
+  return sd ? `${task.start} – ${fmtMD(task.endDate)} ${end}` : `${task.start}–${end}`;
 }
 /* 여러 날 일정의 둘째 날부터는 '2/3일째'처럼 보여 준다 */
 function occTimeText(st) {
@@ -365,10 +366,31 @@ function viewToday(m) {
    ui.calMode: 'day' | 'week' | 'month'  ·  ui.selDate: 고른 날짜(세 보기가 같이 씀)  ·  ui.calMonth: 월간에 보이는 달
    ui.range: 월간 기간 선택 중 { a: 시작 날짜 | null }  ·  ui.slot: 일간 시간 선택 중 { date, from: 분 } */
 const HOUR_H = 44; // 일간 시간표 한 시간 높이(px)
-function monthChips(m, d) {
-  const occs = occurrencesCovering(m, d);
-  const show = occs.slice(0, 2).map((o) => `<span class="mo-chip c-${taskColor(o.task)} ${o.kind === 'done' ? 'done' : ''} ${o.kind === 'failed' ? 'bad' : ''} ${o.dayNo > 1 ? 'cont' : ''}">${o.dayNo > 1 ? '' : esc(o.task.title)}</span>`).join('');
-  return show + (occs.length > 2 ? `<span class="mo-more">+${occs.length - 2}</span>` : '');
+/* 월간 막대: 한 주(일~토) 안에서 일정마다 '줄(lane)'을 하나씩 잡아 칸을 가로질러 이어 그린다.
+   여러 날 일정은 주가 바뀌면 다음 주 줄에서 다시 시작하고, 주마다 제목을 가운데에 다시 적는다 (갤럭시 캘린더 방식). */
+const MO_LANES = 3; // 한 주에 보이는 줄 수 (넘치면 날짜마다 +N)
+function weekBars(m, ws) {
+  const we = addDays(ws, 6), seen = new Map();
+  for (let i = 0; i < 7; i++) for (const o of occurrencesCovering(m, addDays(ws, i))) if (!seen.has(o.key)) seen.set(o.key, o);
+  const segs = [...seen.values()].map((o) => {
+    const last = addDays(o.date, o.days - 1);
+    const s = o.date < ws ? ws : o.date, e = last > we ? we : last;
+    return { o, col: daysBetween(ws, s), span: daysBetween(s, e) + 1, contL: o.date < ws, contR: last > we, multi: o.days > 1 };
+  });
+  // 먼저 시작하는 것 → 여러 날 일정 → 긴 것 → 종일 → 이른 시각 순으로 줄을 잡는다
+  segs.sort((a, b) => a.col - b.col || b.multi - a.multi || b.span - a.span || b.o.task.allDay - a.o.task.allDay || a.o.w.start - b.o.w.start);
+  const lanes = [];
+  for (const g of segs) {
+    let li = lanes.findIndex((used) => !used.slice(g.col, g.col + g.span).some(Boolean));
+    if (li < 0) { li = lanes.length; lanes.push(Array(7).fill(false)); }
+    for (let c = g.col; c < g.col + g.span; c++) lanes[li][c] = true;
+    g.lane = li;
+  }
+  // 줄이 넘치면 마지막 줄은 '+N' 자리로 쓰고, 거기에 걸리는 일정은 날짜마다 개수로 센다
+  const fit = lanes.length <= MO_LANES ? MO_LANES : MO_LANES - 1;
+  const hidden = Array(7).fill(0);
+  for (const g of segs) if (g.lane >= fit) for (let c = g.col; c < g.col + g.span; c++) hidden[c]++;
+  return { segs: segs.filter((g) => g.lane < fit), hidden };
 }
 function monthGridHTML(m, month, sel, act) {
   const td = today();
@@ -376,16 +398,27 @@ function monthGridHTML(m, month, sel, act) {
   const first = `${y}-${pad(mo)}-01`;
   const start = weekStartOf(first);
   const lastDay = new Date(y, mo, 0).getDate();
-  const cellsN = Math.ceil((daysBetween(start, first) + lastDay) / 7) * 7;
+  const weeksN = Math.ceil((daysBetween(start, first) + lastDay) / 7);
   const R = ui.range;
-  let cells = '';
-  for (let i = 0; i < cellsN; i++) {
-    const d = addDays(start, i), out = d.slice(0, 7) !== month;
-    const dm = dayMarks(m, d);
-    const inRange = R && R.a && d === R.a;
-    cells += `<button class="mo-cell ${out ? 'out' : ''} ${d === sel && !R ? 'sel' : ''} ${d === td ? 'today' : ''} ${inRange ? 'range-a' : ''} wd${i % 7}" data-act="${act}" data-date="${d}" aria-pressed="${d === sel}" aria-label="${fmtDateLong(d)}${d === td ? ', 오늘' : ''}${dm.label ? ', ' + dm.label : ''}"><span class="mo-n">${parseYmd(d).getDate()}</span><span class="mo-chips">${monthChips(m, d)}</span></button>`;
+  let weeks = '';
+  for (let w = 0; w < weeksN; w++) {
+    const ws = addDays(start, w * 7);
+    let cells = '';
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(ws, i), out = d.slice(0, 7) !== month;
+      const dm = dayMarks(m, d);
+      const inRange = R && R.a && d === R.a;
+      cells += `<button class="mo-cell ${out ? 'out' : ''} ${d === sel && !R ? 'sel' : ''} ${d === td ? 'today' : ''} ${inRange ? 'range-a' : ''} wd${i}" style="grid-column:${i + 1}" data-act="${act}" data-date="${d}" aria-pressed="${d === sel}" aria-label="${fmtDateLong(d)}${d === td ? ', 오늘' : ''}${dm.label ? ', ' + dm.label : ''}"><span class="mo-n">${parseYmd(d).getDate()}</span></button>`;
+    }
+    const { segs, hidden } = weekBars(m, ws);
+    const bars = segs.map((g) => {
+      const o = g.o, cls = [`c-${taskColor(o.task)}`, g.multi ? 'multi' : '', g.contL ? 'cl' : '', g.contR ? 'cr' : '', o.kind === 'done' ? 'done' : '', o.kind === 'failed' ? 'bad' : ''].join(' ');
+      return `<span class="mo-bar ${cls}" data-key="${o.key}" style="grid-column:${g.col + 1} / span ${g.span};grid-row:${g.lane + 2}" aria-hidden="true">${esc(o.task.title)}</span>`;
+    }).join('');
+    const more = hidden.map((n, i) => n ? `<span class="mo-more" style="grid-column:${i + 1}" aria-hidden="true">+${n}</span>` : '').join('');
+    weeks += `<div class="mo-week">${cells}${bars}${more}</div>`;
   }
-  return `<div class="mo-head" aria-hidden="true">${WEEK_ORDER.map((w, i) => `<span class="wd${i}">${WD[w]}</span>`).join('')}</div><div class="mo-grid">${cells}</div>`;
+  return `<div class="mo-head" aria-hidden="true">${WEEK_ORDER.map((w, i) => `<span class="wd${i}">${WD[w]}</span>`).join('')}</div><div class="mo-grid">${weeks}</div>`;
 }
 function weekAgendaHTML(m, sel) {
   const td = today(), ws = weekStartOf(sel);

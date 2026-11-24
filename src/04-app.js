@@ -480,6 +480,7 @@ const ACT = {
   formType: (t) => {
     const f = ui.form; f.type = t.dataset.v;
     if (f.type === 'jab') { f.heat = Math.max(f.heat, f.minHeat); f.allDay = false; } // 잡도리는 시작 시각이 있어야 한다
+    f._autoNormal = false;
     if (!f._colorTouched) f.color = f.type === 'jab' ? 'coral' : 'sky';
     rerenderForm();
   },
@@ -535,11 +536,26 @@ const ACT = {
     const f = ui.form; const [y, mo] = (f.calMonth || f.date.slice(0, 7)).split('-').map(Number);
     const d = new Date(y, mo - 1 + Number(t.dataset.delta), 1); f.calMonth = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; rerenderForm();
   },
-  formAllDay: () => { const f = ui.form; if (f.type === 'jab') return; f.allDay = !f.allDay; if (f.endDate < f.date) f.endDate = f.date; delete f.errors.time; rerenderForm(); },
+  /* 종일은 언제나 켜진다. 잡도리는 시작 시각이 있어야 해서, 잡도리 상태에서 켜면
+     새 일정은 '일반 일정'으로, 고치는 일정은 '잡도리 끔'으로 바꾸고 화면에 그 사실을 적는다. 끄면 원래대로 돌려 놓는다. */
+  formAllDay: () => {
+    const f = ui.form;
+    f.allDay = !f.allDay;
+    if (f.allDay && f.type === 'jab') {
+      if (!f.id) { f.type = 'normal'; f._autoNormal = true; if (!f._colorTouched) f.color = 'sky'; }
+      else if (f.jabOn !== false) { f.jabOn = false; f._autoJabOff = true; }
+    } else if (!f.allDay) {
+      if (f._autoNormal) { f.type = 'jab'; f.heat = Math.max(f.heat, f.minHeat); if (!f._colorTouched) f.color = 'coral'; }
+      if (f._autoJabOff) f.jabOn = true;
+      f._autoNormal = f._autoJabOff = false;
+    }
+    if (f.endDate < f.date) f.endDate = f.date;
+    delete f.errors.time; rerenderForm();
+  },
   formMore: () => { const f = ui.form; f.more = !f.more; rerenderForm(); },
   formAlarm: (t) => { const f = ui.form, v = Number(t.dataset.v); f.alarms = f.alarms.includes(v) ? f.alarms.filter((x) => x !== v) : [...f.alarms, v]; rerenderForm(); },
   formColor: (t) => { const f = ui.form; f.color = t.dataset.v; f._colorTouched = true; rerenderForm(); },
-  formJabOn: () => { const f = ui.form; f.jabOn = !f.jabOn; rerenderForm(); },
+  formJabOn: () => { const f = ui.form; f.jabOn = !f.jabOn; f._autoJabOff = false; if (f.jabOn && f.allDay) { f.allDay = false; toast('잡도리는 시작 시각이 있어야 해서 종일을 껐어요.'); } rerenderForm(); },
   formClose: () => {
     const f = ui.form;
     if (f && f.title.trim() && !f.id) {

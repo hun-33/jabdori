@@ -245,6 +245,7 @@ src/ (화면 코드)  ──npm run build──▶  www/ (합친 화면)  ──
 | `tools/run_input.py` | 휠 직접 입력의 형식·예외 처리를 검사해요 |
 | `tools/run_calendar_login.py` | 일요일 시작 달력(1일 위치·주 이동·반복 요일)과 로그인 상태 화면·진단을 검사해요(40개) |
 | `tools/run_calendar_v5.py` | v5 일정 구조(시작·종료·종일·여러 날·반복·마감)·한 폼 등록·일/주/월 달력·옛 데이터 변환을 검사해요(40개) |
+| `tools/run_month_bars.py` | 월간 막대(여러 날 일정이 주마다 이어진 막대 + 제목 가운데, +N), 종일 버튼(잡도리 → 일반 일정/잡도리 끔) 검수 22개 |
 | `tools/lines_dump.js` · `tools/make_voice_script.py` | 캐릭터 대사를 꺼내 목소리 대본(`voice/clips.json`, `voice/batchN.txt`)을 만들어요 |
 | `tools/split_voice.py` | 한 번에 만든 긴 음성을 대사별 파일로 잘라요(가장 긴 쉼 N-1개를 경계로) |
 | `tools/make_voice_pack.py` | 잘린 음성 파일로 `05b-voice-pack.js` 목록을 만들어요 |

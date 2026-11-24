@@ -285,7 +285,7 @@ input { font: inherit; color: inherit; }
 .cal-nav { display: flex; align-items: center; justify-content: space-between; margin: 10px 0 6px; }
 .cal-title { font-size: 17px; font-weight: 720; font-variant-numeric: tabular-nums; }
 .mo-head { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 12px; color: var(--ink-2); font-weight: 600; padding-bottom: 4px; }
-.mo-grid { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 1px solid var(--line); }
+.mo-grid { border-top: 1px solid var(--line); }
 .mo-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 50px; padding: 6px 0 4px; border-bottom: 1px solid var(--line); }
 .mo-n { font-size: 15px; font-weight: 640; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; }
 .mo-m { height: 16px; display: grid; place-items: center; }
@@ -833,7 +833,9 @@ html.native { --safe-top: max(env(safe-area-inset-top, 0px), var(--safe-area-ins
 .cal-bar .btn[disabled] { opacity: .45; }
 .cal-swipe { touch-action: pan-y; }
 /* 월간: 날짜 칸 안에 일정 제목 조각 */
-.mo-cell { justify-content: flex-start; align-items: stretch; min-height: 68px; padding: 4px 1px; gap: 1px; }
+/* 월간: 주 한 줄 = 날짜 칸 7개(뒤 판) + 그 위에 이어 그린 일정 막대 */
+.mo-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: 30px repeat(3, 17px) 4px; border-bottom: 1px solid var(--line); }
+.mo-week .mo-cell { grid-row: 1 / -1; justify-content: flex-start; align-items: center; min-height: 0; padding: 3px 0 0; border-bottom: 0; }
 .mo-cell .mo-n { align-self: center; width: 26px; height: 26px; font-size: 13.5px; }
 .mo-cell.wd0 .mo-n { color: #C2503A; } .mo-cell.wd6 .mo-n { color: #4F78B8; }
 .mo-cell.out .mo-n { color: #B9AFA2; }
@@ -844,7 +846,13 @@ html.native { --safe-top: max(env(safe-area-inset-top, 0px), var(--safe-area-ins
 .mo-chip.cont { border-left-width: 0; border-radius: 0 3px 3px 0; }
 .mo-chip.done { opacity: .55; text-decoration: line-through; }
 .mo-chip.bad { box-shadow: inset 0 0 0 1px var(--danger); }
-.mo-more { font-size: 10px; color: var(--ink-2); text-align: center; line-height: 12px; }
+.mo-bar { grid-row: 2; align-self: center; min-width: 0; height: 15px; margin: 0 2px; padding: 0 3px; border-radius: 3px; background: var(--ev-soft); border-left: 2.5px solid var(--ev); font-size: 10px; line-height: 15px; font-weight: 650; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; pointer-events: none; }
+.mo-bar.multi { border-left: 0; padding: 0 4px; text-align: center; font-weight: 700; } /* 여러 날 일정: 이어진 막대 + 제목 가운데 */
+.mo-bar.cl { margin-left: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; } /* 지난주에서 이어짐 */
+.mo-bar.cr { margin-right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; } /* 다음 주로 이어짐 */
+.mo-bar.done { opacity: .55; text-decoration: line-through; }
+.mo-bar.bad { box-shadow: inset 0 0 0 1px var(--danger); }
+.mo-more { grid-row: 4; align-self: center; font-size: 10px; font-weight: 650; color: var(--ink-2); text-align: center; line-height: 15px; pointer-events: none; }
 .range-bar { display: flex; align-items: center; gap: 8px; padding: 10px 12px; margin-bottom: 8px; border-radius: var(--r-s); background: #FBE3DA; font-size: 14px; }
 .range-bar span { flex: 1; }
 /* 주간 */
@@ -927,3 +935,5 @@ textarea.txt.memo { height: auto; min-height: 64px; padding: 10px 14px; resize: 
 .pill-actions button { flex: 1; min-height: 54px; text-align: center; font-size: 16px; font-weight: 650; color: var(--on-stove-2); }
 .pill-actions button.save { color: var(--surface); font-weight: 760; }
 .pill-actions i { width: 1px; height: 22px; background: var(--stove-line); }
+.hint.note { background: var(--sunken); border-radius: 8px; padding: 8px 10px; color: var(--ink); }
+.hint.note.top { margin: 0 0 10px; }

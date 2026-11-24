@@ -457,11 +457,13 @@ function viewForm(m) {
       </section>
       <section class="f-sec when" aria-labelledby="lb-time">
         <div class="f-row-head"><h3 id="lb-time" class="f-label">시간</h3>
-          <span class="allday"><span>종일</span><button class="switch sm ${f.allDay ? 'on' : ''}" role="switch" aria-checked="${f.allDay}" aria-label="종일 일정" data-act="formAllDay" ${jab ? 'disabled' : ''}><i></i></button></span></div>
+          <span class="allday"><span>종일</span><button class="switch sm ${f.allDay ? 'on' : ''}" role="switch" aria-checked="${f.allDay}" aria-label="종일 일정" data-act="formAllDay"><i></i></button></span></div>
+        ${f.allDay && f._autoNormal ? `<p class="hint note top" role="status">종일 일정은 시작 시각이 없어서 <b>일반 일정</b>으로 바꿨어요. ${P.name} 잡도리를 받으려면 종일을 끄세요.</p>` : ''}
+        ${f.allDay && f._autoJabOff ? `<p class="hint note top" role="status">종일로 바꿔서 <b>잡도리를 껐어요</b>. 종일을 끄면 다시 켜져요.</p>` : ''}
         ${whenBlock(f)}
         <p class="summary" id="time-summary">${icon('clock')}<span>${draftSummary(f)}</span></p>
         ${fieldErr(f, 'date')}${fieldErr(f, 'time')}
-        <p class="hint" id="start-hint">${jab ? (f.date === td && !f.allDay && at(f.date, f.start) < now() ? '시작 시각이 이미 지났어요. 올리면 바로 잡도리가 시작돼요.' : '') : ''}${jab ? (f.allDay ? '' : '') : ''}</p>
+        <p class="hint" id="start-hint">${jab ? (f.date === td && !f.allDay && at(f.date, f.start) < now() ? '시작 시각이 이미 지났어요. 올리면 바로 잡도리가 시작돼요.' : '') : ''}</p>
       </section>
       <button class="more-btn" data-act="formMore" aria-expanded="${f.more}">${f.more ? '상세 설정 접기' : `상세 설정 · 반복, 알림, 색상, 메모${jab ? `, ${S.short}, 마감` : ''}`}${icon(f.more ? 'prev' : 'next')}</button>
       ${more}
