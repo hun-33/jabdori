@@ -42,6 +42,18 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
 
+      - name: 카카오 키 확인
+        id: kakao
+        env:
+          SECRET_KEY: ${{ secrets.KAKAO_NATIVE_APP_KEY }}
+        run: |
+          FILE_KEY=$(grep -E '^KAKAO_NATIVE_APP_KEY=' android/gradle.properties | cut -d= -f2 | tr -d '[:space:]')
+          if [ -n "$SECRET_KEY" ] || [ -n "$FILE_KEY" ]; then
+            echo "status=됨 (진짜 카카오 로그인)" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=안 됨 (흉내 모드로 둘러보기)" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: 파일 이름 정리
         run: cp android/app/build/outputs/apk/debug/app-debug.apk jabdori.apk
 
@@ -58,6 +70,7 @@ jobs:
           name: 잡도리 앱 (${{ github.run_number }}번째 빌드)
           body: |
             폰에서 아래 jabdori.apk 를 눌러 받은 뒤 설치하세요.
-            카카오 키 설정: ${{ secrets.KAKAO_NATIVE_APP_KEY != '' && '됨 (진짜 카카오 로그인)' || '안 됨 (흉내 모드로 둘러보기)' }}
+            카카오 키 설정: ${{ steps.kakao.outputs.status }}
+            항상 최신 버전 받기: https://github.com/${{ github.repository }}/releases/latest/download/jabdori.apk
           files: jabdori.apk
           make_latest: true
