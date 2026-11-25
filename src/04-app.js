@@ -357,7 +357,7 @@ const ACT = {
   /* 탐색 */
   tab: (t) => { if (ui.tab !== t.dataset.tab) TTS.stop(); if (t.dataset.tab === 'me') ui.meSub = null; ui.tab = t.dataset.tab; ui.focusKey = null; ui.sheet = null; if (ui.tab === 'calendar') { ui.calMonth = (ui.selDate || today()).slice(0, 7);  } render(); },
   selDate: (t) => { ui.selDate = t.dataset.date; render(); },
-  /* 나 탭 하위 화면 열기·닫기 */
+  /* 설정 탭 하위 화면 열기·닫기 */
   meOpen: (t) => { ui.meSub = t.dataset.v; render(); },
   meBack: () => { ui.meSub = null; render(); },
   /* 월간 날짜 칸·주간 날짜: 처음 누르면 그 날을 고르고, 고른 날을 한 번 더 누르면 그 날로 새 일정 (삼성 캘린더처럼) */
@@ -751,7 +751,7 @@ const SCENARIOS = [
   ['authFail', '인증 실패'],
   ['returnFail', '카카오톡에서 앱 복귀 실패'],
 ];
-const DEMO_STEPS = ['가상 카카오 로그인', '최초 회원 온보딩', '메인 화면 확인', '데이터베이스 과제 등록 (콘솔: 폼에 테스트 값 채우기)', '주간·월간 달력에서 확인', '일정 시작', '미루먼지 반응 확인', '시간 바꿔 마감 임박 확인 (19:30)', '딴짓 팝업 (YouTube 실행)', '성공 처리 → 오늘 회차 되돌리기', '실패 처리', '새 일정 올리기에서 쌓인 먼지 60 확인', '나 > 단계 이름을 공통으로 바꿔 보기'];
+const DEMO_STEPS = ['가상 카카오 로그인', '최초 회원 온보딩', '메인 화면 확인', '데이터베이스 과제 등록 (콘솔: 폼에 테스트 값 채우기)', '주간·월간 달력에서 확인', '일정 시작', '미루먼지 반응 확인', '시간 바꿔 마감 임박 확인 (19:30)', '딴짓 팝업 (YouTube 실행)', '성공 처리 → 오늘 회차 되돌리기', '실패 처리', '새 일정 올리기에서 쌓인 먼지 60 확인', '설정 > 미루먼지 농도 > 단계 이름을 공통으로 바꿔 보기'];
 function consoleBody() {
   const m = member();
   const sess = state.session && !state.session.expired ? (m ? `${m.nickname} · ${m.onboarded ? '이용 중' : '온보딩 중'}` : '없음') : '로그인 전';
@@ -945,7 +945,7 @@ Object.assign(ACT, {
     render();
   },
 
-  /* 나 > 단계 이름: 캐릭터별 ↔ 공통 (숫자·잔소리는 그대로, 이름만 바뀐다) */
+  /* 설정 > 단계 이름: 캐릭터별 ↔ 공통 (숫자·잔소리는 그대로, 이름만 바뀐다) */
   scaleMode: (t) => {
     const m = member(); if (!m) return;
     m.scaleMode = t.dataset.v === 'common' ? 'common' : 'character'; save(); render();

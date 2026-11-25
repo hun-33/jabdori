@@ -4,7 +4,7 @@
                         로그인·앱 복귀·재검증 때 단계마다 성공/실패를 남긴다 (토큰 값은 절대 저장하지 않음)
    ② 진짜 로그인 확인 : checkRealLogin(kind) — 카카오 서버에 토큰·사용자 정보를 다시 물어보고 앱 회원·세션과 맞춰 본다
    ③ 로그인 성공 안내 : showLoginWelcome(m, mode) — 모든 단계가 확인됐을 때만 "카카오 계정으로 로그인했어요!"
-   ④ 나 탭 계정 상태  : accountStatusBlock(m) — 로그인 방식·카카오 연결·앱 세션 (회원번호는 보여 주지 않음)
+   ④ 설정 탭 계정 상태 : accountStatusBlock(m) — 로그인 방식·카카오 연결·앱 세션 (회원번호는 보여 주지 않음)
    ⑤ 개발자 진단      : viewLoginDiag() + ACT.diagRecheck — 단계별 결과, 실패 위치, 카카오 회원번호(여기서만)
    ============================================================ */
 
@@ -127,7 +127,7 @@ function showLoginWelcome(m, mode) {
   welcomeTimer = setTimeout(() => b.classList.remove('show'), 3600);
 }
 
-/* ④ 나 탭 계정 상태 */
+/* ④ 설정 탭 계정 상태 */
 function accountStatusBlock(m) {
   const real = isRealSession();
   const s = state.session;

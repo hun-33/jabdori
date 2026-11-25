@@ -216,7 +216,7 @@ const TTS = {
   warnNoKorean() {
     if (this.warned) return;
     this.warned = true;
-    toast(NATIVE.on ? '기기에 한국어 음성이 없어요. 나 탭 > 목소리에서 음성 설치를 눌러 주세요.' : '이 브라우저에 한국어 음성이 없어서 다른 음성으로 읽어요.');
+    toast(NATIVE.on ? '기기에 한국어 음성이 없어요. 설정 탭 > 목소리에서 음성 설치를 눌러 주세요.' : '이 브라우저에 한국어 음성이 없어서 다른 음성으로 읽어요.');
   },
   /* 안드로이드: 음성 데이터 설치 화면 열기 (아이폰은 앱에서 열 수 없어 경로만 안내) */
   install() {
@@ -226,7 +226,7 @@ const TTS = {
   },
 };
 
-/* 나 탭 > 목소리 구역 */
+/* 설정 > 목소리 구역 */
 function voiceSection() {
   const v = voicePrefs(), c = persona();
   const pack = clipsFor(c.id);

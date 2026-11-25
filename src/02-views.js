@@ -149,7 +149,7 @@ const LOGIN_ERR = {
   // ↓ 진짜 앱(카카오 공식 SDK)에서만 나오는 안내
   notConfigured: { t: '카카오 앱 키가 아직 설정되지 않았어요', b: '개발자 안내: android/gradle.properties의 KAKAO_NATIVE_APP_KEY에 카카오 디벨로퍼스의 네이티브 앱 키를 넣고 다시 빌드해 주세요. 그 전에는 흉내 모드로 둘러볼 수 있어요.', a: [['흉내 모드로 둘러보기', 'loginFake']], dev: true },
   keyHash: { t: '카카오 앱 설정이 맞지 않아요', b: NATIVE.ios
-    ? '개발자 안내: ① 카카오 로그인 > 사용 설정이 ON인지 ② 앱 > 플랫폼 > iOS에 이 앱의 번들 ID가 등록됐는지 (나 탭 > 로그인 진단에서 확인) ③ 빌드에 넣은 네이티브 앱 키가 같은지 확인해 주세요.'
+    ? '개발자 안내: ① 카카오 로그인 > 사용 설정이 ON인지 ② 앱 > 플랫폼 > iOS에 이 앱의 번들 ID가 등록됐는지 (설정 탭 > 로그인 진단에서 확인) ③ 빌드에 넣은 네이티브 앱 키가 같은지 확인해 주세요.'
     : '개발자 안내: ① 카카오 로그인 > 사용 설정이 ON인지 ② 앱 > 플랫폼 키 > 네이티브 앱 키에 패키지명 com.jabdori.app 과 키 해시가 등록됐는지 ③ gradle.properties의 키가 같은지 확인해 주세요.', a: [['다시 시도', 'login'], ['흉내 모드로 둘러보기', 'loginFake']], dev: true },
   loginFailed: { t: '카카오 로그인에 실패했어요', b: '잠시 뒤 다시 시도해 주세요. 카카오톡이 안 되면 카카오계정으로 로그인할 수 있어요.', a: [['다시 시도', 'login'], ['카카오계정으로 로그인', 'loginAccount']], dev: true },
 };
@@ -700,7 +700,7 @@ function scaleModeBlock(m) {
       <p class="set-desc">${S.blurb} 숫자와 잔소리 세기는 똑같고 이름만 바뀌어요.</p>
     </div>`;
 }
-/* 나 탭: 첫 화면은 계정 상태 + 설정 메뉴, 설정은 하위 화면(ui.meSub)으로 나눈다
+/* 설정 탭(ui.tab 'me'): 첫 화면은 계정 상태 + 설정 메뉴, 설정은 하위 화면(ui.meSub)으로 나눈다
    mireum 미루먼지 농도 · voice 목소리 · alerts 알림·딴짓 감지(웹: 앱 설치) · screen 화면·시연 · account 계정 관리 */
 const ME_SUBS = { mireum: '미루먼지 농도', voice: '목소리', alerts: '알림·딴짓 감지', screen: '화면', account: '계정 관리' };
 function meSubTitle(k) { return k === 'alerts' ? (!NATIVE.on ? '앱 설치' : NATIVE.Watch ? '알림·딴짓 감지' : '알림') : k === 'mireum' ? scaleOf().title : ME_SUBS[k]; }
@@ -715,10 +715,10 @@ function viewMe(m) {
   const alertsPrev = !NATIVE.on ? '폰 홈 화면에 설치하는 방법'
     : `알림 ${state.notifOff ? '꺼짐' : '켜짐'}${NATIVE.Watch ? ` · 딴짓 감지 ${watchPrefs().on ? '켜짐' : '꺼짐'}` : ''}`;
   const html = `<section class="scr me" aria-labelledby="me-h">
-    <header class="hdr"><div><h1 id="me-h" class="hdr-title">나</h1><p class="hdr-sub">계정과 잡도리 설정</p></div></header>
+    <header class="hdr"><div><h1 id="me-h" class="hdr-title">설정</h1><p class="hdr-sub">미루먼지와 앱을 내게 맞게 바꿔요</p></div></header>
     <div class="paper">
       ${accountStatusBlock(m)}
-      <h2 class="sec-label">설정</h2>
+      <h2 class="sec-label">앱 설정</h2>
       ${meMenuRow('mireum', S.icon, `${S.floor} ${lv(floorOf(m))} · 단계 이름 ${m.scaleMode === 'common' ? '공통' : '캐릭터별'}`)}
       ${meMenuRow('voice', 'speaker', `${C.name} 목소리 · ${vm}${v.mode === 'off' ? '' : ' · ' + VOICE_SPEEDS[v.speed].label}`)}
       ${meMenuRow('alerts', NATIVE.on ? 'clock' : 'download', alertsPrev)}
@@ -750,7 +750,7 @@ function viewMeSub(m, sub) {
     body = `<div class="list-btn as-row"><span class="lb-text"><b>움직임 줄이기</b><small>${C.name} 숨쉬기·흔들림 같은 반복 움직임을 멈춰요</small></span>
         <button class="switch ${state.reduceMotion ? 'on' : ''}" role="switch" aria-checked="${state.reduceMotion}" aria-label="움직임 줄이기" data-act="reduceMotion"><i></i></button></div>
       <button class="list-btn" data-act="replayOnboarding">${icon('eye')}<span>${C.name} 소개 다시 보기</span>${icon('chevron', 'muted')}</button>
-      ${NATIVE.on ? `<div class="list-btn as-row"><span class="lb-text"><b>발표용 시연 도구 보이기</b><small>오른쪽 가장자리에 '시연' 탭을 띄워요. 나 탭에 로그인 진단도 나타나요</small></span>
+      ${NATIVE.on ? `<div class="list-btn as-row"><span class="lb-text"><b>발표용 시연 도구 보이기</b><small>오른쪽 가장자리에 '시연' 탭을 띄워요. 설정 첫 화면에 로그인 진단도 나타나요</small></span>
         <button class="switch ${state.showDemo ? 'on' : ''}" role="switch" aria-checked="${!!state.showDemo}" aria-label="발표용 시연 도구 보이기" data-act="demoToggle"><i></i></button></div>` : ''}`;
   } else if (sub === 'account') {
     const c = m.consent;
@@ -773,7 +773,7 @@ function viewMeSub(m, sub) {
       <ul class="acct">${acct.map(([a, ic, t, d]) => `<li><button class="list-btn ${a === 'withdraw' ? 'danger' : ''}" data-act="acct" data-v="${a}">${icon(ic)}<span class="lb-text"><b>${t}</b><small>${d}</small></span>${icon('chevron', 'muted')}</button></li>`).join('')}</ul>`;
   }
   const html = `<section class="scr me me-sub" aria-labelledby="me-h">
-    <header class="hdr sub-hdr"><button class="icon-btn" data-act="meBack" aria-label="나 탭으로 돌아가기">${icon('back')}</button><div><h1 id="me-h" class="hdr-title">${meSubTitle(sub)}</h1></div></header>
+    <header class="hdr sub-hdr"><button class="icon-btn" data-act="meBack" aria-label="설정으로 돌아가기">${icon('back')}</button><div><h1 id="me-h" class="hdr-title">${meSubTitle(sub)}</h1></div></header>
     <div class="paper">${body}</div>
   </section>`;
   return { id: 'me-' + sub, html };
@@ -781,6 +781,6 @@ function viewMeSub(m, sub) {
 
 /* ---------- 탭 바 ---------- */
 function viewTabbar() {
-  const tabs = [['today', '오늘', 'today'], ['calendar', '달력', 'calendar'], ['records', '기록', 'record'], ['me', '나', 'me']];
+  const tabs = [['today', '오늘', 'today'], ['calendar', '달력', 'calendar'], ['records', '기록', 'record'], ['me', '설정', 'sliders']];
   return `<nav class="tabbar" aria-label="주요 메뉴">${tabs.map(([id, l, ic]) => `<button class="tab ${ui.tab === id ? 'on' : ''}" data-act="tab" data-tab="${id}" ${ui.tab === id ? 'aria-current="page"' : ''}>${icon(ic)}<span>${l}</span></button>`).join('')}</nav>`;
 }

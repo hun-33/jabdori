@@ -90,7 +90,7 @@ async function completeNativeLogin(u) {
   state.settledDay = today();
   save(); render();
   if (persisted) showLoginWelcome(mm, 'real'); // 모든 단계가 확인됐을 때만 성공 안내
-  else toast('로그인은 됐지만 저장소에 기록하지 못했어요. 나 > 로그인 진단을 확인해 주세요.');
+  else toast('로그인은 됐지만 저장소에 기록하지 못했어요. 설정 탭 > 로그인 진단을 확인해 주세요.');
   if (!isNew && relinked) toast('다시 연결됐어요. 기록은 그대로예요.');
 }
 
@@ -126,7 +126,7 @@ async function nativeRestoreSession() {
   save(); render();
 }
 
-// 동의 내역 (나 탭에서 보여 줌)
+// 동의 내역 (설정 > 계정 관리에서 보여 줌)
 async function loadKakaoScopes() {
   if (!NATIVE.on || !state.session || !state.session.real || ui.scopesLoading) return;
   ui.scopesLoading = true;
@@ -271,7 +271,7 @@ function nativeBack() {
   if (ui.sheet) { ACT.sheetScrim(); return; }
   if (ui.result) { ACT.resultClose(); return; }
   if (ui.focusKey) { ACT.exitFocus(); return; }
-  if (ui.tab === 'me' && ui.meSub) { ACT.meBack(); return; } // 나 탭 하위 화면 → 나 탭
+  if (ui.tab === 'me' && ui.meSub) { ACT.meBack(); return; } // 설정 하위 화면 → 설정 첫 화면
   if (member() && ui.tab !== 'today') { ui.tab = 'today'; render(); return; }
   try { NATIVE.App.minimizeApp(); } catch (e) { /* 무시 */ }
 }
@@ -308,7 +308,7 @@ function nativeInit() {
   } catch (e) { /* 무시 */ }
 }
 
-/* ---------- 나 탭에 쓰는 조각 ---------- */
+/* ---------- 설정 탭에 쓰는 조각 ---------- */
 // 카카오 동의 내역 → [이름, 표시, 동의 여부] 줄 목록
 function kakaoConsentRows(m) {
   // 이메일(account_email)은 동의항목 권한이 없어 받지 않으므로 보여 주지 않는다
