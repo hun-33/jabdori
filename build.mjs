@@ -1,7 +1,7 @@
 // src/ 를 합쳐 하나의 index.html 로 만든다 (Node.js만 있으면 됨 — 윈도우·맥 공통)
 //  - dist/ : 웹(PWA) 버전
-//  - www/  : 안드로이드 앱 버전 (Capacitor가 앱 안에 넣는 폴더, dist와 같은 내용)
-// 사용: npm run build   (= node build.mjs && npx cap sync android)
+//  - www/  : 안드로이드·아이폰 앱 버전 (Capacitor가 앱 안에 넣는 폴더, dist와 같은 내용)
+// 사용: npm run build (안드로이드) · npm run build:ios (아이폰)
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, rmSync, cpSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,4 +30,4 @@ console.log('dist/index.html', Buffer.byteLength(out), 'bytes');
 const www = join(root, 'www');
 rmSync(www, { recursive: true, force: true });
 cpSync(dist, www, { recursive: true });
-console.log('www/ <- dist/ (안드로이드 앱용)');
+console.log('www/ <- dist/ (안드로이드·아이폰 앱용)');
