@@ -2,9 +2,13 @@
 # 실행: 저장소 Actions 탭 > "릴리스 되살리기 (build-1~9)" > Run workflow
 # 빌드마다:
 #   - APK: release-backup 브랜치의 원본 파일(apk/build-N.apk). 원본이 없는 build-4·7은 그 빌드 코드로 다시 만든다.
-#   - 코드 백업: 태그 build-N(그 빌드를 만든 커밋)의 코드를 jabdori-source-build-N.zip으로
+#   - 코드 백업: 그 빌드를 만든 커밋(release-notes/builds.json)의 코드를 jabdori-source-build-N.zip으로
+#   - 태그: 그 빌드 커밋에 만들어 본다. Actions 기본 권한으로는 GitHub가 막을 수 있어서(빌드 설정 파일이 바뀌는 커밋),
+#     막히면 main 최신 커밋에 만들고 설명에 "Source code는 이 빌드 코드가 아님"을 적는다.
+#     저장소 비밀값 RELEASE_TOKEN(Contents·Workflows 쓰기 권한이 있는 개인 토큰)이 있으면 그걸로 만들어 정확한 커밋에 붙고,
+#     이미 잘못된 커밋에 붙은 태그도 지우고 다시 만든다.
 #   - 설명: 설치 안내 + release-notes/build-N.md + 백업·복원 안내
-#   이미 있는 릴리스면 파일을 바꿔 올리고 설명만 고친다. 여러 번 실행해도 결과가 같다.
+#   여러 번 실행해도 결과가 같다.
 name: 릴리스 되살리기 (build-1~9)
 
 on:
@@ -23,11 +27,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        n: [4, 7]
+        include:
+          - n: 4
+            sha: 06604a8ff49340e397d27e1c98888c4c5a8335a3
+          - n: 7
+            sha: e336bb46dc7ea9a6cf13aed0619cf05696fce950
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: build-${{ matrix.n }}
+          ref: ${{ matrix.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -69,30 +77,51 @@ jobs:
 
       - name: build-1~9 릴리스
         env:
-          GH_TOKEN: ${{ github.token }}
+          GHT: ${{ github.token }}
+          PAT: ${{ secrets.RELEASE_TOKEN }}
           BUILDS: ${{ inputs.builds }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          git fetch --tags --force
+          if [ -n "${PAT:-}" ]; then export GH_TOKEN="$PAT"; mode=pat; else export GH_TOKEN="$GHT"; mode=default; fi
+          echo "토큰: $mode"
           for n in ${BUILDS//,/ }; do
-            sha=$(git rev-list -n1 "build-$n" 2>/dev/null || true)
-            if [ -z "$sha" ]; then echo "build-$n: 태그가 없어서 건너뜀"; continue; fi
+            sha=$(jq -r --arg n "$n" '.[$n] // empty' release-notes/builds.json)
+            if [ -z "$sha" ]; then echo "build-$n: 커밋 정보가 없어서 건너뜀"; continue; fi
             out="out/$n"; mkdir -p "$out"
             if [ -f "rebuilt/apk-build-$n/jabdori.apk" ]; then
               cp "rebuilt/apk-build-$n/jabdori.apk" "$out/jabdori.apk"
-              apkline="- 원본 APK가 남아 있지 않아, jabdori.apk는 이 빌드에 쓰인 코드(커밋 ${sha:0:7})로 다시 만든 파일입니다. 코드는 jabdori-source-build-$n.zip과 Source code 파일에 있습니다."
+              apkline="- 원본 APK가 남아 있지 않아, jabdori.apk는 이 빌드에 쓰인 코드로 다시 만든 파일입니다."
             elif [ -f "backup/apk/build-$n.apk" ]; then
               cp "backup/apk/build-$n.apk" "$out/jabdori.apk"
-              apkline="- 이 릴리스의 jabdori.apk는 build-$n 때 만든 파일 그대로이며, 이 빌드에 쓰인 코드는 jabdori-source-build-$n.zip과 Source code 파일(커밋 ${sha:0:7})에 있습니다."
+              apkline="- 이 릴리스의 jabdori.apk는 build-$n 때 만든 파일 그대로입니다."
             else
               echo "build-$n: APK가 없어서 건너뜀"; continue
             fi
             git archive --format=zip --prefix="jabdori-build-$n/" -o "$out/jabdori-source-build-$n.zip" "$sha"
 
+            # 릴리스와 태그
+            exists=no; gh release view "build-$n" > /dev/null 2>&1 && exists=yes
+            if [ "$exists" = yes ] && [ "$mode" = pat ]; then
+              cur=$(gh api "repos/$REPO/git/ref/tags/build-$n" -q .object.sha 2>/dev/null || true)
+              if [ "$cur" != "$sha" ]; then gh release delete "build-$n" --yes --cleanup-tag; exists=no; echo "build-$n: 태그를 바로잡으려고 지우고 다시 만듦"; fi
+            fi
+            if [ "$exists" = no ]; then
+              latest=false; [ "$n" = "9" ] && latest=true
+              if ! gh release create "build-$n" --target "$sha" --title "잡도리 앱 ($n번째 빌드)" --notes "준비 중" --latest="$latest"; then
+                echo "build-$n: 이 빌드 커밋에 태그를 만들 수 없어 main 최신 커밋에 만듦"
+                gh release create "build-$n" --title "잡도리 앱 ($n번째 빌드)" --notes "준비 중" --latest="$latest"
+              fi
+            fi
+            tagsha=$(gh api "repos/$REPO/git/ref/tags/build-$n" -q .object.sha)
+            if [ "$tagsha" = "$sha" ]; then
+              srcline="- 이 빌드에 쓰인 코드(커밋 ${sha:0:7})는 jabdori-source-build-$n.zip과 Source code 파일에 있습니다."
+            else
+              srcline="- 이 빌드에 쓰인 코드(커밋 ${sha:0:7})는 jabdori-source-build-$n.zip에 있습니다. GitHub가 자동으로 붙이는 Source code 파일은 이 빌드의 코드가 아닙니다."
+            fi
+
             key=$(git show "$sha:android/gradle.properties" 2>/dev/null | grep -E '^KAKAO_NATIVE_APP_KEY=' | cut -d= -f2 | tr -d '[:space:]' || true)
             if [ -n "$key" ]; then status="됨 (진짜 카카오 로그인)"; else status="안 됨 (흉내 모드로 둘러보기)"; fi
-
             {
               echo "폰에서 아래 jabdori.apk 를 눌러 받은 뒤 설치하세요."
               echo "카카오 키 설정: $status"
@@ -104,17 +133,11 @@ jobs:
               last=$(grep -E '^## ' "release-notes/build-$n.md" 2>/dev/null | tail -1 || true)
               if [ "$last" != "## 참고 사항 (Notes)" ]; then echo; echo "## 참고 사항 (Notes)"; fi
               echo "$apkline"
+              echo "$srcline"
               echo "- 저장소를 새로 만들면서 2026-11-25에 다시 올린 릴리스입니다. 배포일은 처음 빌드한 날입니다."
             } > "$out/body.md"
 
-            if gh release view "build-$n" > /dev/null 2>&1; then
-              gh release upload "build-$n" "$out/jabdori.apk" "$out/jabdori-source-build-$n.zip" --clobber
-              gh release edit "build-$n" --notes-file "$out/body.md"
-              echo "build-$n: 파일·설명 갱신"
-            else
-              latest=false; [ "$n" = "9" ] && latest=true
-              gh release create "build-$n" --verify-tag --title "잡도리 앱 ($n번째 빌드)" --notes-file "$out/body.md" --latest="$latest" \
-                "$out/jabdori.apk" "$out/jabdori-source-build-$n.zip"
-              echo "build-$n: 릴리스 만듦 (커밋 ${sha:0:7})"
-            fi
+            gh release upload "build-$n" "$out/jabdori.apk" "$out/jabdori-source-build-$n.zip" --clobber
+            gh release edit "build-$n" --notes-file "$out/body.md"
+            echo "build-$n: 완료 (빌드 커밋 ${sha:0:7}, 태그 ${tagsha:0:7})"
           done
