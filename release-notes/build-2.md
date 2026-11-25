@@ -10,4 +10,4 @@
 
 ## 참고 사항 (Notes)
 - 앱 기능과 화면은 build-1과 같습니다.
-- 이 릴리스의 jabdori.apk는 build-2 때 만든 파일 그대로이며, jabdori-source-build-2.zip과 Source code 파일은 이 빌드에 쓰인 코드(커밋 7111c69)입니다.
+- build-1과 build-2는 앱 코드가 같아, 남아 있던 APK 하나를 두 릴리스에 함께 넣었습니다.

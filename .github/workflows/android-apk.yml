@@ -7,7 +7,7 @@ name: 안드로이드 APK 만들기
 
 on:
   push:
-    branches: [ main, android-app ]
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -18,6 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: 빌드 번호 (저장소를 새로 만들어서 실행 번호 + 9 → 이전 저장소의 build-9 다음부터 이어짐)
+        id: num
+        run: echo "n=$((GITHUB_RUN_NUMBER + 9))" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v4
         with:
@@ -64,12 +68,12 @@ jobs:
           path: jabdori.apk
 
       - name: 이 빌드 코드 백업
-        run: git archive --format=zip --prefix=jabdori-build-${{ github.run_number }}/ -o jabdori-source-build-${{ github.run_number }}.zip HEAD
+        run: git archive --format=zip --prefix=jabdori-build-${{ steps.num.outputs.n }}/ -o jabdori-source-build-${{ steps.num.outputs.n }}.zip HEAD
 
       - name: 릴리스 설명 만들기 (release-notes/build-번호.md가 있으면 그 내용, 없으면 커밋 설명)
         env:
           STATUS: ${{ steps.kakao.outputs.status }}
-          N: ${{ github.run_number }}
+          N: ${{ steps.num.outputs.n }}
           REPO: ${{ github.repository }}
           MSG: ${{ github.event.head_commit.message }}
         run: |
@@ -88,17 +92,16 @@ jobs:
               printf '%s\n' "$MSG" | grep -v -E '^(Co-Authored-By|Claude-Session):'
             fi
             echo
-            echo "이 릴리스의 jabdori.apk는 build-$N 때 만든 파일 그대로이며, jabdori-source-build-$N.zip과 Source code 파일은 이 빌드에 쓰인 코드(커밋 ${GITHUB_SHA::7})입니다."
+            echo "이 릴리스의 jabdori.apk는 build-$N 때 만든 파일 그대로이며, 이 빌드에 쓰인 코드는 jabdori-source-build-$N.zip(커밋 ${GITHUB_SHA::7})에 있습니다. GitHub가 자동으로 붙이는 Source code 파일은 이 빌드의 코드가 아닙니다."
           } > release-body.md
 
       - name: Releases에 올려서 다운로드 링크 만들기
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.run_number }}
-          target_commitish: ${{ github.sha }}
-          name: 잡도리 앱 (${{ github.run_number }}번째 빌드)
+          tag_name: build-${{ steps.num.outputs.n }}
+          name: 잡도리 앱 (${{ steps.num.outputs.n }}번째 빌드)
           body_path: release-body.md
           files: |
             jabdori.apk
-            jabdori-source-build-${{ github.run_number }}.zip
+            jabdori-source-build-${{ steps.num.outputs.n }}.zip
           make_latest: true

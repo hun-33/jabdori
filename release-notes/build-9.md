@@ -15,4 +15,3 @@
 - 말 빠르기 설정은 녹음 재생 속도에 적용됩니다.
 - 목소리는 ElevenLabs Voice Design으로 만든 오리지널 목소리이며, 무료 플랜 조건에 따라 비상업 용도로만 사용하고 앱에 출처를 표기했습니다.
 - 녹음 파일이 추가되어 APK 크기가 약 11.0MB에서 14.0MB로 늘었습니다.
-- 이 릴리스의 jabdori.apk는 build-9 때 만든 파일 그대로이며, jabdori-source-build-9.zip과 Source code 파일은 이 빌드에 쓰인 코드(커밋 6797de3)입니다.

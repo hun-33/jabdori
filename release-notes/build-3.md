@@ -27,4 +27,3 @@
 
 ## 참고 사항 (Notes)
 - 이전 빌드에서 "멘트 소리로 듣기"를 켜 두었다면 소리 모드가 "모든 멘트"로 자동 설정됩니다.
-- 이 릴리스의 jabdori.apk는 build-3 때 만든 파일 그대로이며, jabdori-source-build-3.zip과 Source code 파일은 이 빌드에 쓰인 코드(커밋 a748bea)입니다.
