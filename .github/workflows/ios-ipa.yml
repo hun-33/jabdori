@@ -1,6 +1,7 @@
 # GitHub에 올리면 클라우드(맥)에서 아이폰 앱(.ipa)을 자동으로 만들어 주는 설정
 # - 안드로이드(android-apk.yml)와 따로 돈다: 릴리스 태그는 ios-build-1, ios-build-2 … (안드로이드는 build-N)
 # - 아이폰 릴리스는 'Latest'로 표시하지 않는다 → 안드로이드 고정 주소(releases/latest/download/jabdori.apk)가 그대로 유지됨
+# - 아이폰 고정 주소는 따로: 빌드마다 ios-latest 릴리스의 jabdori.ipa를 새 파일로 바꾼다 (releases/download/ios-latest/jabdori.ipa)
 # - 서명하지 않은 .ipa 라서, 각자 Windows에서 Sideloadly로 자기 Apple ID로 서명해 설치한다 (무료 Apple ID는 7일마다 다시 설치)
 # - 카카오 키: 저장소 Secrets 의 KAKAO_NATIVE_APP_KEY, 없으면 android/gradle.properties 의 같은 키를 쓴다
 # - 커밋 설명에 [ios skip] 이 있으면 아이폰 빌드를 건너뛴다 (번호도 쓰지 않음)
@@ -149,3 +150,24 @@ jobs:
             jabdori.ipa
             jabdori-ios-source-build-${{ steps.num.outputs.n }}.zip
           make_latest: false
+
+      # 아이폰도 늘 같은 주소로 받게: ios-latest 릴리스 하나를 두고, 빌드마다 그 안의 jabdori.ipa만 새 파일로 바꾼다
+      #   주소: https://github.com/<저장소>/releases/download/ios-latest/jabdori.ipa
+      #   - 처음 한 번만 ios-latest 릴리스를 만들고(Latest 표시 없음), 그 뒤로는 파일만 덮어쓴다 (--clobber)
+      #   - ios-latest 태그는 'ios-build-*' 모양이 아니라서 빌드 번호 세는 데 섞이지 않는다
+      - name: 고정 주소(ios-latest)의 jabdori.ipa를 이번 빌드로 바꾸기
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if ! gh release view ios-latest >/dev/null 2>&1; then
+            {
+              echo "아이폰용 잡도리 앱의 최신 파일을 늘 같은 주소로 받는 곳입니다."
+              echo
+              echo "받는 주소: https://github.com/$GITHUB_REPOSITORY/releases/download/ios-latest/jabdori.ipa"
+              echo
+              echo "아이폰 빌드(ios-build-N)가 끝날 때마다 이 릴리스의 jabdori.ipa가 그 빌드 파일로 바뀝니다. 무엇이 바뀌었는지는 가장 최근 ios-build-N 릴리스를 보세요."
+            } > latest-body.md
+            gh release create ios-latest --title "[아이폰] 잡도리 앱 최신 (고정 주소)" --notes-file latest-body.md --latest=false --target "$GITHUB_SHA"
+          fi
+          gh release upload ios-latest jabdori.ipa --clobber

@@ -7,15 +7,15 @@
 | | 안드로이드 | 아이폰 |
 |---|---|---|
 | 받는 곳 | [Releases](https://github.com/hun-33/jabdori/releases)의 `build-N` → `jabdori.apk` | [Releases](https://github.com/hun-33/jabdori/releases)의 `ios-build-N` → `jabdori.ipa` |
-| 릴리스 나눠 보기 | [안드로이드 릴리스만](https://github.com/hun-33/jabdori/releases?q=tag%3Abuild&expanded=true) | [아이폰 릴리스만](https://github.com/hun-33/jabdori/releases?q=tag%3Aios-build&expanded=true) |
-| 항상 최신 받기 | https://github.com/hun-33/jabdori/releases/latest/download/jabdori.apk | 고정 주소 없음 (Releases에서 맨 위 `ios-build-N`) |
+| 릴리스 나눠 보기 | [안드로이드 릴리스만](https://github.com/hun-33/jabdori/releases?q=jabdori.apk&expanded=true) | [아이폰 릴리스만](https://github.com/hun-33/jabdori/releases?q=jabdori.ipa&expanded=true) |
+| 항상 최신 받기 | https://github.com/hun-33/jabdori/releases/latest/download/jabdori.apk | https://github.com/hun-33/jabdori/releases/download/ios-latest/jabdori.ipa |
 | 설치 방법 | 폰에서 APK를 받아 바로 설치 | Windows PC에서 Sideloadly로 설치 (7일마다 다시) |
 | 앱 아이디 | 패키지명 `com.jabdori.app` | 번들 ID `com.jabdori.app` |
 | 최소 버전 | 안드로이드 7.0 (API 24) | iOS 15 |
 
 빌드마다 바뀐 점은 [CHANGELOG.md](CHANGELOG.md)에 있어요.
 
-> **릴리스 구분:** GitHub Releases는 한 목록에 두 폰 것이 섞여 보여요. build-18·ios-build-7부터는 제목이 **[안드로이드]**·**[아이폰]**으로 시작해요. 한쪽만 보려면 위 표의 '릴리스 나눠 보기' 링크를 누르거나, Releases 페이지 위 **Find a release** 칸에 `tag:ios-build`(아이폰) 또는 `tag:build`(안드로이드)를 적어요.
+> **릴리스 구분:** GitHub Releases는 한 목록에 두 폰 것이 섞여 보여요. build-18·ios-build-7부터는 제목이 **[안드로이드]**·**[아이폰]**으로 시작해요. 한쪽만 보려면 위 표의 '릴리스 나눠 보기' 링크를 누르거나, Releases 페이지 위 **Find a release** 칸에 `jabdori.ipa`(아이폰) 또는 `jabdori.apk`(안드로이드)를 적어요. 릴리스 설명에 들어 있는 파일 이름으로 찾는 방식이라, 안드로이드 릴리스 노트에는 `jabdori.ipa`를, 아이폰 릴리스 노트에는 `jabdori.apk`를 적지 않아요. (GitHub의 `tag:` 검색은 v1 → v1.2처럼 버전 번호로만 찾아서 `build-N` 모양 태그는 못 찾아요.)
 
 ---
 
@@ -109,7 +109,7 @@
 
 ### ② 설치 (빌드마다)
 
-1. [Releases](https://github.com/hun-33/jabdori/releases)에서 맨 위 `ios-build-N`의 `jabdori.ipa`를 PC에 받아요.
+1. PC에서 https://github.com/hun-33/jabdori/releases/download/ios-latest/jabdori.ipa 를 열면 최신 `jabdori.ipa`가 바로 받아져요. (특정 빌드가 필요하면 [Releases](https://github.com/hun-33/jabdori/releases)에서 `ios-build-N`을 골라요.)
 2. 아이폰을 USB로 PC에 연결해요. 아이폰에 "이 컴퓨터를 신뢰하겠습니까?"가 뜨면 **신뢰**를 눌러요.
 3. Sideloadly를 열고 `jabdori.ipa`를 창에 끌어다 놓아요. **Apple account** 칸에 자기 Apple ID를 넣어요.
 4. **Advanced options**에서 **Use automatic bundle ID** 체크를 **끄고**, 번들 ID가 `com.jabdori.app`인지 확인해요.
@@ -165,7 +165,7 @@
 | 파일 | 언제 | 하는 일 |
 |---|---|---|
 | `android-apk.yml` | `main`에 올릴 때 | Ubuntu 서버에서 APK를 만들어 `build-N` 릴리스로 올려요. **Latest** 표시가 붙어서 고정 주소가 항상 이 APK를 가리켜요 |
-| `ios-ipa.yml` | `main`에 올릴 때 | Mac 서버(macos-26, Xcode 26)에서 서명 없는 `.ipa`를 만들어 `ios-build-N` 릴리스로 올려요. Latest 표시는 붙이지 않아요 |
+| `ios-ipa.yml` | `main`에 올릴 때 | Mac 서버(macos-26, Xcode 26)에서 서명 없는 `.ipa`를 만들어 `ios-build-N` 릴리스로 올려요. Latest 표시는 붙이지 않고, 대신 `ios-latest` 릴리스의 `jabdori.ipa`를 이번 파일로 바꿔서 아이폰 고정 주소가 항상 최신 ipa를 가리켜요 |
 | `dev-check.yml` | `dev`에 올릴 때 | 안드로이드 컴파일 확인. APK는 실행 결과의 Artifacts에 남아요 |
 | `ios-dev-check.yml` | `dev`에 올릴 때 | 아이폰 컴파일 확인. IPA와 빌드 기록은 Artifacts에 남아요 |
 | `restore-releases.yml` | 버튼으로만 | 저장소를 새로 만들 때 build-1~9 릴리스를 되살리는 데 한 번 썼어요 |
