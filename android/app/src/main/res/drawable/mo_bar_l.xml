@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 지난주에서 이어진 막대: 왼쪽 모서리를 각지게 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#FFFFFF" />
+    <corners android:topLeftRadius="0dp" android:bottomLeftRadius="0dp" android:topRightRadius="3dp" android:bottomRightRadius="3dp" />
+</shape>

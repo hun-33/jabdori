@@ -12,4 +12,9 @@
     <color name="w_heat">#DF7A2C</color>    <!-- heat-3 -->
     <color name="w_live">#DF7A2C</color>
     <color name="w_on_mark">#2B2622</color>
+    <color name="w_sun">#E8806E</color>
+    <color name="w_sat">#86A8DE</color>
+    <color name="w_ink_dim">#59F3ECE0</color>
+    <color name="w_sun_dim">#59E8806E</color>
+    <color name="w_sat_dim">#5986A8DE</color>
 </resources>

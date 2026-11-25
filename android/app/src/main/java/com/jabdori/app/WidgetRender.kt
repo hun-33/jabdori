@@ -11,6 +11,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.text.SpannableString
@@ -19,6 +20,8 @@ import android.text.style.StrikethroughSpan
 import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONObject
+import java.util.Calendar
+import java.util.Locale
 import java.util.UUID
 
 /**
@@ -29,6 +32,7 @@ import java.util.UUID
  *  - NextWidgetProvider   다음 일정 (이름 · 시작 시각 · 남은 시간 카운트다운 · 진행 중/시작 전 일정)
  *  - MireumWidgetProvider 미루먼지 (표정 · 한마디 · 지금 농도 · 오늘 진행)
  *  - StatsWidgetProvider  잡도리 통계 (오늘 완료율 · 이번 주 성공률 · 연속 성공)
+ *  - MonthWidgetProvider  달력 (한 달 격자 · 색 막대 · 여러 날 막대 · +N · < > 달 이동 · 날짜 누르면 앱 달력)
  *
  * 다시 그리는 때: 앱이 새 묶음을 넘길 때(WidgetPlugin.update), 위젯에서 체크할 때, 회차 상태가 바뀌는 시각(알람),
  * 크기를 바꿀 때, 시각·시간대를 바꿀 때. 알람은 화면을 깨우지 않는 종류(RTC)라 화면이 꺼져 있으면 켜질 때 한 번에 그린다.
@@ -37,6 +41,9 @@ object WidgetRender {
     const val ACTION_CHECK = "com.jabdori.app.widget.CHECK"
     const val ACTION_TICK = "com.jabdori.app.widget.TICK"
     const val ACTION_OPEN = "com.jabdori.app.widget.OPEN"
+    const val ACTION_MONTH = "com.jabdori.app.widget.MONTH"
+    const val EXTRA_ID = "widgetId"
+    const val EXTRA_DELTA = "delta"
     const val EXTRA_KEY = "key"
     const val EXTRA_TARGET = "jabdori_widget"
 
@@ -45,6 +52,7 @@ object WidgetRender {
         "next" to NextWidgetProvider::class.java,
         "mireum" to MireumWidgetProvider::class.java,
         "stats" to StatsWidgetProvider::class.java,
+        "month" to MonthWidgetProvider::class.java,
     )
 
     fun classOf(kind: String): Class<*>? = KINDS.firstOrNull { it.first == kind }?.second
@@ -71,6 +79,7 @@ object WidgetRender {
                 "today" -> today(c, model, w, h)
                 "next" -> next(c, model, w, h)
                 "mireum" -> mireum(c, model, w, h)
+                "month" -> month(c, model, id, w, h)
                 else -> stats(c, model, w, h)
             }
         } catch (e: Exception) {
@@ -80,8 +89,13 @@ object WidgetRender {
         try { mgr.updateAppWidget(id, views) } catch (e: Exception) { /* 홈 화면 앱이 거절하면 다음에 */ }
     }
 
-    private fun defaultW(kind: String) = if (kind == "today") 250 else 110
-    private fun defaultH(kind: String) = 110
+    private fun defaultW(kind: String) = if (kind == "today" || kind == "month") 250 else 110
+    private fun defaultH(kind: String) = if (kind == "month") 250 else 110
+
+    /** 글자색을 색 리소스로: 안드로이드 12+는 홈 화면이 그릴 때 정해서 어두운 모드를 바꿔도 바로 따라간다 */
+    fun tc(c: Context, v: RemoteViews, id: Int, res: Int) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) v.setColor(id, "setTextColor", res) else v.setTextColor(id, c.getColor(res))
+    }
 
     // ---------------------------------------------------------------- 오늘의 일정
     private fun today(c: Context, m: WidgetModel, w: Int, h: Int): RemoteViews {
@@ -144,17 +158,17 @@ object WidgetRender {
         r.setInt(R.id.r_bar, "setColorFilter", it.color)
         val title = if (!it.jab && k == "done") SpannableString(it.title).apply { setSpan(StrikethroughSpan(), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) } else it.title
         r.setTextViewText(R.id.r_title, title)
-        r.setTextColor(R.id.r_title, c.getColor(if (!it.jab && k == "done") R.color.w_ink2 else R.color.w_ink))
+        tc(c, r, R.id.r_title, if (!it.jab && k == "done") R.color.w_ink2 else R.color.w_ink)
         r.setTextViewText(R.id.r_meta, if (it.jab) "잡도리 · ${it.timeText}" else it.timeText)
         val side = m.sideText(it)
         r.setTextViewText(R.id.r_side, side)
-        r.setTextColor(R.id.r_side, c.getColor(when (k) {
+        tc(c, r, R.id.r_side, when (k) {
             "done" -> R.color.w_ok
             "failed" -> R.color.w_bad
             "late", "missedStart", "overdue" -> R.color.w_heat
             "running", "break" -> R.color.w_ink
             else -> R.color.w_ink2
-        }))
+        })
         r.setViewVisibility(R.id.r_side, if (side.isEmpty()) View.GONE else View.VISIBLE)
         // 일반 일정: 동그라미를 누르면 바로 체크/해제. 잡도리 일정: 어디를 눌러도 앱이 그 일정을 연다
         val openIt = open(c, "open:" + it.key)
@@ -276,6 +290,130 @@ object WidgetRender {
             else -> "연속 성공 0번 · 다음 잡도리로 다시 시작"
         })
         return v
+    }
+
+    // ---------------------------------------------------------------- 달력
+    private val CELL = intArrayOf(R.id.c0, R.id.c1, R.id.c2, R.id.c3, R.id.c4, R.id.c5, R.id.c6)
+    private val DAY = intArrayOf(R.id.d0, R.id.d1, R.id.d2, R.id.d3, R.id.d4, R.id.d5, R.id.d6)
+    private val MORE = intArrayOf(R.id.x0, R.id.x1, R.id.x2, R.id.x3, R.id.x4, R.id.x5, R.id.x6)
+    private val SEG = intArrayOf(R.layout.mo_seg_1, R.layout.mo_seg_2, R.layout.mo_seg_3, R.layout.mo_seg_4, R.layout.mo_seg_5, R.layout.mo_seg_6, R.layout.mo_seg_7)
+    private val GAP = intArrayOf(R.layout.mo_gap_1, R.layout.mo_gap_2, R.layout.mo_gap_3, R.layout.mo_gap_4, R.layout.mo_gap_5, R.layout.mo_gap_6, R.layout.mo_gap_7)
+
+    private fun month(c: Context, m: WidgetModel, id: Int, w: Int, h: Int): RemoteViews {
+        val v = RemoteViews(c.packageName, R.layout.widget_month)
+        val off = WidgetStore.monthOffset(c, id)
+        val cal = Calendar.getInstance(); cal.timeInMillis = m.now
+        val curYear = cal.get(Calendar.YEAR)
+        val todayNum = cal.get(Calendar.DAY_OF_MONTH)
+        cal.set(Calendar.DAY_OF_MONTH, 1); cal.add(Calendar.MONTH, off)
+        val y = cal.get(Calendar.YEAR); val mo = cal.get(Calendar.MONTH) + 1
+        val month = String.format(Locale.US, "%04d-%02d", y, mo)
+        val lastDay = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+        v.setTextViewText(R.id.mo_title, if (y == curYear) "${mo}월" else "${y}년 ${mo}월")
+        v.setTextViewText(R.id.mo_today, todayNum.toString())
+        v.setOnClickPendingIntent(R.id.mo_prev, monthNav(c, id, -1))
+        v.setOnClickPendingIntent(R.id.mo_next, monthNav(c, id, 1))
+        v.setOnClickPendingIntent(R.id.mo_today_box, monthNav(c, id, 0))
+        v.setOnClickPendingIntent(R.id.mo_add, open(c, "add"))
+        v.setOnClickPendingIntent(R.id.mo_title, open(c, "month:$month"))
+
+        val first = "$month-01"
+        val start = WidgetModel.weekStart(first)
+        val weeksN = (WidgetModel.daysBetween(start, first) + lastDay + 6) / 7
+        val data = if (m.login) m.monthWeeks(month) else null
+        v.setTextViewText(R.id.mo_note, when {
+            !m.login -> "로그인하면 일정이 보여요"
+            data == null -> "이 달 일정은 앱에서 볼 수 있어요"
+            else -> ""
+        })
+        if (!m.login || data == null) v.setOnClickPendingIntent(R.id.mo_note, open(c, if (!m.login) "today" else "month:$month"))
+
+        // 크기에 맞춰 막대 줄 수: 머리줄 44 + 요일 20 + 여백 18을 빼고 주마다 (선 1 + 날짜 20 + +N 12) 남는 높이 / 줄 16dp
+        val weekH = (h - 82) / maxOf(1, weeksN)
+        val lanes = ((weekH - 33) / 16).coerceIn(0, 4)
+
+        v.removeAllViews(R.id.mo_weeks)
+        for (wi in 0 until weeksN) {
+            val ws = WidgetModel.addDays(start, wi * 7)
+            val wk = data?.firstOrNull { it.ws == ws }
+            val r = RemoteViews(c.packageName, R.layout.mo_week)
+            for (i in 0 until 7) {
+                val d = WidgetModel.addDays(ws, i)
+                val out = !d.startsWith(month)
+                r.setTextViewText(DAY[i], d.substring(8).trimStart('0'))
+                if (d == m.today) {
+                    r.setInt(DAY[i], "setBackgroundResource", R.drawable.mo_today_num)
+                    tc(c, r, DAY[i], R.color.w_bg)
+                    r.setInt(CELL[i], "setBackgroundResource", R.drawable.mo_today_cell)
+                } else {
+                    tc(c, r, DAY[i], when (i) {
+                        0 -> if (out) R.color.w_sun_dim else R.color.w_sun
+                        6 -> if (out) R.color.w_sat_dim else R.color.w_sat
+                        else -> if (out) R.color.w_ink_dim else R.color.w_ink
+                    })
+                }
+                r.setOnClickPendingIntent(CELL[i], open(c, "day:$d"))
+                val cnt = wk?.n?.getOrNull(i) ?: 0
+                r.setContentDescription(CELL[i], "${WidgetModel.dateLong(d)}${if (d == m.today) ", 오늘" else ""}${if (cnt > 0) ", 일정 ${cnt}개" else ""}")
+            }
+            if (wk != null) {
+                val shown = IntArray(7)
+                for (lane in 0 until lanes) {
+                    val segs = wk.segs.filter { it.lane == lane }.sortedBy { it.col }
+                    if (segs.isEmpty()) continue
+                    val row = RemoteViews(c.packageName, R.layout.mo_lane)
+                    var col = 0
+                    for (g in segs) {
+                        if (g.col < col) continue   // 겹치면 건너뜀 (앱이 겹치지 않게 줄을 잡지만 혹시 몰라)
+                        if (g.col > col) row.addView(R.id.lane, RemoteViews(c.packageName, GAP[g.col - col - 1]))
+                        row.addView(R.id.lane, bar(c, g))
+                        for (k in g.col until g.col + g.span) shown[k]++
+                        col = g.col + g.span
+                    }
+                    if (col < 7) row.addView(R.id.lane, RemoteViews(c.packageName, GAP[7 - col - 1]))
+                    r.addView(R.id.lanes, row)
+                }
+                for (i in 0 until 7) {
+                    val hidden = wk.n[i] - shown[i]
+                    r.setTextViewText(MORE[i], if (hidden > 0) "+$hidden" else "")
+                }
+            }
+            v.addView(R.id.mo_weeks, r)
+        }
+        return v
+    }
+
+    /** 달력 막대 하나: 연한 일정 색 바탕(투명도) + 왼쪽 진한 줄(하루 일정) + 제목 */
+    private fun bar(c: Context, g: WSeg): RemoteViews {
+        val b = RemoteViews(c.packageName, SEG[g.span - 1])
+        b.setImageViewResource(R.id.sg_bg, when {
+            g.contL && g.contR -> R.drawable.mo_bar_lr
+            g.contL -> R.drawable.mo_bar_l
+            g.contR -> R.drawable.mo_bar_r
+            else -> R.drawable.mo_bar
+        })
+        b.setInt(R.id.sg_bg, "setColorFilter", g.color)
+        b.setInt(R.id.sg_bg, "setImageAlpha", if (g.done) 45 else 92)
+        if (g.multi) {
+            b.setViewVisibility(R.id.sg_acc, View.GONE)   // 여러 날 일정: 왼쪽 진한 줄 없이 이어진 막대
+        } else {
+            b.setInt(R.id.sg_acc, "setColorFilter", g.color)
+            if (g.done) b.setInt(R.id.sg_acc, "setImageAlpha", 110)
+        }
+        val title: CharSequence = if (g.done) SpannableString(g.title).apply { setSpan(StrikethroughSpan(), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) } else g.title
+        b.setTextViewText(R.id.sg_t, title)
+        tc(c, b, R.id.sg_t, when { g.failed -> R.color.w_bad; g.done -> R.color.w_ink2; else -> R.color.w_ink })
+        return b
+    }
+
+    private fun monthNav(c: Context, id: Int, delta: Int): PendingIntent {
+        val i = Intent(c, MonthWidgetProvider::class.java).apply {
+            action = ACTION_MONTH
+            data = Uri.parse("jabdori-widget://month/$id/$delta")
+            putExtra(EXTRA_ID, id)
+            putExtra(EXTRA_DELTA, delta)
+        }
+        return PendingIntent.getBroadcast(c, ("m:$id:$delta").hashCode(), i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 
     // ---------------------------------------------------------------- 공통
@@ -413,7 +551,21 @@ abstract class JabdoriWidgetProvider(private val kind: String) : AppWidgetProvid
             WidgetActions.toggle(context, key)
             return
         }
+        if (intent.action == WidgetRender.ACTION_MONTH) {
+            // 달력 위젯 < > : 그 위젯만 한 달씩 (2년 안), 오늘 버튼(delta 0)은 이번 달로
+            val id = intent.getIntExtra(WidgetRender.EXTRA_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+            if (id == AppWidgetManager.INVALID_APPWIDGET_ID) return
+            val delta = intent.getIntExtra(WidgetRender.EXTRA_DELTA, 0)
+            val next = if (delta == 0) 0 else (WidgetStore.monthOffset(context, id) + delta).coerceIn(-24, 24)
+            WidgetStore.setMonthOffset(context, id, next)
+            WidgetRender.updateOne(context, AppWidgetManager.getInstance(context), id, "month")
+            return
+        }
         super.onReceive(context, intent)
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        for (id in appWidgetIds) WidgetStore.clearMonth(context, id)
     }
 }
 
@@ -421,6 +573,7 @@ class TodayWidgetProvider : JabdoriWidgetProvider("today")
 class NextWidgetProvider : JabdoriWidgetProvider("next")
 class MireumWidgetProvider : JabdoriWidgetProvider("mireum")
 class StatsWidgetProvider : JabdoriWidgetProvider("stats")
+class MonthWidgetProvider : JabdoriWidgetProvider("month")
 
 /** 예약한 시각이 됐을 때, 기기 시각·시간대를 바꿨을 때 다시 그리기 */
 class WidgetTickReceiver : BroadcastReceiver() {

@@ -12,4 +12,9 @@
     <color name="w_heat">#9A3A1E</color>    <!-- heat-ink -->
     <color name="w_live">#D4532A</color>    <!-- heat-4 -->
     <color name="w_on_mark">#FBF8F2</color>
+    <color name="w_sun">#C2503A</color>  <!-- 일요일 (앱 .wd0) -->
+    <color name="w_sat">#4F78B8</color>  <!-- 토요일 (앱 .wd6) -->
+    <color name="w_ink_dim">#5926211C</color>  <!-- 지난달·다음 달 날짜 -->
+    <color name="w_sun_dim">#59C2503A</color>
+    <color name="w_sat_dim">#594F78B8</color>
 </resources>

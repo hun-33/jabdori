@@ -98,6 +98,8 @@ with sync_playwright() as p:
         mk({ id: 'wn1', type: 'normal', title: '편의점 아르바이트', start: minToHm(Math.min(1439, s + 30)), end: '23:58', heat: null, color: 'mint' }),
         mk({ id: 'wn2', type: 'normal', title: '엄마 생일', allDay: true, start: '00:00', end: '00:00', heat: null }),
         mk({ id: 'wj2', type: 'jab', title: '이산수학 복습', date: addDays(td, 1), endDate: addDays(td, 1), start: '09:00', end: '10:00', heat: 40 }),
+        // 토요일에 시작해 다음 주 월요일까지 (주를 넘는 막대)
+        mk({ id: 'wn3', type: 'normal', title: 'MT 숙소', allDay: true, date: addDays(weekStartOf(td), 6), endDate: addDays(weekStartOf(td), 8), start: '00:00', end: '00:00', heat: null, color: 'sun' }),
       ];
       save(); render(); })()""")
     pg.wait_for_timeout(1700)
@@ -108,6 +110,22 @@ with sync_playwright() as p:
     check('일반 줄: j=false, 고른 색(민트)', n['j'] is False and n['c'] == '#5FAE8E', n)
     check('종일 줄: ad=true, "종일"', ad['ad'] is True and ad['tm'] == '종일', ad)
     check('내일 잡도리는 내일 칸에', [i['t'] for i in s['days'][ev('addDays(today(),1)')]] == ['이산수학 복습'])
+    # 달력 위젯 묶음
+    cal = s['cal']; y, mo = map(int, s['today'].split('-')[:2])
+    months = [f"{(y + (mo - 1 + k) // 12):04d}-{((mo - 1 + k) % 12) + 1:02d}" for k in range(-1, 4)]
+    check('달력: 지난달 ~ 3달 뒤 (5달)', sorted(cal.keys()) == months, sorted(cal.keys()))
+    cm = s['today'][:7]
+    weeks_n = ev(f"(() => {{ const f = '{cm}-01', st = weekStartOf(f), [yy, mm] = '{cm}'.split('-').map(Number); return Math.ceil((daysBetween(st, f) + new Date(yy, mm, 0).getDate()) / 7); }})()")
+    check('달력: 이번 달 주 수 = 앱 월간 달력과 같음', len(cal[cm]) == weeks_n and all(ev(f"weekday('{w['ws']}')") == 7 for w in cal[cm]), (len(cal[cm]), weeks_n))
+    ws0 = ev('weekStartOf(today())'); wk = [w for w in cal[cm] if w['ws'] == ws0][0]
+    app = ev(f"weekLanes(member(), '{ws0}').map(g => [g.col, g.span, g.lane, g.o.task.title])")
+    check('달력: 이번 주 막대 = 앱 weekLanes (칸·길이·줄)', [x[:4] for x in wk['s']] == app, (wk['s'], app))
+    mt = [x for x in wk['s'] if x[3] == 'MT 숙소']
+    check('달력: 주를 넘는 막대는 토요일 한 칸 + 다음 주로 이어짐 표시', bool(mt) and mt[0][0] == 6 and mt[0][1] == 1 and mt[0][5] & 1 and mt[0][5] & 4, mt)
+    nxt = [w for w in cal[ev(f"addDays('{ws0}', 7)").__str__()[:7]] if w['ws'] == ev(f"addDays('{ws0}', 7)")]
+    mt2 = [x for x in nxt[0]['s'] if x[3] == 'MT 숙소'] if nxt else []
+    check('달력: 다음 주 칸에는 일·월 2칸 + 지난주에서 이어짐', bool(mt2) and mt2[0][0] == 0 and mt2[0][1] == 2 and mt2[0][5] & 2, mt2)
+    check('달력: 요일 칸마다 일정 수(n)', wk['n'][ev('weekday(today()) % 7')] >= 3, wk['n'])
     check('메모 같은 다른 내용은 넘기지 않음', all(set(i.keys()) <= {'k','t','j','ad','s','e','dl','st','bu','c','d','dn','dd','tm'} for i in items))
     md = s['mood']['list']
     check('미루먼지: 지금(30분 단위 시작)부터 미리 계산', len(md) >= 3 and md[0]['at'] <= ev('now()') and all(md[i]['at'] < md[i+1]['at'] for i in range(len(md)-1)), len(md))
@@ -159,6 +177,14 @@ with sync_playwright() as p:
     ev("ui.form = null; closeSheet()")
     ev("(window.__listeners['Widget:launch']||[]).forEach(f => f({ target: 'records' }))"); pg.wait_for_timeout(300)
     check('통계 위젯 → 기록 탭', ev('ui.tab') == 'records')
+    ev("(window.__listeners['Widget:launch']||[]).forEach(f => f({ target: 'day:' + addDays(today(), 3) }))"); pg.wait_for_timeout(300)
+    check('달력 위젯 날짜 → 앱 월간 달력에서 그 날', ev('ui.tab') == 'calendar' and ev('ui.calMode') == 'month' and ev('ui.selDate') == ev('addDays(today(),3)') and ev('ui.calMonth') == ev('addDays(today(),3).slice(0,7)'))
+    pg.screenshot(path=f'{OUT}/03_open_day.png')
+    nm = months[3]
+    ev(f"(window.__listeners['Widget:launch']||[]).forEach(f => f({{ target: 'month:{nm}' }}))"); pg.wait_for_timeout(300)
+    check('달력 위젯 제목 → 그 달 (1일 선택)', ev('ui.calMonth') == nm and ev('ui.selDate') == nm + '-01')
+    ev("(window.__listeners['Widget:launch']||[]).forEach(f => f({ target: 'day:2026-13-99' }))"); pg.wait_for_timeout(200)
+    check('이상한 날짜는 무시하고 오늘 화면', ev('ui.tab') == 'today')
     ev("(window.__listeners['Widget:launch']||[]).forEach(f => f({ target: 'open:gone|2026-01-01' }))"); pg.wait_for_timeout(300)
     check('지워진 일정 → 오늘 화면 + 안내', ev('ui.tab') == 'today' and '지워졌거나' in pg.inner_text('#toast'))
 
@@ -174,7 +200,7 @@ with sync_playwright() as p:
     check('설정 첫 화면에 홈 화면 위젯 메뉴 (안드로이드)', pg.query_selector('[data-act=meOpen][data-v=widgets]') is not None)
     pg.click('[data-act=meOpen][data-v=widgets]'); pg.wait_for_timeout(500)
     tx = pg.inner_text('#app')
-    check('위젯 4종 + 놓인 수', all(w in tx for w in ['오늘의 일정', '다음 일정', '미루먼지', '잡도리 통계']) and '홈 화면에 위젯 3개' in tx and '홈 화면에 2개' in tx, tx[:300])
+    check('위젯 5종 + 놓인 수', all(w in tx for w in ['오늘의 일정', '달력', '다음 일정', '미루먼지', '잡도리 통계']) and '홈 화면에 위젯 3개' in tx and '홈 화면에 2개' in tx, tx[:300])
     pg.screenshot(path=f'{OUT}/02_settings_widgets.png')
     pg.click('[data-act=widgetPin][data-v=next]'); pg.wait_for_timeout(300)
     check('추가 버튼 → 홈 화면에 추가 요청', ev('window.__wpins') == ['next'])
@@ -191,7 +217,7 @@ with sync_playwright() as p:
       for (let i = 0; i < 40; i++) m.tasks.push(migrateTask({ id: 'bulk' + i, type: i % 3 ? 'normal' : 'jab', title: '반복 일정 ' + i, date: td, endDate: td, start: minToHm(360 + i * 20), end: minToHm(380 + i * 20), heat: 40, repeat: { kind: 'daily', every: 1 }, alarms: [], memo: '', deadline: null, createdAt: now() - 3600e3 }));
       save(); })()""")
     t = ev("(() => { const a = performance.now(); const s = widgetSnapshot(); return [performance.now() - a, JSON.stringify(s).length]; })()")
-    check('일정 40개 반복: 계산 1초 안, 크기 500KB 안', t[0] < 1000 and t[1] < 500000, t)
+    check(f'일정 40개 반복: 계산 {t[0]:.0f}ms (1초 안), 크기 {t[1] // 1024}KB (500KB 안)', t[0] < 1000 and t[1] < 500000, t)
     b.close()
 
 print('\n'.join(log)); print('errors:', errors[:5]); print(f"{sum(1 for l in log if l.startswith('OK'))}/{len(log)} OK")

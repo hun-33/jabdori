@@ -371,7 +371,9 @@ const HOUR_H = 44; // 일간 시간표 한 시간 높이(px)
 /* 월간 막대: 한 주(일~토) 안에서 일정마다 '줄(lane)'을 하나씩 잡아 칸을 가로질러 이어 그린다.
    여러 날 일정은 주가 바뀌면 다음 주 줄에서 다시 시작하고, 주마다 제목을 가운데에 다시 적는다 (갤럭시 캘린더 방식). */
 const MO_LANES = 3; // 한 주에 보이는 줄 수 (넘치면 날짜마다 +N)
-function weekBars(m, ws) {
+/* 한 주(ws = 일요일)의 막대 줄 배치: 일정마다 col(요일 칸)·span(칸 수)·lane(몇째 줄)을 정한다.
+   앱 월간 달력(weekBars)과 홈 화면 달력 위젯(05d-widget widgetMonths)이 같은 규칙을 쓴다 */
+function weekLanes(m, ws) {
   const we = addDays(ws, 6), seen = new Map();
   for (let i = 0; i < 7; i++) for (const o of occurrencesCovering(m, addDays(ws, i))) if (!seen.has(o.key)) seen.set(o.key, o);
   const segs = [...seen.values()].map((o) => {
@@ -388,6 +390,11 @@ function weekBars(m, ws) {
     for (let c = g.col; c < g.col + g.span; c++) lanes[li][c] = true;
     g.lane = li;
   }
+  return segs;
+}
+function weekBars(m, ws) {
+  const segs = weekLanes(m, ws);
+  const lanes = { length: segs.reduce((a, g) => Math.max(a, g.lane + 1), 0) };
   // 줄이 넘치면 마지막 줄은 '+N' 자리로 쓰고, 거기에 걸리는 일정은 날짜마다 개수로 센다
   const fit = lanes.length <= MO_LANES ? MO_LANES : MO_LANES - 1;
   const hidden = Array(7).fill(0);

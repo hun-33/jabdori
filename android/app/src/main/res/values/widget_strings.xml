@@ -8,6 +8,8 @@
     <string name="w_mireum_desc">오늘 상황에 맞는 미루먼지 표정과 한마디</string>
     <string name="w_stats_name">잡도리 통계</string>
     <string name="w_stats_desc">오늘 완료율, 이번 주 성공률, 연속 성공</string>
+    <string name="w_month_name">달력</string>
+    <string name="w_month_desc">한 달 일정을 색 막대로 한눈에</string>
     <string name="w_add">새 일정 추가</string>
     <string name="w_mireum">미루먼지</string>
 </resources>

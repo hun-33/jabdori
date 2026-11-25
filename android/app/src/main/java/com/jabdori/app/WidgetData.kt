@@ -63,6 +63,11 @@ object WidgetStore {
         prefs(c).edit().putString(K_ACTIONS, out.toString()).commit()
     }
 
+    /** 달력 위젯마다 지금 보고 있는 달 (이번 달 = 0, 다음 달 = 1 …) */
+    fun monthOffset(c: Context, id: Int): Int = prefs(c).getString("mo_$id", "0")?.toIntOrNull() ?: 0
+    fun setMonthOffset(c: Context, id: Int, v: Int) { prefs(c).edit().putString("mo_$id", v.toString()).commit() }
+    fun clearMonth(c: Context, id: Int) { prefs(c).edit().remove("mo_$id").commit() }
+
     fun setLaunch(c: Context, target: String?) {
         prefs(c).edit().apply { if (target == null) remove(K_LAUNCH) else putString(K_LAUNCH, target) }.commit()
     }
@@ -91,6 +96,17 @@ class WItem(
     val days: Int,
     val timeText: String,      // 앱이 만든 시간 글자 (18:00–20:00, 종일, 2/3일째 …)
 )
+
+/** 달력 위젯 막대 하나 (앱 weekLanes 결과): 요일 칸 · 칸 수 · 줄 · 제목 · 색 · 표시(1 여러 날 · 2 왼쪽 이어짐 · 4 오른쪽 이어짐 · 8 완료 · 16 실패) */
+class WSeg(val col: Int, val span: Int, val lane: Int, val title: String, val color: Int, val flags: Int) {
+    val multi get() = flags and 1 != 0
+    val contL get() = flags and 2 != 0
+    val contR get() = flags and 4 != 0
+    val done get() = flags and 8 != 0
+    val failed get() = flags and 16 != 0
+}
+/** 달력 한 주: 일요일 날짜 · 요일 칸마다 일정 수 · 막대들 */
+class WWeek(val ws: String, val n: IntArray, val segs: List<WSeg>)
 
 /** 그 시각의 미루먼지 (앱이 미리 계산한 표정·대사·농도) */
 class WMood(
@@ -231,6 +247,27 @@ class WidgetModel(val snap: JSONObject?, val now: Long) {
         }
         return ok to bad
     }
+    /** 달력 위젯: 그 달(YYYY-MM)의 주 목록. 묶음에 없는 달이면 null (앱이 지난달 ~ 3달 뒤만 넘김) */
+    fun monthWeeks(month: String): List<WWeek>? {
+        val arr = snap?.optJSONObject("cal")?.optJSONArray(month) ?: return null
+        val out = ArrayList<WWeek>()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val nArr = o.optJSONArray("n")
+            val n = IntArray(7) { nArr?.optInt(it, 0) ?: 0 }
+            val segs = ArrayList<WSeg>()
+            val sa = o.optJSONArray("s")
+            if (sa != null) for (j in 0 until sa.length()) {
+                val g = sa.optJSONArray(j) ?: continue
+                val col = g.optInt(0, -1); val span = g.optInt(1, 0)
+                if (col !in 0..6 || span < 1 || col + span > 7) continue   // 깨진 값은 건너뜀
+                segs.add(WSeg(col, span, g.optInt(2, 0), g.optString(3, ""), parseColor(g.optString(4, "#6FA3D6")), g.optInt(5, 0)))
+            }
+            out.add(WWeek(o.optString("ws", ""), n, segs))
+        }
+        return out
+    }
+
     val streak: Int get() = snap?.optInt("streak", 0) ?: 0
     val recTotal: Int get() = snap?.optInt("recTotal", 0) ?: 0
 
@@ -274,6 +311,8 @@ class WidgetModel(val snap: JSONObject?, val now: Long) {
             c.add(Calendar.DAY_OF_MONTH, -(dow - 1))
             return ymd(c.timeInMillis)
         }
+        fun daysBetween(a: String, b: String): Int =
+            Math.round((parseYmd(b).timeInMillis - parseYmd(a).timeInMillis) / 86_400_000.0).toInt()
         fun midnightAfter(t: Long): Long {
             val c = Calendar.getInstance(); c.timeInMillis = t
             c.add(Calendar.DAY_OF_MONTH, 1)

@@ -17,6 +17,7 @@ const WIDGET_MOOD_HOURS = 48;   // 미루먼지 표정·대사를 미리 계산�
 const WIDGET_COLORS = { coral: '#E58A6E', sun: '#E2B04A', mint: '#5FAE8E', sky: '#6FA3D6', lilac: '#A48BD0', stone: '#9A8F82' };
 const WIDGET_KINDS = [
   ['today', '오늘의 일정', '오늘 날짜, 완료 수와 진행률, 일정 목록. 일반 일정은 위젯에서 바로 체크해요', '4×2'],
+  ['month', '달력', '한 달 일정을 색 막대로. 여러 날 일정은 이어서, 넘치면 +N. 날짜를 누르면 앱 달력이 그 날로 열려요', '4×4'],
   ['next', '다음 일정', '다음 일정 이름, 시작 시각, 남은 시간. 진행 중인 잡도리도 따로 보여 줘요', '2×2'],
   ['mireum', '미루먼지', '오늘 상황에 맞는 미루먼지 표정과 한마디, 지금 농도', '2×2'],
   ['stats', '잡도리 통계', '오늘 완료율, 이번 주 잡도리 성공률, 연속 성공', '2×2'],
@@ -90,6 +91,41 @@ function widgetMoods(m) {
   return { list: out, title: S.title, unit: S.unit || '' };
 }
 
+/* 달력 위젯: 지난달부터 3달 뒤까지 (위젯에서 < > 로 넘겨 볼 범위). 주마다 앱 월간 달력과 같은 줄 배치(weekLanes).
+   s: [요일 칸, 칸 수, 줄, 제목, 색, 표시(1 여러 날 · 2 지난주에서 이어짐 · 4 다음 주로 이어짐 · 8 완료 · 16 실패)]
+   n: 요일 칸마다 걸린 일정 수 (위젯이 보여 줄 수 있는 줄보다 많으면 +N으로) */
+const WIDGET_MONTHS = [-1, 3];
+const WIDGET_LANES_MAX = 6;
+function widgetMonths(m) {
+  const [y, mo] = today().split('-').map(Number);
+  const out = {}, cache = new Map();
+  for (let k = WIDGET_MONTHS[0]; k <= WIDGET_MONTHS[1]; k++) {
+    const d = new Date(y, mo - 1 + k, 1);
+    const month = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+    const first = month + '-01', start = weekStartOf(first);
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    const weeksN = Math.ceil((daysBetween(start, first) + lastDay) / 7);
+    const weeks = [];
+    for (let w = 0; w < weeksN; w++) {
+      const ws = addDays(start, w * 7);
+      if (!cache.has(ws)) {
+        const segs = weekLanes(m, ws);
+        const n = Array(7).fill(0);
+        for (const g of segs) for (let c = g.col; c < g.col + g.span; c++) n[c]++;
+        cache.set(ws, {
+          ws, n,
+          s: segs.filter((g) => g.lane < WIDGET_LANES_MAX).map((g) => [g.col, g.span, g.lane, String(g.o.task.title).slice(0, 14),
+            WIDGET_COLORS[taskColor(g.o.task)] || WIDGET_COLORS.sky,
+            (g.multi ? 1 : 0) | (g.contL ? 2 : 0) | (g.contR ? 4 : 0) | (g.o.kind === 'done' ? 8 : 0) | (g.o.kind === 'failed' ? 16 : 0)]),
+        });
+      }
+      weeks.push(cache.get(ws));
+    }
+    out[month] = weeks;
+  }
+  return out;
+}
+
 function widgetSnapshot() {
   const m = member();
   const base = { v: 1, at: Date.now(), name: persona().name };
@@ -105,7 +141,7 @@ function widgetSnapshot() {
     const v = rec[r.date] || (rec[r.date] = [0, 0]);
     v[r.run.status === 'done' ? 0 : 1]++;
   }
-  return { ...base, login: true, today: td, hasTasks: m.tasks.length > 0, days, rec, recTotal: recs.length, streak: widgetStreak(recs), mood: widgetMoods(m) };
+  return { ...base, login: true, today: td, hasTasks: m.tasks.length > 0, days, rec, recTotal: recs.length, streak: widgetStreak(recs), mood: widgetMoods(m), cal: widgetMonths(m) };
 }
 
 const WIDGET = {
@@ -168,7 +204,7 @@ const WIDGET = {
     if (!NATIVE.Widget) return;
     try { const r = await NATIVE.Widget.consumeLaunch(); if (r && r.target) WIDGET.openFrom(r.target); } catch (e) { /* 무시 */ }
   },
-  // 위젯을 눌러 앱이 열렸을 때 갈 곳: open:<회차 key> · add · today · records
+  // 위젯을 눌러 앱이 열렸을 때 갈 곳: open:<회차 key> · add · today · records · day:<날짜> · month:<YYYY-MM>
   openFrom(target) {
     const m = member();
     if (!target || !m || !m.onboarded) return;
@@ -176,6 +212,16 @@ const WIDGET = {
     ui.result = null; ui.meSub = null; ui.input = null;
     if (target === 'add') { ui.focusKey = null; ui.tab = 'today'; ACT.openAdd({ dataset: { date: today() } }); return; }
     if (target === 'records') { ui.sheet = null; ui.focusKey = null; ui.tab = 'records'; render(); return; }
+    // 달력 위젯: 날짜 칸 → 앱 월간 달력에서 그 날을 고른 채로 (아래에 그 날 일정), 제목(11월) → 그 달
+    const dm = target.match(/^day:(\d{4}-\d{2}-\d{2})$/) || target.match(/^month:(\d{4}-\d{2})$/);
+    const realDate = (x) => { try { return ymd(parseYmd(x.length === 7 ? x + '-01' : x)) === (x.length === 7 ? x + '-01' : x); } catch (e) { return false; } };
+    if (dm && realDate(dm[1])) {
+      const v = dm[1], isDay = v.length === 10;
+      ui.sheet = null; ui.focusKey = null; ui.tab = 'calendar'; ui.calMode = 'month';
+      ui.calMonth = v.slice(0, 7);
+      ui.selDate = isDay ? v : (today().slice(0, 7) === v ? today() : v + '-01');
+      render(); return;
+    }
     if (target.startsWith('open:')) {
       const key = target.slice(5), st = curOcc(key);
       ui.tab = 'today'; ui.sheet = null;
