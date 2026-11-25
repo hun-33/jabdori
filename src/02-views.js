@@ -332,8 +332,9 @@ function viewToday(m) {
   else if (p.next) tk = `<div class="ticket quiet"><div class="tk-main"><p class="tk-label">다음 잡도리</p><h2 class="tk-title">${esc(p.next.task.title)}</h2><p class="tk-meta">${icon('clock')}${fmtDateShort(p.next.date)} ${timeRange(p.next.task)}</p><button class="btn secondary" data-act="openTask" data-key="${p.next.key}">일정 보기</button></div></div>`;
   else tk = `<div class="ticket quiet"><div class="tk-main"><p class="tk-label">오늘 몫 끝</p><h2 class="tk-title">새로 맡길 일이 생기면 + 로 올려 주세요</h2></div></div>`;
   const S = scaleOf(m);
-  // 큰 숫자 위 이름: 곧 시작 = 시작값 / 진행 중 = 지금 세기 / 맡은 일 없음 = 다음 일정의 최저 시작값
-  const heatLabel = p.tk ? (p.tk.kind === 'upcoming' ? '시작 ' + S.short : S.title) : S.floor;
+  // 큰 숫자는 언제나 '미루먼지 농도'. 옆에 지금 어떤 값인지만 짧게 붙인다
+  // 곧 시작 = 시작하면 이 농도 / 진행 중 = 지금 농도 / 맡은 일 없음 = 쉬는 중(다음 잡도리 시작 농도와 같음)
+  const heatCtx = p.tk ? (p.tk.kind === 'upcoming' ? '시작 전' : '지금') : '쉬는 중';
   const selTitle = sel === td ? '오늘 할 일' : fmtDateLong(sel);
   const html = `<section class="scr today" aria-labelledby="today-h">
     <div class="stove-band">
@@ -343,7 +344,7 @@ function viewToday(m) {
       <div class="persona-row">
         <button class="persona-mascot" data-act="mascotTap" aria-label="${persona().name} 쓰다듬기">${mascot(m, { ...p.mc, label: `${persona().name}, ${EXPR_LABEL[p.mc.expr]}, ${lvs(p.heat)}` })}</button>
         <div class="persona-temp">
-          <p class="pt-label">${heatLabel}</p>
+          <p class="pt-label">${S.title}<span class="pt-ctx"> · ${heatCtx}</span></p>
           ${degHTML(p.heat, 'heat', 'xl')}
           ${heatPips(p.heat)}
           <p class="pt-stage">${stageChip(p.heat, true)}<span>${stageOf(p.heat).desc}</span></p>
@@ -357,7 +358,7 @@ function viewToday(m) {
       ${weekStrip(m, sel)}
       <div class="sec-head mt"><h2 class="sec-title">${selTitle}</h2>${sel !== td ? `<button class="link-btn" data-act="selDate" data-date="${td}">오늘로</button>` : ''}</div>
       ${dayList(m, sel)}
-      <button class="floor-note" data-act="openFloorInfo">${icon(S.icon)}<span>${S.floor} <b>${lv(f)}</b>${m.penalty ? ` · ${S.extra} ${m.penalty}${S.extraUnit}` : ''} · 실패하면 +${HEAT_POLICY.failStep}</span>${icon('chevron')}</button>
+      <button class="floor-note" data-act="openFloorInfo">${icon(S.icon)}<span>다음 잡도리 ${S.floor} <b>${lv(f)}</b>${m.penalty ? ` · ${S.extra} ${m.penalty}${S.extraUnit}` : ''} · 놓치면 +${HEAT_POLICY.failStep}</span>${icon('chevron')}</button>
     </div>
   </section>`;
   return { id: 'today', html };
@@ -415,7 +416,7 @@ function monthGridHTML(m, month, sel, act) {
     const { segs, hidden } = weekBars(m, ws);
     const bars = segs.map((g) => {
       const o = g.o, cls = [`c-${taskColor(o.task)}`, g.multi ? 'multi' : '', g.contL ? 'cl' : '', g.contR ? 'cr' : '', o.kind === 'done' ? 'done' : '', o.kind === 'failed' ? 'bad' : ''].join(' ');
-      return `<span class="mo-bar ${cls}" data-key="${o.key}" style="grid-column:${g.col + 1} / span ${g.span};grid-row:${g.lane + 2}" aria-hidden="true">${esc(o.task.title)}</span>`;
+      return `<span class="mo-bar ${cls}" data-key="${o.key}" style="grid-column:${g.col + 1} / span ${g.span};grid-row:${g.lane + 2}" aria-hidden="true"><span class="mo-t">${esc(o.task.title)}</span></span>`;
     }).join('');
     const more = hidden.map((n, i) => n ? `<span class="mo-more" style="grid-column:${i + 1}" aria-hidden="true">+${n}</span>` : '').join('');
     weeks += `<div class="mo-week">${cells}${bars}${more}</div>`;
@@ -473,7 +474,7 @@ function viewCalendar(m) {
     const R = ui.range;
     body = `${R ? `<div class="range-bar" role="status">${icon('calendar')}<span>${R.a ? `<b>${fmtMD(R.a)}</b> 시작 · 끝나는 날을 누르세요` : '시작하는 날을 누르세요'}</span><button class="link-btn" data-act="rangeCancel">취소</button></div>` : ''}
       ${monthGridHTML(m, ui.calMonth, sel, R ? 'rangePick' : 'calPick')}
-      <div class="sec-head mt"><h2 class="sec-title">${fmtDateLong(sel)}</h2>${R ? '' : `<button class="link-btn" data-act="rangeStart">${icon('calendar')}기간 정해서 올리기</button>`}</div>
+      <div class="sec-head mt"><h2 class="sec-title">${fmtDateLong(sel)}</h2>${R ? '' : `<div class="sec-acts">${sel >= td ? `<button class="link-btn" data-act="openAdd" data-date="${sel}">${icon('plus')}이 날 일정</button>` : ''}<button class="link-btn" data-act="rangeStart">${icon('calendar')}기간으로</button></div>`}</div>
       ${dayList(m, sel)}`;
   } else if (mode === 'week') {
     const ws = weekStartOf(sel);
@@ -484,9 +485,15 @@ function viewCalendar(m) {
     body = dayGridHTML(m, sel);
   }
   const navLabel = { day: '날', week: '주', month: '달' }[mode];
+  // 제목 아래: 조작 설명 대신 지금 보이는 범위의 일정 수 (여러 날 일정은 한 번만 센다)
+  const span = mode === 'month' ? (() => { const [y, mo] = ui.calMonth.split('-').map(Number); const n = new Date(y, mo, 0).getDate(); return [ui.calMonth + '-01', n]; })()
+    : mode === 'week' ? [weekStartOf(sel), 7] : [sel, 1];
+  const seen = new Set();
+  for (let i = 0; i < span[1]; i++) for (const o of occurrencesOn(m, addDays(span[0], i))) seen.add(o.key);
+  const subText = `${mode === 'month' ? `${Number(ui.calMonth.slice(5))}월` : mode === 'week' ? '이 주' : '이 날'} 일정 ${seen.size}개`;
   const isToday = mode === 'month' ? ui.calMonth === td.slice(0, 7) && sel === td : mode === 'week' ? weekStartOf(sel) === weekStartOf(td) && sel === td : sel === td;
   const html = `<section class="scr calendar" aria-labelledby="cal-h">
-    <header class="hdr"><div><h1 id="cal-h" class="hdr-title">달력</h1><p class="hdr-sub">${mode === 'day' ? '빈 시간 칸을 두 번 누르면 새 일정' : '고른 날짜를 한 번 더 누르면 새 일정'} · 옆으로 쓸면 이전·다음 ${navLabel}</p></div></header>
+    <header class="hdr"><div><h1 id="cal-h" class="hdr-title">달력</h1><p class="hdr-sub">${subText}</p></div></header>
     <div class="paper">
       <div class="cal-bar">
         <div class="seg three" role="tablist" aria-label="달력 보기 방식">
@@ -566,6 +573,74 @@ function allRecords(m) {
     .map(([k, r]) => ({ key: k, run: r, date: splitKey(k)[1] }))
     .sort((a, b) => (b.run.endedAt || 0) - (a.run.endedAt || 0));
 }
+/* ---------- 기록 요약: 이번 주 · 최근 4주 · 자주 미루는 때 ----------
+   '밀림' = 실패했거나, 시작이 예정보다 10분 넘게 늦은 회차 */
+const SLIP_MIN = 10;
+const TIME_BUCKETS = [['아침', 5, 12], ['낮', 12, 18], ['저녁', 18, 22], ['밤', 22, 29]]; // 29 = 다음 날 5시
+function recDelayMin(r) { return r.run.startedAt && r.run.plan ? Math.round((r.run.startedAt - r.run.plan.start) / MIN) : null; }
+function recSlipped(r) { const d = recDelayMin(r); return r.run.status === 'failed' || (d != null && d > SLIP_MIN); }
+function timeBucketOf(ms) { const h = new Date(ms).getHours(); const hh = h < 5 ? h + 24 : h; return (TIME_BUCKETS.find(([, a, b]) => hh >= a && hh < b) || TIME_BUCKETS[0])[0]; }
+/* 가장 많이 밀린 묶음: 2번 이상 있었고 1번 이상 밀린 것 중 비율이 가장 높은 것 */
+function worstGroup(recs, keyOf) {
+  const g = new Map();
+  for (const r of recs) { const k = keyOf(r); if (k == null) continue; const v = g.get(k) || { n: 0, slip: 0 }; v.n++; if (recSlipped(r)) v.slip++; g.set(k, v); }
+  let best = null;
+  for (const [k, v] of g) { if (v.n < 2 || !v.slip) continue; const rate = v.slip / v.n; if (!best || rate > best.rate || (rate === best.rate && v.n > best.n)) best = { k, ...v, rate }; }
+  return best;
+}
+function recordInsights(m, recs) {
+  const td = today(), ws = weekStartOf(td);
+  const inWeek = (r, s) => r.date >= s && r.date <= addDays(s, 6);
+  const wk = recs.filter((r) => inWeek(r, ws));
+  const wOk = wk.filter((r) => r.run.status === 'done').length, wBad = wk.length - wOk;
+  const rate = wk.length ? Math.round(wOk / wk.length * 100) : null;
+  // 최근 4주 막대 (왼쪽이 3주 전, 오른쪽이 이번 주)
+  const weeks = [3, 2, 1, 0].map((i) => { const s = addDays(ws, -7 * i); const rs = recs.filter((r) => inWeek(r, s)); const ok = rs.filter((r) => r.run.status === 'done').length; return { s, i, ok, bad: rs.length - ok }; });
+  const max = Math.max(1, ...weeks.map((w) => w.ok + w.bad));
+  const bars = weeks.map((w) => `<div class="wb-col" role="img" aria-label="${w.i ? w.i + '주 전' : '이번 주'} 완료 ${w.ok}번, 실패 ${w.bad}번">
+      <div class="wb-stack">${w.bad ? `<i class="bad" style="height:${w.bad / max * 100}%"></i>` : ''}${w.ok ? `<i class="ok" style="height:${w.ok / max * 100}%"></i>` : ''}</div>
+      <span>${w.i ? w.i + '주 전' : '이번 주'}</span></div>`).join('');
+  // 자주 미루는 때 (기록이 3개 이상일 때만)
+  let pats = '';
+  if (recs.length >= 3) {
+    const items = [];
+    const started = recs.map(recDelayMin).filter((d) => d != null);
+    if (started.length) {
+      const avg = Math.round(started.reduce((a, d) => a + Math.max(0, d), 0) / started.length);
+      items.push(['clock', avg >= 1 ? `시작이 평균 <b>${fmtDur(avg)}</b> 늦어요` : '대부분 제시간에 시작해요']);
+    }
+    const day = worstGroup(recs, (r) => weekday(r.date));
+    if (day) items.push(['calendar', `<b>${WD[day.k]}요일</b>에 자주 밀려요 · ${day.n}번 중 ${day.slip}번`]);
+    const tb = worstGroup(recs, (r) => (r.run.plan ? timeBucketOf(r.run.plan.start) : null));
+    if (tb) items.push(['dust', `<b>${tb.k}</b> 일정이 자주 밀려요 · ${tb.n}번 중 ${tb.slip}번`]);
+    const since = Date.parse(addDays(ws, -21) + 'T00:00:00');
+    const sl = recs.filter((r) => (r.run.endedAt || 0) >= since).flatMap((r) => r.run.slack || []);
+    if (sl.length) {
+      const cnt = {}; for (const s of sl) cnt[s.app] = (cnt[s.app] || 0) + 1;
+      const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+      items.push(['phone', `최근 4주 딴짓 <b>${sl.length}번</b>${top ? ` · 주로 ${esc(top[0])}` : ''}`]);
+    }
+    const ex = recs.filter((r) => r.run.status === 'failed' && r.run.excuse && r.run.excuse !== 'none');
+    if (ex.length) {
+      const cnt = {}; for (const r of ex) cnt[r.run.excuse] = (cnt[r.run.excuse] || 0) + 1;
+      const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+      items.push(['alert', `실패할 때는 주로 "${EXCUSES[top[0]] || top[0]}"`]);
+    }
+    pats = items.length ? `<ul class="pat-list">${items.map(([ic, t]) => `<li>${icon(ic)}<span>${t}</span></li>`).join('')}</ul>` : '';
+  } else {
+    pats = `<p class="pat-empty">잡도리 기록이 3개 이상 쌓이면 자주 미루는 요일·시간대를 알려 줄게요. (지금 ${recs.length}개)</p>`;
+  }
+  return `<div class="wk-card">
+      <div class="wk-top">
+        <div><p class="wk-label">이번 주</p><p class="wk-rate">${rate == null ? '아직 없음' : `<b>${rate}%</b> 해냈어요`}</p></div>
+        <dl class="fp-stats"><div><dt>완료</dt><dd>${wOk}</dd></div><div><dt>실패</dt><dd>${wBad}</dd></div></dl>
+      </div>
+      <div class="wk-bars">${bars}</div>
+      <p class="wb-legend"><span><i class="ok"></i>완료</span><span><i class="bad"></i>실패</span></p>
+    </div>
+    <h2 class="sec-title mt">자주 미루는 때</h2>
+    ${pats}`;
+}
 function viewRecords(m) {
   const recs = allRecords(m);
   const ok = recs.filter((r) => r.run.status === 'done').length, bad = recs.length - ok;
@@ -592,18 +667,19 @@ function viewRecords(m) {
   const html = `<section class="scr records" aria-labelledby="rec-h">
     <header class="hdr"><div><h1 id="rec-h" class="hdr-title">기록</h1><p class="hdr-sub">끝낸 일도, 놓친 일도 남겨 둬요</p></div></header>
     <div class="paper">
-      <div class="floor-panel">
-        <div class="fp-top"><div><p class="fp-label">지금 ${S.floor}</p>${degHTML(f, null, 'lg')}</div>
-          <dl class="fp-stats"><div><dt>완료</dt><dd>${ok}</dd></div><div><dt>실패</dt><dd>${bad}</dd></div><div><dt>연속 성공</dt><dd>${m.streak}/${HEAT_POLICY.coolStreak}</dd></div></dl></div>
-        <div class="thermo" role="img" aria-label="${S.floor} ${lv(f)}, 처음 ${lv(m.initialHeat)}">
+      ${recordInsights(m, recs)}
+      <div class="floor-panel mt">
+        <div class="fp-top"><div><p class="fp-label">다음 잡도리 ${S.floor}</p>${degHTML(f, null, 'lg')}</div>
+          <dl class="fp-stats"><div><dt>연속 성공</dt><dd>${m.streak}/${HEAT_POLICY.coolStreak}</dd></div></dl></div>
+        <div class="thermo" role="img" aria-label="${S.floor} ${lv(f)}, ${S.base} ${lv(m.initialHeat)}">
           <div class="thermo-track">${S.stages.map((s, i, a) => `<i style="--hc:${heatVar(s.id)};left:${s.min}%;width:${(a[i + 1] ? a[i + 1].min : 100) - s.min}%"></i>`).join('')}</div>
           <span class="thermo-floor" style="left:${pct(f)}">${icon('lock')}</span>
-          <span class="thermo-init" style="left:${pct(m.initialHeat)}">처음 ${lv(m.initialHeat)}</span>
+          <span class="thermo-init" style="left:${pct(m.initialHeat)}">기본 ${lv(m.initialHeat)}</span>
         </div>
-        <p class="fp-note">${m.penalty ? `지금 ${extraText(m.penalty, m)}. 잡도리 일정을 ${HEAT_POLICY.coolStreak - m.streak}번 더 연속으로 끝내면 ${josa(S.clear, '으로/로')} 한 ${S.extraUnit} 내려가요.` : `실패 가산이 없어요. 놓치면 다음에 올리는 잡도리 일정부터 ${HEAT_POLICY.failStep}씩 올라가요.`}</p>
+        <p class="fp-note">${m.penalty ? `지금 ${extraText(m.penalty, m)}. 잡도리 일정을 ${HEAT_POLICY.coolStreak - m.streak}번 더 연속으로 끝내면 ${josa(S.clear, '으로/로')} 한 ${S.extraUnit} 내려가요.` : `${josa(S.extra, '이/가')} 없어요. 놓치면 ${S.extra} 한 ${S.extraUnit}(+${HEAT_POLICY.failStep})${jo(S.extraUnit, '이/가')} 생겨 다음 잡도리부터 더 짙게 시작해요.`}</p>
         ${changes.length ? `<ul class="fp-changes">${changes.map((c) => `<li>${fmtMD(c.date)} ${esc(c.run.title)} ${c.run.status === 'failed' ? '실패' : S.clear} · ${lv(c.run.floorBefore)} → <b>${lv(c.run.floorAfter)}</b></li>`).join('')}</ul>` : ''}
       </div>
-      <h2 class="sec-title mt">지난 잡도리</h2>
+      <h2 class="sec-title mt">지난 잡도리${recs.length ? ` <small class="sec-count">완료 ${ok} · 실패 ${bad}</small>` : ''}</h2>
       ${list}
     </div>
   </section>`;
@@ -624,59 +700,83 @@ function scaleModeBlock(m) {
       <p class="set-desc">${S.blurb} 숫자와 잔소리 세기는 똑같고 이름만 바뀌어요.</p>
     </div>`;
 }
+/* 나 탭: 첫 화면은 계정 상태 + 설정 메뉴, 설정은 하위 화면(ui.meSub)으로 나눈다
+   mireum 미루먼지 농도 · voice 목소리 · alerts 알림·딴짓 감지(웹: 앱 설치) · screen 화면·시연 · account 계정 관리 */
+const ME_SUBS = { mireum: '미루먼지 농도', voice: '목소리', alerts: '알림·딴짓 감지', screen: '화면', account: '계정 관리' };
+function meSubTitle(k) { return k === 'alerts' ? (!NATIVE.on ? '앱 설치' : NATIVE.Watch ? '알림·딴짓 감지' : '알림') : k === 'mireum' ? scaleOf().title : ME_SUBS[k]; }
+function meMenuRow(k, ic, preview) {
+  return `<button class="list-btn me-row" data-act="meOpen" data-v="${k}">${icon(ic)}<span class="lb-text"><b>${meSubTitle(k)}</b><small>${preview}</small></span>${icon('chevron', 'muted')}</button>`;
+}
 function viewMe(m) {
-  const c = m.consent;
-  // 진짜 앱 + 진짜 카카오 로그인: 카카오에서 받은 정보와 동의 내역을 그대로 보여 준다
-  const real = NATIVE.on && !!(state.session && state.session.real);
-  if (real && ui.scopes == null && !ui.scopesLoading) setTimeout(loadKakaoScopes, 0);
-  const rows = real ? kakaoConsentRows(m) : [
-    ['서비스 이용약관', '필수', c.terms], ['개인정보 수집·이용', '필수', c.privacy],
-    ['프로필 사진', '선택', c.profile],
-  ];
-  // 로그아웃은 위의 '로그인 상태' 구역에 있다 (accountStatusBlock)
-  const acct = real ? [
-    ['kakaoLogout', 'logout', '카카오 로그아웃', '카카오 로그인 토큰까지 지워요. 다음엔 카카오톡 인증부터 다시 해요.'],
-    ['unlink', 'unlink', '카카오 연결 끊기', '카카오 계정과 잡도리의 연결을 끊고 동의도 철회해요. 기록은 탈퇴 전까지 남아요.'],
-    ['withdraw', 'trash', '회원 탈퇴', '이 폰의 잡도리 기록을 지우고 카카오 연결도 함께 끊어요.'],
-  ] : [
-    ['kakaoLogout', 'logout', '카카오 로그아웃', '카카오 인증까지 끝내요. 다음엔 카카오 인증부터 다시 해요.'],
-    ['unlink', 'unlink', '카카오 연결 끊기', '카카오와 잡도리의 연결만 끊어요. 기록은 탈퇴 전까지 남아요.'],
-    ['withdraw', 'trash', '회원 탈퇴', '잡도리 기록을 지우고 카카오 연결도 함께 끊어요.'],
-  ];
-  const S = scaleOf(m), C = charOf(m);
+  const sub = ui.meSub && ME_SUBS[ui.meSub] ? ui.meSub : null;
+  if (sub) return viewMeSub(m, sub);
+  const S = scaleOf(m), C = charOf(m), v = voicePrefs();
+  const vm = (VOICE_MODES.find(([id]) => id === v.mode) || VOICE_MODES[0])[1];
+  const alertsPrev = !NATIVE.on ? '폰 홈 화면에 설치하는 방법'
+    : `알림 ${state.notifOff ? '꺼짐' : '켜짐'}${NATIVE.Watch ? ` · 딴짓 감지 ${watchPrefs().on ? '켜짐' : '꺼짐'}` : ''}`;
   const html = `<section class="scr me" aria-labelledby="me-h">
     <header class="hdr"><div><h1 id="me-h" class="hdr-title">나</h1><p class="hdr-sub">계정과 잡도리 설정</p></div></header>
     <div class="paper">
       ${accountStatusBlock(m)}
-      <h2 class="sec-label">${real ? '카카오에서 동의한 항목' : '동의한 항목'}</h2>
-      <ul class="kv">${rows.map(([n, r, v]) => `<li><span>${esc(n)} <em>${esc(r)}</em></span><b class="${v ? 'yes' : 'no'}">${icon(v ? 'check' : 'x')}${v ? '동의' : '동의 안 함'}</b></li>`).join('')}</ul>
-      ${real ? `<p class="fine dark">받은 정보는 이 폰 안에만 저장하고 서버로 보내지 않아요. 동의 철회는 아래 '카카오 연결 끊기'나 카카오 계정 설정의 연결된 서비스 관리에서 할 수 있어요.</p>` : ''}
-      <h2 class="sec-label">${S.title}</h2>
-      <ul class="kv">
-        <li><span>처음 ${S.short}</span><b>${lv(m.initialHeat)}</b></li>
-        <li><span>실패 가산</span><b>${m.penalty ? extraText(m.penalty, m) : '없음'}</b></li>
-        <li><span>${S.floor} <em>새 잡도리 일정은 여기부터</em></span><b>${lv(floorOf(m))}</b></li>
-      </ul>
-      <button class="list-btn" data-act="openFloorInfo">${icon('info')}<span>${josa(S.floor, '은/는')} 어떻게 정해지나요?</span>${icon('chevron', 'muted')}</button>
-      <h2 class="sec-label">${C.name}</h2>
-      ${scaleModeBlock(m)}
-      ${voiceSection()}
-      ${NATIVE.on ? notifRow() + watchSection(m) : `<h2 class="sec-label">앱 설치</h2>
-      ${installRow()}`}
-      <h2 class="sec-label">화면</h2>
-      <div class="list-btn as-row"><span class="lb-text"><b>움직임 줄이기</b><small>${C.name} 숨쉬기·흔들림 같은 반복 애니메이션을 멈춰요</small></span>
-        <button class="switch ${state.reduceMotion ? 'on' : ''}" role="switch" aria-checked="${state.reduceMotion}" aria-label="움직임 줄이기" data-act="reduceMotion"><i></i></button></div>
-      <button class="list-btn" data-act="replayOnboarding">${icon('eye')}<span>${C.name} 소개 다시 보기</span>${icon('chevron', 'muted')}</button>
-      ${NATIVE.on ? `<div class="list-btn as-row"><span class="lb-text"><b>발표용 시연 도구 보이기</b><small>오른쪽 가장자리에 '시연' 탭을 띄워 시간을 바꾸거나 딴짓을 흉내 내요</small></span>
-        <button class="switch ${state.showDemo ? 'on' : ''}" role="switch" aria-checked="${!!state.showDemo}" aria-label="발표용 시연 도구 보이기" data-act="demoToggle"><i></i></button></div>` : ''}
+      <h2 class="sec-label">설정</h2>
+      ${meMenuRow('mireum', S.icon, `${S.floor} ${lv(floorOf(m))} · 단계 이름 ${m.scaleMode === 'common' ? '공통' : '캐릭터별'}`)}
+      ${meMenuRow('voice', 'speaker', `${C.name} 목소리 · ${vm}${v.mode === 'off' ? '' : ' · ' + VOICE_SPEEDS[v.speed].label}`)}
+      ${meMenuRow('alerts', NATIVE.on ? 'clock' : 'download', alertsPrev)}
+      ${meMenuRow('screen', 'eye', `움직임 줄이기 ${state.reduceMotion ? '켜짐' : '꺼짐'}${NATIVE.on ? ` · 시연 도구 ${state.showDemo ? '보임' : '숨김'}` : ''}`)}
+      ${meMenuRow('account', 'me', '동의한 항목 · 카카오 로그아웃 · 연결 끊기 · 탈퇴')}
       ${state.showDemo ? `<h2 class="sec-label">개발자</h2>
-      <button class="list-btn" data-act="openDiag">${icon('sliders')}<span class="lb-text"><b>로그인 진단</b><small>카카오 인증·토큰·사용자 정보·회원·세션을 단계별로 확인해요</small></span>${icon('chevron', 'muted')}</button>` : ''}
-      <h2 class="sec-label">계정</h2>
-      <ul class="acct">${acct.map(([a, ic, t, d]) => `<li><button class="list-btn ${a === 'withdraw' ? 'danger' : ''}" data-act="acct" data-v="${a}">${icon(ic)}<span class="lb-text"><b>${t}</b><small>${d}</small></span>${icon('chevron', 'muted')}</button></li>`).join('')}</ul>
+      <button class="list-btn" data-act="openDiag">${icon('sliders')}<span class="lb-text"><b>로그인 진단</b><small>카카오 인증부터 세션까지 단계별로 확인해요</small></span>${icon('chevron', 'muted')}</button>` : ''}
       <p class="fine dark">${NATIVE.on ? `잡도리 ${NATIVE.ios ? '아이폰' : '안드로이드'} 앱 · 데이터는 이 폰 안에만 저장돼요. 앱을 지우면 함께 지워져요.` : `잡도리 프로토타입 · 데이터는 이 브라우저(LocalStorage)에만 저장돼요${storageOK ? '' : ' — 지금은 저장소를 쓸 수 없어 새로고침하면 사라져요'}.`}</p>
     </div>
   </section>`;
   return { id: 'me', html };
+}
+function viewMeSub(m, sub) {
+  const S = scaleOf(m), C = charOf(m);
+  let body = '';
+  if (sub === 'mireum') {
+    body = `<ul class="kv">
+        <li><span>${S.floor} <em>새 잡도리는 여기부터</em></span><b>${lv(floorOf(m))}</b></li>
+        <li class="sub"><span>${S.base}</span><b>${lv(m.initialHeat)}</b></li>
+        <li class="sub"><span>+ ${S.extra}</span><b>${m.penalty ? `${m.penalty}${S.extraUnit} (+${m.penalty * HEAT_POLICY.failStep})` : '없음'}</b></li>
+      </ul>
+      <button class="list-btn" data-act="openFloorInfo">${icon('info')}<span>${josa(S.floor, '은/는')} 어떻게 정해지나요?</span>${icon('chevron', 'muted')}</button>
+      ${scaleModeBlock(m)}`;
+  } else if (sub === 'voice') {
+    body = voiceSection();
+  } else if (sub === 'alerts') {
+    body = NATIVE.on ? notifRow() + watchSection(m) : installRow();
+  } else if (sub === 'screen') {
+    body = `<div class="list-btn as-row"><span class="lb-text"><b>움직임 줄이기</b><small>${C.name} 숨쉬기·흔들림 같은 반복 움직임을 멈춰요</small></span>
+        <button class="switch ${state.reduceMotion ? 'on' : ''}" role="switch" aria-checked="${state.reduceMotion}" aria-label="움직임 줄이기" data-act="reduceMotion"><i></i></button></div>
+      <button class="list-btn" data-act="replayOnboarding">${icon('eye')}<span>${C.name} 소개 다시 보기</span>${icon('chevron', 'muted')}</button>
+      ${NATIVE.on ? `<div class="list-btn as-row"><span class="lb-text"><b>발표용 시연 도구 보이기</b><small>오른쪽 가장자리에 '시연' 탭을 띄워요. 나 탭에 로그인 진단도 나타나요</small></span>
+        <button class="switch ${state.showDemo ? 'on' : ''}" role="switch" aria-checked="${!!state.showDemo}" aria-label="발표용 시연 도구 보이기" data-act="demoToggle"><i></i></button></div>` : ''}`;
+  } else if (sub === 'account') {
+    const c = m.consent;
+    // 진짜 앱 + 진짜 카카오 로그인: 카카오에서 받은 정보와 동의 내역을 그대로 보여 준다
+    const real = NATIVE.on && !!(state.session && state.session.real);
+    if (real && ui.scopes == null && !ui.scopesLoading) setTimeout(loadKakaoScopes, 0);
+    const rows = real ? kakaoConsentRows(m) : [
+      ['서비스 이용약관', '필수', c.terms], ['개인정보 수집·이용', '필수', c.privacy],
+      ['프로필 사진', '선택', c.profile],
+    ];
+    const acct = [
+      ['kakaoLogout', 'logout', '카카오 로그아웃', '카카오 로그인 토큰까지 지워요. 다음엔 카카오 인증부터 다시 해요.'],
+      ['unlink', 'unlink', '카카오 연결 끊기', '카카오와 잡도리의 연결을 끊고 동의도 철회해요. 기록은 탈퇴 전까지 남아요.'],
+      ['withdraw', 'trash', '회원 탈퇴', '이 폰의 잡도리 기록을 지우고 카카오 연결도 함께 끊어요.'],
+    ];
+    body = `<h2 class="sec-label">${real ? '카카오에서 동의한 항목' : '동의한 항목'}</h2>
+      <ul class="kv">${rows.map(([n, r, v]) => `<li><span>${esc(n)} <em>${esc(r)}</em></span><b class="${v ? 'yes' : 'no'}">${icon(v ? 'check' : 'x')}${v ? '동의' : '동의 안 함'}</b></li>`).join('')}</ul>
+      ${real ? `<p class="fine dark">받은 정보는 이 폰 안에만 저장하고 서버로 보내지 않아요. 동의 철회는 아래 '카카오 연결 끊기'나 카카오 계정 설정에서 할 수 있어요.</p>` : ''}
+      <h2 class="sec-label">계정</h2>
+      <ul class="acct">${acct.map(([a, ic, t, d]) => `<li><button class="list-btn ${a === 'withdraw' ? 'danger' : ''}" data-act="acct" data-v="${a}">${icon(ic)}<span class="lb-text"><b>${t}</b><small>${d}</small></span>${icon('chevron', 'muted')}</button></li>`).join('')}</ul>`;
+  }
+  const html = `<section class="scr me me-sub" aria-labelledby="me-h">
+    <header class="hdr sub-hdr"><button class="icon-btn" data-act="meBack" aria-label="나 탭으로 돌아가기">${icon('back')}</button><div><h1 id="me-h" class="hdr-title">${meSubTitle(sub)}</h1></div></header>
+    <div class="paper">${body}</div>
+  </section>`;
+  return { id: 'me-' + sub, html };
 }
 
 /* ---------- 탭 바 ---------- */

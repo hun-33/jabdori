@@ -142,8 +142,9 @@ const SCALES = {
     title: '미루먼지 농도',   // 값의 이름 (큰 숫자 위 제목)
     short: '농도',            // 문장 속 짧은 이름 ("농도 60")
     unit: '',                 // 숫자 뒤 단위 (온도 캐릭터라면 '°')
-    floor: '쌓인 먼지',       // 실패로 올라가는 최저 시작값의 이름
-    extra: '먼지', extraUnit: '겹', // 실패 가산 한 칸 ("먼지 2겹")
+    floor: '시작 농도',       // 새 잡도리가 시작하는 값 (= 기본 농도 + 쌓인 먼지). 실패하면 올라감
+    base: '기본 농도',        // 실패가 없을 때의 시작값 (나 탭에서 정함)
+    extra: '쌓인 먼지', extraUnit: '겹', // 실패 한 번에 쌓이는 한 칸 ("쌓인 먼지 2겹")
     clear: '먼지 털기',       // 연속 성공으로 가산 한 칸을 푸는 일
     icon: 'dust',
     names: ['좋음', '보통', '나쁨', '매우 나쁨', '최악'],
@@ -158,7 +159,7 @@ const SCALES = {
   common: makeScale({
     id: 'common',
     title: '잡도리 강도', short: '강도', unit: '',
-    floor: '최저 강도',
+    floor: '시작 강도', base: '기본 강도',
     extra: '벌칙', extraUnit: '단계',
     clear: '벌칙 풀기',
     icon: 'flame',
@@ -177,7 +178,7 @@ function stageOf(h, m) { const S = scaleOf(m); let s = S.stages[0]; for (const s
 function lv(h, m) { return `${h}${scaleOf(m).unit}`; }
 /* 짧은 이름 + 숫자: "농도 60" / "강도 60" */
 function lvs(h, m) { const S = scaleOf(m); return `${S.short} ${h}${S.unit}`; }
-/* 실패 가산 n칸: "먼지 2겹 (+20)" / "벌칙 2단계 (+20)" */
+/* 실패 가산 n칸: "쌓인 먼지 2겹 (+20)" / "벌칙 2단계 (+20)" */
 function extraText(n, m) { const S = scaleOf(m); return `${S.extra} ${n}${S.extraUnit} (+${n * HEAT_POLICY.failStep})`; }
 
 /* ---------- 캐릭터: 미루먼지 (공식 마스코트, 그림은 01b-mireum.js) ---------- */

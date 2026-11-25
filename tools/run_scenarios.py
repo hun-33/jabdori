@@ -56,7 +56,7 @@ with sync_playwright() as p:
     login_wait(); page.wait_for_timeout(600)
     check('만료 후 재로그인 기록 유지', page.query_selector('.today') is not None)
     # 카카오톡 실행 실패
-    page.click('[data-act=tab][data-tab=me]'); page.click('[data-act=acct][data-v=kakaoLogout]'); page.click('[data-act=doAcct]'); page.wait_for_timeout(200)
+    page.click('[data-act=tab][data-tab=me]'); page.click('[data-act=meOpen][data-v=account]'); page.click('[data-act=acct][data-v=kakaoLogout]'); page.click('[data-act=doAcct]'); page.wait_for_timeout(200)
     scenario('talkFail'); login_wait(); shot(page, '08_talk_fail')
     check('카카오톡 실행 실패 안내', '카카오톡을 열지 못했어요' in screen_text(page))
     page.click('.notice [data-act=loginAccount]'); page.wait_for_timeout(900); page.click('[data-act=acctContinue]'); page.wait_for_timeout(1700)
@@ -72,13 +72,13 @@ with sync_playwright() as p:
         check(f'{sc} 재시도 성공', page.query_selector('.today') is not None)
     # 연결 끊기 → 재연결 시 동의 다시, 기록 유지
     ev(page, 'ACT.cSeed()')
-    page.click('[data-act=tab][data-tab=me]'); page.click('[data-act=acct][data-v=unlink]'); shot(page, '10_unlink_confirm'); page.click('[data-act=doAcct]'); page.wait_for_timeout(200)
+    page.click('[data-act=tab][data-tab=me]'); page.click('[data-act=meOpen][data-v=account]'); page.click('[data-act=acct][data-v=unlink]'); shot(page, '10_unlink_confirm'); page.click('[data-act=doAcct]'); page.wait_for_timeout(200)
     login_wait()
     check('연결 해제 후 동의 다시', page.query_selector('[data-act=consentAgree]') is not None)
     page.click('[data-act=consentAgree]'); page.wait_for_timeout(2000)
     check('재연결 기록 유지', ev(page, 'member().tasks.length') == 1 and ev(page, 'Object.keys(state.members).length') == 1)
     # 회원 탈퇴 → 신규
-    page.click('[data-act=tab][data-tab=me]'); page.click('[data-act=acct][data-v=withdraw]'); page.click('[data-act=doAcct]'); page.wait_for_timeout(200)
+    page.click('[data-act=tab][data-tab=me]'); page.click('[data-act=meOpen][data-v=account]'); page.click('[data-act=acct][data-v=withdraw]'); page.click('[data-act=doAcct]'); page.wait_for_timeout(200)
     check('탈퇴 시 회원 삭제', ev(page, 'Object.keys(state.members).length') == 0)
     login_wait(); page.click('[data-act=consentAgree]'); page.wait_for_timeout(2200)
     check('탈퇴 후 신규 가입 → 온보딩', page.query_selector('.onb') is not None)
@@ -149,7 +149,7 @@ with sync_playwright() as p:
     check('다음 달 이동', '2026년 12월' in screen_text(page))
     page.click('[data-act=calToday]')
     # 움직임 줄이기
-    page.click('[data-act=tab][data-tab=me]'); page.click('[data-act=reduceMotion]')
+    page.click('[data-act=tab][data-tab=me]'); page.click('[data-act=meOpen][data-v=screen]'); page.click('[data-act=reduceMotion]')
     check('움직임 줄이기', ev(page, "document.documentElement.classList.contains('reduce')"))
     # 기존 회원 시나리오 (처음부터)
     ev(page, "localStorage.clear(); state=freshState(); ui.login={busy:false}; render(true)")

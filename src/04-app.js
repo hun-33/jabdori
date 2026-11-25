@@ -52,6 +52,8 @@ function render(force = false) {
     if (same) el.screen.scrollTop = top;
     else {
       el.screen.scrollTop = 0;
+      // 다른 화면으로 넘어가면 지난 화면의 짧은 안내는 거둔다 (방금 띄운 안내는 그대로)
+      if (Date.now() - toastAt > 700) { clearTimeout(toastTimer); el.toast.classList.remove('show'); }
       // 일간 시간표는 아침 8시(오늘이면 지금 한 시간 전)부터 보이게
       const g = el.screen.querySelector('#tgrid');
       if (g) { const h = ui.selDate === today() ? Math.max(0, new Date(now()).getHours() - 1) : 8; el.screen.scrollTop = Math.max(0, g.offsetTop + h * HOUR_H - 90); }
@@ -69,6 +71,7 @@ function render(force = false) {
   let fs = $('#fab-slot');
   if (!fs) { fs = document.createElement('div'); fs.id = 'fab-slot'; el.app.insertBefore(fs, el.sheet); }
   if (fs.innerHTML !== fabWant) fs.innerHTML = fabWant;
+  el.app.classList.toggle('has-fab', !!fabWant); // 짧은 안내가 + 버튼을 덮지 않게 그 위로 올린다
 
   const m = member();
   const showTabs = !!m && m.onboarded && !ui.focusKey;
@@ -148,7 +151,9 @@ function renderStatus() {
   if (el.status) el.status.textContent = fmtHM(now());
 }
 let toastTimer = null;
+let toastAt = 0;
 function toast(msg) {
+  toastAt = Date.now();
   el.toast.textContent = msg;
   el.toast.classList.remove('show'); void el.toast.offsetWidth; el.toast.classList.add('show');
   clearTimeout(toastTimer);
@@ -350,8 +355,11 @@ const ACT = {
   },
 
   /* 탐색 */
-  tab: (t) => { if (ui.tab !== t.dataset.tab) TTS.stop(); ui.tab = t.dataset.tab; ui.focusKey = null; ui.sheet = null; if (ui.tab === 'calendar') { ui.calMonth = (ui.selDate || today()).slice(0, 7);  } render(); },
+  tab: (t) => { if (ui.tab !== t.dataset.tab) TTS.stop(); if (t.dataset.tab === 'me') ui.meSub = null; ui.tab = t.dataset.tab; ui.focusKey = null; ui.sheet = null; if (ui.tab === 'calendar') { ui.calMonth = (ui.selDate || today()).slice(0, 7);  } render(); },
   selDate: (t) => { ui.selDate = t.dataset.date; render(); },
+  /* 나 탭 하위 화면 열기·닫기 */
+  meOpen: (t) => { ui.meSub = t.dataset.v; render(); },
+  meBack: () => { ui.meSub = null; render(); },
   /* 월간 날짜 칸·주간 날짜: 처음 누르면 그 날을 고르고, 고른 날을 한 번 더 누르면 그 날로 새 일정 (삼성 캘린더처럼) */
   calPick: (t) => {
     const d = t.dataset.date;
@@ -980,6 +988,8 @@ function init() {
     if (ev.target.name === 'scn') { state.scenario = ev.target.value; if (state.scenario === 'noTalk') state.talkInstalled = true; save(); renderConsole(true); return; }
     onField(ev, true);
   });
+  // 한 줄로 쓰기: 엔터 = 채우기
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target && ev.target.id === 'f-quick') { ev.preventDefault(); ACT.quickApply(); } });
   document.addEventListener('keydown', (ev) => {
     if (ev.key !== 'Escape') return;
     if (ui.popup) return; // 딴짓 팝업은 답을 골라야 닫힘
@@ -1038,6 +1048,7 @@ function onField(ev, isChange) {
     return;
   }
   f[k] = t.value;
+  if (k === 'quick') { const h = $('#quick-hint'); if (h) h.textContent = quickPreview(f, t.value); return; }
   if (k === 'dlDate' || k === 'dlTime') f._dlTouched = true;
   if (k === 'title') {
     const c = $('#title-count'); if (c) c.textContent = `${t.value.length}/30`;

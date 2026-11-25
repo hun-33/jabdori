@@ -107,13 +107,13 @@ function viewFloorInfo(m) {
   const P = HEAT_POLICY, S = scaleOf(m), f = floorOf(m);
   return sheetWrap(`${sheetHead(S.floor, 'closeSheet', '실패하면 다음 잡도리가 더 세게 시작해요')}
     <div class="sheet-body prose">
-      <p class="formula">지금 ${S.floor} <b>${lv(f)}</b> = 처음 ${lv(m.initialHeat)} + ${m.penalty ? extraText(m.penalty, m) : '실패 가산 없음'}</p>
+      <p class="formula">지금 ${S.floor} <b>${lv(f)}</b> = ${S.base} ${lv(m.initialHeat)} + ${m.penalty ? extraText(m.penalty, m) : `${S.extra} 없음`}</p>
       <p>새로 올리는 잡도리 일정은 <b>${lvs(f)}</b>부터 시작해요.</p>
       <ul class="dash">
         <li>잡도리 일정을 실패하면 ${S.extra} 한 ${S.extraUnit}(+${P.failStep})${jo(S.extraUnit, '이/가')} 더해져 ${josa(S.floor, '이/가')} ${P.failStep} 올라가요. 최대 ${lv(P.floorMax)}.</li>
         <li>새로 올리는 잡도리 일정은 ${S.floor}에서 시작하고, 가산이 있는 동안은 그 아래로 내릴 수 없어요.</li>
         <li>이미 올려 둔 일정과 일반 일정은 바뀌지 않아요.</li>
-        <li>잡도리 일정을 ${P.coolStreak}번 연속으로 끝내면 ${josa(S.clear, '으로/로')} 가산이 한 ${S.extraUnit} 풀려요. 처음 ${S.short} 아래로는 내려가지 않아요.</li>
+        <li>잡도리 일정을 ${P.coolStreak}번 연속으로 끝내면 ${josa(S.clear, '으로/로')} 가산이 한 ${S.extraUnit} 풀려요. ${S.base} 아래로는 내려가지 않아요.</li>
         <li>마감이 지나고 결과를 안 남긴 채 날이 바뀌면 실패로 기록돼요.</li>
       </ul>
       <p class="hint">이 값들은 프로토타입용 예시 정책이에요.</p>
@@ -164,7 +164,7 @@ function viewResult(m) {
     else {
       const need = HEAT_POLICY.coolStreak;
       floor = `<div class="floor-change"><p class="fc-title">연속 성공 ${m.streak}/${need}</p><div class="streak">${Array.from({ length: need }, (_, i) => `<i class="${i < m.streak ? 'on' : ''}"></i>`).join('')}</div>
-        <p class="fc-note">${m.penalty ? `${need - m.streak}번 더 연속으로 끝내면 ${josa(S.clear, '으로/로')} ${josa(S.floor, '이/가')} 한 ${S.extraUnit} 내려가요.` : '실패 가산이 없어요. 이대로만 가요.'}</p></div>`;
+        <p class="fc-note">${m.penalty ? `${need - m.streak}번 더 연속으로 끝내면 ${josa(S.clear, '으로/로')} ${josa(S.floor, '이/가')} 한 ${S.extraUnit} 내려가요.` : `${josa(S.extra, '이/가')} 없어요. 이대로만 가요.`}</p></div>`;
     }
   } else {
     const up = run.floorAfter - run.floorBefore;
@@ -453,6 +453,11 @@ function viewForm(m) {
       ${heatSec}` : '';
   return sheetWrap(`<div class="sheet-head"><div><h2 id="sheet-title" class="sheet-title">${f.id ? '일정 고치기' : '새 일정'}</h2></div></div>
     <div class="sheet-body form-body">
+      ${f.id ? '' : `<section class="f-sec quick">
+        <div class="f-row-head"><label for="f-quick" class="f-label">한 줄로 쓰기</label><span class="f-aside">선택</span></div>
+        <div class="quick-row"><input id="f-quick" class="txt" data-field="quick" enterkeyhint="done" autocomplete="off" placeholder="예: 내일 3시 과제 2시간" value="${esc(f.quick || '')}"><button class="btn secondary sm" data-act="quickApply">채우기</button></div>
+        <p class="hint" id="quick-hint" aria-live="polite">${esc(quickPreview(f, f.quick))}</p>
+      </section>`}
       <section class="f-sec">
         <div class="f-row-head"><label for="f-title" class="f-label">제목</label><span class="f-aside" id="title-count">${f.title.length}/30</span></div>
         <input id="f-title" class="txt" data-field="title" maxlength="30" autocomplete="off" placeholder="예: 데이터베이스 과제" value="${esc(f.title)}" ${f.errors.title ? 'aria-invalid="true" aria-describedby="err-title"' : ''}>

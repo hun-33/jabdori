@@ -70,7 +70,7 @@ const WATCH = {
       try { const r = await NATIVE.Watch.installed({ packages: WATCH_APPS.map(([id]) => id) }); WATCH.apps = (r.apps || []).map((a) => ({ id: a.id, label: (WATCH_APPS.find(([id]) => id === a.id) || [])[1] || a.label })); }
       catch (e) { WATCH.apps = []; }
     }
-    if (JSON.stringify(WATCH.perm) !== before && state.tab === 'me') render();
+    if (JSON.stringify(WATCH.perm) !== before && ui.tab === 'me') render();
   },
   async onResume() {
     if (!NATIVE.Watch) return;

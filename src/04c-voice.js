@@ -240,8 +240,7 @@ function voiceSection() {
   const seg = (name, act, items, curV) => `<div class="seg wide" role="radiogroup" aria-label="${name}">${items.map(([id, label]) => `<button role="radio" class="seg-btn ${curV === id ? 'on' : ''}" aria-checked="${curV === id}" data-act="${act}" data-v="${id}" ${ok ? '' : 'disabled'}>${label}</button>`).join('')}</div>`;
   const modeDesc = (VOICE_MODES.find(([id]) => id === v.mode) || VOICE_MODES[0])[2];
   const vol = Math.round(v.volume * 100);
-  return `<h2 class="sec-label">목소리</h2>
-    <div class="set-block">
+  return `<div class="set-block">
       <p class="set-title">소리 모드</p>
       ${seg('소리 모드', 'voiceMode', VOICE_MODES, v.mode)}
       <p class="set-desc">${modeDesc}</p>

@@ -73,7 +73,10 @@ with sync_playwright() as p:
     # ---------- 1) 나 탭 설정 ----------
     pg.click('[data-act=tab][data-tab=me]'); pg.wait_for_timeout(400)
     t = pg.inner_text('#app')
-    check('나 탭에 딴짓 감지 구역 (기본 꺼짐)', '딴짓 감지' in t and ev("watchPrefs().on") is False)
+    check('나 첫 화면: 알림·딴짓 감지 메뉴 (딴짓 감지 꺼짐)', '알림·딴짓 감지' in t and '딴짓 감지 꺼짐' in t and ev("watchPrefs().on") is False, t)
+    pg.click('[data-act=meOpen][data-v=alerts]'); pg.wait_for_timeout(400)
+    t = pg.inner_text('#app')
+    check('나 > 알림·딴짓 감지: 딴짓 감지 구역', '딴짓 감지' in t and pg.query_selector('[data-act=watchToggle]') is not None)
     pg.click('[data-act=watchToggle]'); pg.wait_for_timeout(700)
     check('켜면 권한 없을 때 사용 정보 접근 설정을 엶', 'usage' in (ev('window.__opened') or []))
     check('권한 줄: 사용 정보 접근 "허용하러 가기"', pg.query_selector('[data-act=watchOpenUsage]') is not None)
@@ -144,6 +147,7 @@ with sync_playwright() as p:
     pg.wait_for_timeout(500)
     check('잡도리가 끝나면 감시 멈춤', (ev('window.__stops') or 0) > stops and not ev('window.__watching'))
     pg.click('[data-act=tab][data-tab=me]'); pg.wait_for_timeout(300)
+    pg.click('[data-act=meOpen][data-v=alerts]'); pg.wait_for_timeout(300)
     pg.click('[data-act=watchToggle]'); pg.wait_for_timeout(300)
     check('기능 끄면 설정 줄 숨김', pg.query_selector('[data-act=watchDelay]') is None and ev('watchPrefs().on') is False)
 

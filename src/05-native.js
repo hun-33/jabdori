@@ -271,6 +271,7 @@ function nativeBack() {
   if (ui.sheet) { ACT.sheetScrim(); return; }
   if (ui.result) { ACT.resultClose(); return; }
   if (ui.focusKey) { ACT.exitFocus(); return; }
+  if (ui.tab === 'me' && ui.meSub) { ACT.meBack(); return; } // 나 탭 하위 화면 → 나 탭
   if (member() && ui.tab !== 'today') { ui.tab = 'today'; render(); return; }
   try { NATIVE.App.minimizeApp(); } catch (e) { /* 무시 */ }
 }

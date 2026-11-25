@@ -67,7 +67,7 @@ with sync_playwright() as p:
     page.evaluate("document.querySelector('.form-body').scrollTop = 9999"); shot(page, '30_form_floor60')
     page.click('[data-act=formClose]'); page.wait_for_timeout(200)
     page.click('[data-act=tab][data-tab=me]'); shot(page, '31_me')
-    page.evaluate("document.querySelector('#screen').scrollTop = 9999"); shot(page, '32_me_bottom')
+    page.click('[data-act=meOpen][data-v=mireum]'); page.wait_for_timeout(300); shot(page, '32_me_mireum')
     page.click('[data-act=tab][data-tab=records]'); shot(page, '33_records_fail')
     state = page.evaluate("JSON.stringify({floor: floorOf(member()), penalty: member().penalty, tasks: member().tasks.length, runs: Object.keys(member().runs).length, ignored: state.ignoredClicks})")
     print('STATE', state)
