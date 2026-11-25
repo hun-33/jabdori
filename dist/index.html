@@ -971,6 +971,23 @@ textarea.txt.memo { height: auto; min-height: 64px; padding: 10px 14px; resize: 
 .app-sep { flex: none; width: 1px; height: 30px; background: var(--line); }
 #wa-none[hidden] { display: none; }
 
+/* 새 일정: 종일이면 시각 줄이 없어지고, 달력이 그 자리로 살짝 올라온다 */
+.wb-row.allday .wb-arrow { padding-top: 16px; }
+.fcal.rise { animation: calRise .32s var(--ease) both; }
+@keyframes calRise { from { opacity: 0; transform: translate3d(0, 26px, 0); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .fcal.rise { animation: none; } }
+.in-quick { margin: 10px 0 0; }
+
+/* 설정 > 홈 화면 위젯 */
+.wg-list { list-style: none; margin: 0; padding: 2px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l); }
+.wg-row { display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.wg-row:last-child { border-bottom: 0; }
+.wg-row .lb-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.wg-row .lb-text b { font-size: 15px; font-weight: 650; }
+.wg-row .lb-text b em { font-style: normal; font-size: 12px; font-weight: 600; color: var(--ink-2); margin-left: 4px; }
+.wg-row .lb-text small { font-size: 12.5px; color: var(--ink-2); line-height: 1.5; }
+.wg-row .btn { flex: none; min-height: 40px; padding: 0 16px; }
+
 /* =========================================================
    미루먼지 스타일과 동작 (transform·opacity만 움직인다)
    ========================================================= */
@@ -1466,8 +1483,13 @@ function persona() { return charOf(); }
 
 /* 상황 키마다 마지막으로 고른 문장을 기억해 같은 문장 연속 반복을 피한다 */
 const lineMemo = {};
+/* 위젯용으로 미리 계산할 때(05d-widget)는 LINE_SEED를 켜서 같은 시각·상황이면 늘 같은 문장을 고른다
+   (앱 화면의 '연속 반복 피하기' 기억은 건드리지 않음) */
+let LINE_SEED = null;
+function seededIndex(s, n) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h) % n; }
 function pickLine(ctx, arr, bucket = 0) {
   if (!arr || !arr.length) return { tpl: '', id: ctx };
+  if (LINE_SEED) { const i = arr.length === 1 ? 0 : seededIndex(`${LINE_SEED}|${ctx}|${bucket}`, arr.length); return { tpl: arr[i], id: ctx + '#' + i }; }
   const m = lineMemo[ctx];
   if (m && m.bucket === bucket && m.len === arr.length) return { tpl: arr[m.idx], id: ctx + '#' + m.idx };
   let idx;
@@ -2855,7 +2877,7 @@ function scaleModeBlock(m) {
 }
 /* 설정 탭(ui.tab 'me'): 첫 화면은 계정 상태 + 설정 메뉴, 설정은 하위 화면(ui.meSub)으로 나눈다
    mireum 미루먼지 농도 · voice 목소리 · alerts 알림·딴짓 감지(웹: 앱 설치) · screen 화면 · account 계정 관리 */
-const ME_SUBS = { mireum: '미루먼지 농도', voice: '목소리', alerts: '알림·딴짓 감지', screen: '화면', account: '계정 관리', watchApps: '지켜볼 앱' };
+const ME_SUBS = { mireum: '미루먼지 농도', voice: '목소리', alerts: '알림·딴짓 감지', widgets: '홈 화면 위젯', screen: '화면', account: '계정 관리', watchApps: '지켜볼 앱' };
 /* 하위 화면의 하위 화면: 뒤로 가면 여기로 (없으면 설정 첫 화면) */
 const ME_PARENT = { watchApps: 'alerts' };
 function meSubTitle(k) { return k === 'alerts' ? (!NATIVE.on ? '앱 설치' : NATIVE.Watch ? '알림·딴짓 감지' : '알림') : k === 'mireum' ? scaleOf().title : ME_SUBS[k]; }
@@ -2877,6 +2899,7 @@ function viewMe(m) {
       ${meMenuRow('mireum', S.icon, `${S.floor} ${lv(floorOf(m))} · 단계 이름 ${m.scaleMode === 'common' ? '공통' : '캐릭터별'}`)}
       ${meMenuRow('voice', 'speaker', `${C.name} 목소리 · ${vm}${v.mode === 'off' ? '' : ' · ' + VOICE_SPEEDS[v.speed].label}`)}
       ${meMenuRow('alerts', NATIVE.on ? 'clock' : 'download', alertsPrev)}
+      ${NATIVE.Widget ? meMenuRow('widgets', 'calendar', '오늘의 일정 · 다음 일정 · 미루먼지 · 잡도리 통계') : ''}
       ${meMenuRow('screen', 'eye', `움직임 줄이기 ${state.reduceMotion ? '켜짐' : '꺼짐'}`)}
       ${meMenuRow('account', 'me', '동의한 항목 · 카카오 로그아웃 · 연결 끊기 · 탈퇴')}
       ${state.devMode ? `<h2 class="sec-label">개발자</h2>
@@ -2901,6 +2924,8 @@ function viewMeSub(m, sub) {
     body = voiceSection();
   } else if (sub === 'alerts') {
     body = NATIVE.on ? notifRow() + watchSection(m) : installRow();
+  } else if (sub === 'widgets') {
+    body = NATIVE.Widget ? widgetsPage() : '<p class="fine dark">홈 화면 위젯은 안드로이드 앱에서만 쓸 수 있어요.</p>';
   } else if (sub === 'watchApps') {
     body = NATIVE.Watch ? watchAppsPage() : '';
   } else if (sub === 'screen') {
@@ -3318,23 +3343,24 @@ function formCalHTML(f) {
     const off = d < minDate;
     cells += `<button class="fcal-cell ${cls}" data-act="formCalPick" data-date="${d}" ${off ? 'disabled' : ''} aria-label="${fmtDateLong(d)}${d === f.date ? ', 시작' : ''}${d === f.endDate ? ', 종료' : ''}"><span>${parseYmd(d).getDate()}</span></button>`;
   }
-  return `<div class="fcal" data-swipe="fcal">
+  return `<div class="fcal ${f._calRise && Date.now() - f._calRise < 450 ? 'rise' : ''}" data-swipe="fcal">
     <div class="fcal-nav"><button class="icon-btn" data-act="formCalNav" data-delta="-1" aria-label="이전 달">${icon('prev')}</button><b>${y}년 ${mo}월</b><button class="icon-btn" data-act="formCalNav" data-delta="1" aria-label="다음 달">${icon('next')}</button>
-      ${f.pick === 'start' ? `<button class="in-link" data-act="wheelInput" data-target="date" aria-label="시작 날짜 직접 입력">${icon('edit')}입력</button>` : ''}</div>
-    <p class="fcal-tip">${f.pick === 'start' ? '시작 날짜를 누르세요' : '끝나는 날짜를 누르세요'}</p>
+      <button class="in-link" data-act="wheelInput" data-target="${f.pick === 'start' ? 'date' : 'endDate'}" aria-label="${f.pick === 'start' ? '시작' : '종료'} 날짜 직접 입력">${icon('edit')}입력</button></div>
+    <p class="fcal-tip">${f.pick === 'start' ? '시작 날짜를 누르세요' : '끝나는 날짜를 누르세요'} · 위 날짜를 한 번 더 누르면 직접 입력</p>
     <div class="fcal-head" aria-hidden="true">${WEEK_ORDER.map((w, i) => `<span class="wd${i}">${WD[w]}</span>`).join('')}</div>
     <div class="fcal-grid">${cells}</div></div>`;
 }
+/* 날짜·시각 버튼: 한 번 누르면 달력·선택기, 열린 상태에서 한 번 더 누르면 직접 입력 */
 function whenBlock(f) {
   const side = (k, label, d, hm) => `<div class="wb-side"><span class="wb-label">${label}</span>
-      <button class="wb-date ${f.pick === k ? 'on' : ''}" data-act="formPick" data-v="${k}" aria-pressed="${f.pick === k}">${fmtDateShort(d)}</button>
-      ${f.allDay ? '<span class="wb-time muted">종일</span>' : `<button class="wb-time ${f.pick === k + '-time' ? 'on' : ''}" data-act="formPick" data-v="${k}-time" aria-pressed="${f.pick === k + '-time'}">${hm}</button>`}</div>`;
+      <button class="wb-date ${f.pick === k ? 'on' : ''}" data-act="formPick" data-v="${k}" aria-pressed="${f.pick === k}" aria-label="${label} 날짜 ${fmtDateShort(d)}${f.pick === k ? ', 한 번 더 누르면 직접 입력' : ''}">${fmtDateShort(d)}</button>
+      ${f.allDay ? '' : `<button class="wb-time ${f.pick === k + '-time' ? 'on' : ''}" data-act="formPick" data-v="${k}-time" aria-pressed="${f.pick === k + '-time'}" aria-label="${label} 시각 ${hm}${f.pick === k + '-time' ? ', 한 번 더 누르면 직접 입력' : ''}">${hm}</button>`}</div>`;
   let below = '';
   if (f.pick === 'start' || f.pick === 'end') below = formCalHTML(f);
   else if (f.pick === 'start-time') below = `<div class="picker">${subLabel('시작 시각', 'start')}${timeWheels('start', f.start, '시작')}</div>`;
   else if (f.pick === 'end-time') below = `<div class="picker">${subLabel('종료 시각', 'end')}${timeWheels('end', f.end, '종료')}
       <div class="chips quick-dur" role="group" aria-label="걸리는 시간으로 종료 정하기">${[[30, '30분'], [60, '1시간'], [120, '2시간'], [180, '3시간']].map(([v, l]) => `<button class="chip" data-act="formDur" data-v="${v}">${l}</button>`).join('')}</div></div>`;
-  return `<div class="wb-row">${side('start', '시작', f.date, f.start)}<span class="wb-arrow" aria-hidden="true">→</span>${side('end', '종료', f.endDate, f.end)}</div>${below}`;
+  return `<div class="wb-row ${f.allDay ? 'allday' : ''}">${side('start', '시작', f.date, f.start)}<span class="wb-arrow" aria-hidden="true">→</span>${side('end', '종료', f.endDate, f.end)}</div>${below}`;
 }
 function viewForm(m) {
   const f = ui.form;
@@ -3810,7 +3836,8 @@ const ACT = {
   /* 설정 탭 하위 화면 열기·닫기 */
   meOpen: (t) => {
     ui.meSub = t.dataset.v;
-    if (ui.meSub === 'watchApps') { ui.appQ = ''; WATCH.loadApps(); }   // 열 때마다 이 폰의 앱 목록을 새로 읽는다 (그동안은 지난 목록)
+    if (ui.meSub === 'watchApps') { ui.appQ = ''; WATCH.loadApps(); }
+    if (ui.meSub === 'widgets') WIDGET.refreshPlaced();   // 열 때마다 이 폰의 앱 목록을 새로 읽는다 (그동안은 지난 목록)
     render();
   },
   meBack: () => { ui.meSub = ME_PARENT[ui.meSub] || null; render(); },
@@ -3982,7 +4009,11 @@ const ACT = {
   },
   formPick: (t) => {
     const f = ui.form, v = t.dataset.v;
-    f.pick = f.pick === v ? null : v;
+    if (!f) return;
+    f._calRise = 0;
+    // 이미 열린 날짜·시각을 한 번 더 누르면 직접 입력 (달력·휠을 닫지 않고 그 위에 입력창)
+    if (f.pick === v) { const tg = PICK_INPUT[v]; if (tg) { openWheelInput(tg); return; } }
+    f.pick = v;
     if (f.pick === 'start' || f.pick === 'end') f.calMonth = (f.pick === 'end' ? f.endDate : f.date).slice(0, 7);
     rerenderForm();
   },
@@ -4010,8 +4041,13 @@ const ACT = {
   /* 종일은 언제나 켜진다. 잡도리는 시작 시각이 있어야 해서, 잡도리 상태에서 켜면
      새 일정은 '일반 일정'으로, 고치는 일정은 '잡도리 끔'으로 바꾸고 화면에 그 사실을 적는다. 끄면 원래대로 돌려 놓는다. */
   formAllDay: () => {
-    const f = ui.form;
+    const f = ui.form; if (!f) return;
     f.allDay = !f.allDay;
+    // 종일이면 시각 줄이 사라지고 그 자리로 달력이 올라온다 (시각 선택기가 열려 있었으면 달력으로 바꿈)
+    // (_calRise: 켠 시각 — 그 뒤 0.45초 안에 그리는 달력만 올라오는 움직임을 준다)
+    if (f.allDay && f.pick !== 'start' && f.pick !== 'end' && f.pick !== 'dl') { f.pick = 'start'; f.calMonth = f.date.slice(0, 7); f._calRise = Date.now(); }
+    else if (f.allDay && (f.pick === 'start' || f.pick === 'end')) f._calRise = Date.now();
+    else f._calRise = 0;
     if (f.allDay && f.type === 'jab') {
       if (!f.id) { f.type = 'normal'; f._autoNormal = true; if (!f._colorTouched) f.color = 'sky'; }
       else if (f.jabOn !== false) { f.jabOn = false; f._autoJabOff = true; }
@@ -4223,6 +4259,21 @@ function setWheel(id, v) {
   const i = wheelItems(w).findIndex((it) => it.dataset.v === String(v)); if (i < 0) return false;
   w.scrollTop = i * WHEEL_H; commitWheel(w); return true;
 }
+/* 열린 선택기 → 한 번 더 눌렀을 때 여는 직접 입력 */
+const PICK_INPUT = { start: 'date', end: 'endDate', 'start-time': 'start', 'end-time': 'end', dl: 'dl' };
+/* 시작을 옮길 때: 옮기기 전 걸리는 시간(dur, ms)을 그대로 두고 종료를 다시 정한다
+   18:00~19:00에서 시작을 19:00으로 → 20:00. 자정을 넘기면 종료 날짜도 넘어간다.
+   종일이거나 걸리는 시간이 잘못돼 있으면(0 이하) 1시간으로 본다. 32일을 넘기지 않게 자른다 */
+function keepDuration(f, dur) {
+  if (!f || f.allDay) return;
+  let d = Number(dur);
+  if (!Number.isFinite(d) || d <= 0) d = 60 * MIN;
+  d = Math.min(d, 31 * DAY);
+  const e = draftStartMs(f) + d;
+  f.endDate = ymd(e); f.end = fmtHM(e);
+  if (f.type === 'jab' && f.dlMode === 'custom' && !f._dlTouched) { f.dlDate = f.endDate; f.dlTime = f.end; }
+}
+function draftDurMs(f) { try { return draftEndMs(f) - draftStartMs(f); } catch (e) { return 60 * MIN; } }
 function onWheel(id, v) {
   const f = ui.form; if (!f) return;
   const setHM = (key, part, val) => { const [h, mm] = (f[key] || '00:00').split(':'); f[key] = part === 'h' ? `${val}:${mm}` : `${h}:${val}`; };
@@ -4233,8 +4284,11 @@ function onWheel(id, v) {
     if (!f._dlTouched || f.dlDate < f.date) f.dlDate = f.date;
     rerenderForm(); return;
   }
-  if (id === 'start-h') setHM('start', 'h', v);
-  if (id === 'start-m') setHM('start', 'm', v);
+  if (id === 'start-h' || id === 'start-m') {
+    const dur = draftDurMs(f);
+    setHM('start', id === 'start-h' ? 'h' : 'm', v);
+    keepDuration(f, dur);
+  }
   if (id === 'end-date') { f.endDate = v; delete f.errors.date; delete f.errors.time; }
   if (id === 'end-h') setHM('end', 'h', v);
   if (id === 'end-m') setHM('end', 'm', v);
@@ -4248,6 +4302,7 @@ function onWheel(id, v) {
   const sh = $('#start-hint'); if (sh) sh.textContent = f.type === 'jab' && f.date === today() && !f.allDay && at(f.date, f.start) < now() ? '시작 시각이 이미 지났어요. 올리면 바로 잡도리가 시작돼요.' : '';
   // 시작·종료 줄의 글자도 바로 바꾼다 (선택기는 그대로 둔 채)
   for (const [k, hm] of [['start-time', f.start], ['end-time', f.end]]) { const b = el.sheet.querySelector(`.wb-time[data-v="${k}"]`); if (b) b.textContent = hm; }
+  for (const [k, d] of [['start', f.date], ['end', f.endDate]]) { const b = el.sheet.querySelector(`.wb-date[data-v="${k}"]`); if (b && b.textContent !== fmtDateShort(d)) b.textContent = fmtDateShort(d); }
   const dlr = el.sheet.querySelector('.when-row[data-v="dl"]');
   if (dlr) { dlr.querySelector('.wr-date').textContent = fmtDateShort(f.dlDate); const tt = dlr.querySelector('.wr-time'); if (tt) tt.textContent = f.dlTime; }
 }
@@ -4439,10 +4494,13 @@ function parseDurationInput(raw) {
   return { ok: false };
 }
 
-// 날짜: 오늘 · 내일 · 모레 · 글피 · 3일 뒤 · 12/3 · 12.3 · 12-3 · 12월 3일 · 1203 · 2026-12-03 · 20261203 · 3일
+// 날짜: 오늘 · 내일 · 모레 · 글피 · 3일 뒤 · 12/3 · 12.3 · 12-3 · 12 3 · 12월 3일 · 1203 · 2026-12-03 · 2026 12 3 · 20261203 · 261203 · 3일 · 18
+//  숫자 사이 띄어쓰기는 구분자로 본다 ("12 5" = 12월 5일). 세 자리(125)는 1/25와 12/5 둘 다 되면 되묻는다
 function parseDateInput(raw, base) {
-  let s = normInput(raw).replace(/\s+/g, '').replace(/\([^)]*\)$/, '').replace(/[월화수목금토일]요일$/, '').replace(/\.$/, '');
+  let s = normInput(raw).replace(/(\d)\s+(?=\d)/g, '$1/').replace(/\s+/g, '').replace(/\([^)]*\)$/, '').replace(/[월화수목금토일]요일$/, '').replace(/\.$/, '');
   if (!s) return { ok: false, error: '날짜를 입력해 주세요.' };
+  if (!base || !/^\d{4}-\d{2}-\d{2}$/.test(base)) base = ymd(Date.now());
+  if (s.length > 20) return { ok: false, error: '날짜를 짧게 적어 주세요. 예) 12 18, 1218' };
   const rel = { 오늘: 0, 내일: 1, 모레: 2, 글피: 3 };
   if (s in rel) return { ok: true, ymd: addDays(base, rel[s]) };
   let mt;
@@ -4450,15 +4508,29 @@ function parseDateInput(raw, base) {
   let y = null, mo, d;
   if ((mt = s.match(/^(\d{4})[-./년](\d{1,2})[-./월](\d{1,2})일?$/))) { y = +mt[1]; mo = +mt[2]; d = +mt[3]; }
   else if ((mt = s.match(/^(\d{4})(\d{2})(\d{2})$/))) { y = +mt[1]; mo = +mt[2]; d = +mt[3]; }
+  else if ((mt = s.match(/^(\d{2})[-./년](\d{1,2})[-./월](\d{1,2})일?$/)) || (mt = s.match(/^(\d{2})(\d{2})(\d{2})$/))) { y = 2000 + +mt[1]; mo = +mt[2]; d = +mt[3]; }
   else if ((mt = s.match(/^(\d{1,2})[-./월](\d{1,2})일?$/))) { mo = +mt[1]; d = +mt[2]; }
-  else if ((mt = s.match(/^(\d{1,2})(\d{2})$/))) { mo = +mt[1]; d = +mt[2]; }
-  else if ((mt = s.match(/^(\d{1,2})일$/))) {
+  else if ((mt = s.match(/^(\d{2})(\d{2})$/))) { mo = +mt[1]; d = +mt[2]; }
+  else if ((mt = s.match(/^(\d)(\d)(\d)$/))) {
+    // 세 자리: 앞 1자리=월 + 뒤 2자리=일, 또는 앞 2자리=월 + 뒤 1자리=일
+    const a = { mo: +mt[1], d: +(mt[2] + mt[3]) }, b = { mo: +(mt[1] + mt[2]), d: +mt[3] };
+    const okMD = (c) => c.mo >= 1 && c.mo <= 12 && c.d >= 1 && c.d <= new Date(2028, c.mo, 0).getDate(); // 2028 = 윤년 (2/29 허용)
+    const cand = [a, b].filter(okMD);
+    if (cand.length === 2) return { ok: false, error: `${a.mo}월 ${a.d}일인지 ${b.mo}월 ${b.d}일인지 헷갈려요. ${pad(a.mo)}${pad(a.d)} 또는 ${pad(b.mo)}${pad(b.d)}처럼 네 자리로 적어 주세요.` };
+    if (!cand.length) {
+      const near = [a, b].find((c) => c.mo >= 1 && c.mo <= 12 && c.d >= 1 && c.d <= 31);
+      return { ok: false, error: near ? `${near.mo}월에는 ${near.d}일이 없어요.` : '날짜를 알아보지 못했어요. 월과 일을 띄어 적어 주세요. 예) 12 18' };
+    }
+    mo = cand[0].mo; d = cand[0].d;
+  }
+  else if ((mt = s.match(/^(\d{1,2})일?$/))) {
     const [by, bm] = base.split('-').map(Number);
     y = by; mo = bm; d = +mt[1];
     if (d >= 1 && d <= 31 && `${y}-${pad(mo)}-${pad(d)}` < base) { mo += 1; if (mo > 12) { mo = 1; y += 1; } }
   }
-  else return { ok: false, error: '날짜 형식을 알아보지 못했어요. 예) 12/3, 12월 3일, 내일, 2026-12-03' };
+  else return { ok: false, error: '날짜 형식을 알아보지 못했어요. 예) 12 18, 1218, 12/18, 내일' };
   if (mo < 1 || mo > 12) return { ok: false, error: '월은 1~12 사이로 적어 주세요.' };
+  if (!(d >= 1 && d <= 31)) return { ok: false, error: '일은 1~31 사이로 적어 주세요.' };
   const inferYear = y == null;
   if (inferYear) y = +base.slice(0, 4);
   const valid = (yy) => { const dt = new Date(yy, mo - 1, d); return d >= 1 && dt.getFullYear() === yy && dt.getMonth() === mo - 1 && dt.getDate() === d; };
@@ -4476,7 +4548,8 @@ function parseDateInput(raw, base) {
 
 /* ---------- 입력 대상별 규칙 ---------- */
 const INPUT_SPEC = {
-  date: { kind: 'date', title: '날짜 직접 입력', ph: '예) 12/3 · 12월 3일 · 내일', help: '연도를 안 쓰면 가장 가까운 날로 맞춰요. 지난 날짜면 내년으로 봐요.' },
+  date: { kind: 'date', title: '시작 날짜 직접 입력', ph: '예) 12 18 · 1218 · 내일', help: '숫자만 적어도 돼요 (12 18, 1218). 연도를 안 쓰면 가장 가까운 날로 맞추고, 지난 날짜면 내년으로 봐요.', quick: [['오늘', '오늘'], ['내일', '내일'], ['모레', '모레']] },
+  endDate: { kind: 'date', title: '종료 날짜 직접 입력', ph: '예) 12 18 · 1218', help: '숫자만 적어도 돼요 (12 18, 1218). 시작 날짜보다 앞설 수 없고, 32일까지 이어질 수 있어요.', quick: [['same', '시작과 같은 날'], ['next', '다음 날']] },
   start: { kind: 'time', title: '시작 시각 직접 입력', ph: '예) 18:30 · 1830 · 오후 6시 반', help: '24시간제나 오전·오후 둘 다 돼요. 1분 단위로 정할 수 있어요.' },
   end: { kind: 'time', title: '종료 시각 직접 입력', ph: '예) 20:00 · 90분 · 1시간 30분', help: '종료 시각이나 걸리는 시간(90분, 1시간 반)을 적어 주세요. 같은 날 시작보다 이르면 다음 날로 봐요.' },
   dl: { kind: 'datetime', title: '마감 직접 입력', ph: '예) 12/3 20:00 · 20:00 · 내일 9시', help: '날짜만 적으면 시각은 그대로, 시각만 적으면 날짜는 그대로 둬요.' },
@@ -4486,6 +4559,7 @@ const INPUT_MAX_DAYS = 365;
 function inputCurrent(target) {
   const f = ui.form;
   if (target === 'date') return fmtMD(f.date).replace('월 ', '/').replace('일', '');
+  if (target === 'endDate') return fmtMD(f.endDate).replace('월 ', '/').replace('일', '');
   if (target === 'start') return f.start;
   if (target === 'end') return f.end;
   if (target === 'dl') return `${fmtMD(f.dlDate).replace('월 ', '/').replace('일', '')} ${f.dlTime}`;
@@ -4504,6 +4578,23 @@ function evalInput(target, raw) {
     if (r.ymd < minDate) return { ok: false, error: '지난 날짜에는 새 일정을 올릴 수 없어요.' };
     if (r.ymd > maxDate) return { ok: false, error: '1년 안의 날짜만 정할 수 있어요.' };
     return { ok: true, patch: { date: r.ymd }, label: fmtDateShort(r.ymd) };
+  }
+  if (target === 'endDate') {
+    const s = normInput(raw);
+    // 빠른 버튼 값 (시작과 같은 날 / 다음 날)
+    const r = s === 'same' ? { ok: true, ymd: f.date } : s === 'next' ? { ok: true, ymd: addDays(f.date, 1) } : parseDateInput(raw, f.date);
+    if (!r.ok) return r;
+    // 연도 없이 시작보다 앞선 날짜를 적으면 parseDateInput이 내년으로 넘긴다 → 32일 밖이면 '앞선 날짜'로 알려 준다
+    if (r.ymd > f.date && daysBetween(f.date, r.ymd) > 31) {
+      const same = parseDateInput(raw, f.date.slice(0, 4) + '-01-01');
+      if (same.ok && same.ymd < f.date) return { ok: false, error: `종료 날짜는 시작 날짜(${fmtDateShort(f.date)})보다 앞설 수 없어요.` };
+    }
+    if (r.ymd < f.date) return { ok: false, error: `종료 날짜는 시작 날짜(${fmtDateShort(f.date)})보다 앞설 수 없어요.` };
+    if (daysBetween(f.date, r.ymd) > 31) return { ok: false, error: '한 일정은 32일까지 이어질 수 있어요. 나눠서 올려 주세요.' };
+    const patch = { endDate: r.ymd };
+    // 같은 날로 바꿨는데 종료 시각이 시작보다 이르면 시작 + 1시간
+    if (!f.allDay && r.ymd === f.date && hmToMin(f.end) <= hmToMin(f.start)) { const e = at(f.date, f.start) + 60 * MIN; patch.endDate = ymd(e); patch.end = fmtHM(e); }
+    return { ok: true, patch, label: fmtDateShort(patch.endDate) };
   }
   if (target === 'start' || target === 'end') {
     if (target === 'end') {
@@ -4554,10 +4645,11 @@ function viewWheelInput() {
   return `<div class="in-scrim" data-act="wheelInputCancel"></div>
   <div class="in-box" role="dialog" aria-modal="true" aria-labelledby="in-title">
     <h2 id="in-title" class="in-title">${sp.title}</h2>
-    <input id="in-field" class="txt in-field" type="text" inputmode="${sp.kind === 'time' && st.target !== 'end' ? 'numeric' : 'text'}" autocomplete="off" enterkeyhint="done"
+    <input id="in-field" class="txt in-field" type="text" inputmode="${(sp.kind === 'time' && st.target !== 'end') || sp.kind === 'date' ? 'numeric' : 'text'}" autocomplete="off" enterkeyhint="done"
       value="${esc(st.value)}" placeholder="${esc(sp.ph)}" aria-describedby="in-help${err ? ' in-err' : ''}" ${err ? 'aria-invalid="true"' : ''} data-input-box="1">
     ${err ? `<p id="in-err" class="field-err" role="alert">${icon('alert')}${esc(err)}</p>` : ''}
     <p id="in-help" class="hint">${sp.help}</p>
+    ${sp.quick ? `<div class="chips in-quick" role="group" aria-label="빠르게 고르기">${sp.quick.map(([v, l]) => `<button class="chip" data-act="wheelInputQuick" data-v="${v}">${l}</button>`).join('')}</div>` : ''}
     <p class="in-preview" id="in-preview" aria-live="polite">${st.preview ? esc(st.preview) : ''}</p>
     <div class="in-actions"><button class="btn ghost" data-act="wheelInputCancel">취소</button><button class="btn primary" data-act="wheelInputOk">확인</button></div>
   </div>`;
@@ -4593,6 +4685,8 @@ function openWheelInput(target) {
 }
 Object.assign(ACT, {
   wheelInput: (t) => openWheelInput(t.dataset.target),
+  // 날짜 입력창의 빠른 버튼 (오늘·내일·모레 / 시작과 같은 날·다음 날): 그 값으로 바로 확인
+  wheelInputQuick: (t) => { if (!ui.input) return; ui.input.value = t.dataset.v; const fd = $('#in-field'); if (fd) fd.value = t.dataset.v; ACT.wheelInputOk(); },
   wheelInputCancel: () => { const tg = ui.input && ui.input.target; ui.input = null; render(); focusWheelGroup(tg); },
   wheelInputOk: () => {
     const st = ui.input; if (!st || !ui.form) return;
@@ -4600,8 +4694,10 @@ Object.assign(ACT, {
     const r = evalInput(st.target, st.value);
     if (!r.ok) { st.error = r.error; st.preview = ''; render(); return; }
     const span = daysBetween(ui.form.date, ui.form.endDate); // 시작 날짜를 바꾸면 종료 날짜도 같은 간격으로 따라간다
+    const dur = draftDurMs(ui.form);                          // 시작 시각을 바꾸면 걸리는 시간 그대로 종료도 따라간다
     Object.assign(ui.form, r.patch);
     const f = ui.form;
+    if (r.patch.start) keepDuration(f, dur);
     if (r.patch.date) {
       f.endDate = addDays(f.date, Math.max(0, span));
       f.calMonth = f.date.slice(0, 7); // 폼 달력도 그 달로
@@ -4609,10 +4705,12 @@ Object.assign(ACT, {
       if (!f._dlTouched || f.dlDate < f.date) f.dlDate = f.date;
       delete f.errors.date;
     }
-    if (r.patch.start || r.patch.end) delete f.errors.time;
+    if (r.patch.endDate) { delete f.errors.date; f.calMonth = f.endDate.slice(0, 7); }
+    if (r.patch.start || r.patch.end || r.patch.endDate) delete f.errors.time;
     if (r.patch.dlDate) delete f.errors.deadline;
     const tg = st.target;
     ui.input = null;
+    f._calRise = 0;   // 달력·휠은 열어 둔 채 고른 값을 보여 준다
     rerenderForm();
     toast(`${INPUT_SPEC[tg].title.replace(' 직접 입력', '')}: ${r.label}`);
     focusWheelGroup(tg);
@@ -4621,6 +4719,7 @@ Object.assign(ACT, {
 function focusWheelGroup(target) {
   if (!target) return;
   const id = { date: 'date', start: 'start-h', end: 'end-h', dl: 'dl-date' }[target];
+  if (!id) return;
   setTimeout(() => { const w = el.sheet && el.sheet.querySelector(`.wheel[data-wheel="${id}"]`); if (w) w.focus({ preventScroll: true }); }, 30);
 }
 // 입력창 안 키보드: Enter 확인, Esc 취소, 입력하면서 미리보기
@@ -5419,8 +5518,12 @@ function nativeBack() {
 }
 
 // 저장 직후마다 불림 (01-core save 끝)
+// 뒤에 오는 파일(05d-widget 등)은 여기에 함수를 넣는다. 아직 읽히지 않은 const를 직접 부르면
+// 스크립트 첫 실행(clockBoot의 save) 때 'before initialization' 오류로 앱 전체가 멈추기 때문
+const SAVE_HOOKS = [];
 function afterSave() {
   if (NATIVE.on) NOTIF.schedule(false);
+  try { for (const f of SAVE_HOOKS) { try { f(); } catch (e) { /* 한 곳이 실패해도 저장은 그대로 */ } } } catch (e) { /* 이 파일이 다 읽히기 전의 저장 */ }
 }
 
 /* ---------- 시작 ---------- */
@@ -5440,10 +5543,11 @@ function nativeInit() {
   if (!NATIVE.on) return;
   NOTIF.init();
   WATCH.init();
+  WIDGET.init();
   nativeRestoreSession();
   try {
     NATIVE.App.addListener('backButton', nativeBack);
-    NATIVE.App.addListener('resume', () => { if (state.realTime) syncRealClock(true); nativeRestoreSession(); NOTIF.schedule(true); TTS.check(); WATCH.onResume(); });
+    NATIVE.App.addListener('resume', () => { if (state.realTime) syncRealClock(true); nativeRestoreSession(); NOTIF.schedule(true); TTS.check(); WATCH.onResume(); WIDGET.onResume(); });
     NATIVE.App.addListener('pause', () => TTS.stop()); // 앱을 내리면 읽던 말도 멈춘다
   } catch (e) { /* 무시 */ }
 }
@@ -5996,6 +6100,259 @@ Object.assign(ACT, {
     WATCH.schedule();
   },
   slackLateStart: (t) => { ui.popup = null; ACT.startOcc(t); },
+});
+
+/* =========================================================
+   05d-widget: 안드로이드 홈 화면 위젯 (오늘의 일정 · 다음 일정 · 미루먼지 · 잡도리 통계)
+   - 위젯은 웹 화면의 저장소(localStorage)를 직접 읽지 못한다. 그래서 앱이 '위젯 묶음'(스냅숏)을 만들어
+     네이티브 Widget 플러그인(WidgetPlugin.kt)에 넘기고, 위젯은 그 묶음을 지금 시각 기준으로 다시 계산해 그린다.
+   - 묶음 내용: 오늘부터 7일 치 회차(앱의 오늘 목록과 같은 함수 occurrencesCovering), 최근 14일 잡도리 기록 수,
+     연속 성공, 앞으로 48시간의 미루먼지 표정·대사·농도(앱의 personaForToday를 그 시각으로 돌려 미리 계산)
+   - 위젯에서 일반 일정을 체크하면 네이티브가 바로 위젯을 고치고 '할 일'을 쌓아 둔다 → 앱이 그 할 일을
+     받아 기록에 반영(applyWidgetActions)하고 확인(ack)한다. 잡도리 일정은 위젯에서 바꾸지 않고 앱을 연다.
+   - 로그아웃·탈퇴하면 일정이 없는 묶음(login: false)을 넘겨 홈 화면에서도 바로 사라지게 한다.
+   - 아이폰·웹에는 이 플러그인이 없다 (NATIVE.Widget === null → 아무것도 안 함)
+   ========================================================= */
+NATIVE.Widget = NATIVE.on && !NATIVE.ios && typeof window !== 'undefined' && window.Capacitor && typeof window.Capacitor.registerPlugin === 'function'
+  ? (() => { try { return window.Capacitor.registerPlugin('Widget'); } catch (e) { return null; } })() : null;
+
+const WIDGET_DAYS = 7;          // 오늘부터 며칠 치 회차를 넘길지 (앱을 며칠 안 열어도 목록이 맞게)
+const WIDGET_MOOD_HOURS = 48;   // 미루먼지 표정·대사를 미리 계산해 둘 시간
+const WIDGET_COLORS = { coral: '#E58A6E', sun: '#E2B04A', mint: '#5FAE8E', sky: '#6FA3D6', lilac: '#A48BD0', stone: '#9A8F82' };
+const WIDGET_KINDS = [
+  ['today', '오늘의 일정', '오늘 날짜, 완료 수와 진행률, 일정 목록. 일반 일정은 위젯에서 바로 체크해요', '4×2'],
+  ['next', '다음 일정', '다음 일정 이름, 시작 시각, 남은 시간. 진행 중인 잡도리도 따로 보여 줘요', '2×2'],
+  ['mireum', '미루먼지', '오늘 상황에 맞는 미루먼지 표정과 한마디, 지금 농도', '2×2'],
+  ['stats', '잡도리 통계', '오늘 완료율, 이번 주 잡도리 성공률, 연속 성공', '2×2'],
+];
+
+
+function widgetItem(st) {
+  const task = st.task, run = st.run;
+  const jab = task.type === 'jab' && task.jabOn !== false;
+  let status = 'todo';
+  if (run && run.status === 'done') status = 'done';
+  else if (jab && run && run.status === 'failed') status = 'failed';
+  else if (jab && run && run.status === 'running') status = 'running';
+  return {
+    k: st.key, t: String(task.title || '').slice(0, 40), j: jab, ad: !!task.allDay,
+    s: st.w.start, e: st.w.end, dl: jab && st.w.deadline ? st.w.deadline : 0,
+    st: status, bu: status === 'running' && run.brk && !run.brk.ended ? run.brk.until : 0,
+    c: WIDGET_COLORS[taskColor(task)] || WIDGET_COLORS.sky, d: st.date,
+    dn: st.dayNo || 1, dd: st.days || 1, tm: occTimeText(st),
+  };
+}
+/* 앱 '오늘' 목록과 같은 순서: 잡도리 먼저, 그다음 적어 둔 일 (각각 occurrencesCovering 순서) */
+function widgetDay(m, date) {
+  const occs = occurrencesCovering(m, date);
+  const jab = occs.filter((o) => o.task.type === 'jab' && o.task.jabOn !== false);
+  return [...jab, ...occs.filter((o) => !jab.includes(o))].map(widgetItem);
+}
+/* 최근 기록에서 거꾸로 세어 이어진 성공 횟수 (기록 탭과 같은 allRecords 기준) */
+function widgetStreak(recs) { let n = 0; for (const r of recs) { if (r.run.status === 'done') n++; else break; } return n; }
+
+/* 앞으로 48시간 동안 미루먼지가 어떤 표정으로 무슨 말을 할지: 앱의 오늘 화면 계산(personaForToday)을 그 시각으로 돌린다.
+   시간만 흐를 때 바뀌는 것(시작 시간·지각·마감·농도 단계)은 여기서 다 정해진다. 앱에서 시작·완료하면 다시 계산해 넘긴다 */
+function widgetMoods(m) {
+  const t0 = Math.floor(now() / (30 * MIN)) * 30 * MIN;   // 앱 시각 기준 (실제 앱에서는 기기 시각과 같음)
+  const pts = new Set();
+  for (let t = t0; t < t0 + WIDGET_MOOD_HOURS * 3600e3; ) {
+    pts.add(t);
+    const h = (t - t0) / 3600e3;
+    t += (h < 6 ? 5 : h < 24 ? 15 : 60) * MIN;
+  }
+  // 시작·마감·종료 직후 (곧 시작 → 지금 시작 → 지각, 마감 임박 등 바뀌는 순간)
+  for (let i = 0; i < 3; i++) {
+    for (const o of occurrencesOn(m, addDays(ymd(t0), i))) {
+      if (o.task.type !== 'jab' || o.task.jabOn === false) continue;
+      for (const x of [o.w.start, o.w.start + 3 * MIN, o.w.end, o.w.deadline, o.w.deadline ? o.w.deadline - HEAT_POLICY.urgentWindow * MIN : null]) {
+        if (x && x > t0 && x < t0 + WIDGET_MOOD_HOURS * 3600e3) pts.add(Math.ceil(x / MIN) * MIN);
+      }
+    }
+  }
+  const keepClock = state.clock, keepReact = ui.react, S = scaleOf(m);
+  const out = [];
+  LINE_SEED = 'w' + ymd(t0); ui.react = null;
+  try {
+    for (const t of [...pts].sort((a, b) => a - b)) {
+      state.clock = t;
+      const p = personaForToday(m);
+      const heat = Math.round(p.heat);
+      const e = {
+        at: t, img: 'mireum_' + (p.mc && p.mc.expr ? p.mc.expr : 'default'), line: (p.line && p.line.text) || '',
+        heat, stage: stageOf(heat).id, sname: stageOf(heat).name,
+        kind: p.tk ? p.tk.kind : 'idle', key: p.tk ? p.tk.key : '', title: p.tk ? String(p.tk.task.title).slice(0, 40) : '',
+        ctx: p.tk ? (p.tk.kind === 'upcoming' ? '시작 전' : '지금') : '쉬는 중',
+      };
+      const last = out[out.length - 1];
+      if (last && last.img === e.img && last.line === e.line && last.heat === e.heat && last.kind === e.kind && last.key === e.key) continue;
+      out.push(e);
+    }
+  } finally {
+    state.clock = keepClock; ui.react = keepReact; LINE_SEED = null;
+  }
+  return { list: out, title: S.title, unit: S.unit || '' };
+}
+
+function widgetSnapshot() {
+  const m = member();
+  const base = { v: 1, at: Date.now(), name: persona().name };
+  if (!m || !m.onboarded) return { ...base, login: false };
+  const td = today();
+  const days = {};
+  for (let i = 0; i < WIDGET_DAYS; i++) { const d = addDays(td, i); days[d] = widgetDay(m, d); }
+  const recs = allRecords(m);
+  const rec = {};
+  const from = addDays(td, -13);
+  for (const r of recs) {
+    if (r.date < from || r.date > td) continue;
+    const v = rec[r.date] || (rec[r.date] = [0, 0]);
+    v[r.run.status === 'done' ? 0 : 1]++;
+  }
+  return { ...base, login: true, today: td, hasTasks: m.tasks.length > 0, days, rec, recTotal: recs.length, streak: widgetStreak(recs), mood: widgetMoods(m) };
+}
+
+const WIDGET = {
+  sig: null, timer: null, busy: false, pushedAt: 0,
+  applied: [],            // 이미 반영한 위젯 할 일 id (같은 할 일을 두 번 반영하지 않게)
+  placed: null,           // 홈 화면에 놓인 위젯 수 { today, next, mireum, stats }
+  async init() {
+    if (!NATIVE.Widget) return;
+    try { const p = NATIVE.Widget.addListener('action', () => WIDGET.takeActions()); if (p && p.catch) p.catch(() => {}); } catch (e) { /* 무시 */ }
+    try { const p = NATIVE.Widget.addListener('launch', (ev) => WIDGET.openFrom(ev && ev.target)); if (p && p.catch) p.catch(() => {}); } catch (e) { /* 무시 */ }
+    await WIDGET.takeActions();
+    await WIDGET.takeLaunch();
+    WIDGET.push(true);
+    WIDGET.refreshPlaced();
+    try { NATIVE.App.addListener('pause', () => WIDGET.push(false)); } catch (e) { /* 무시 */ }
+  },
+  async onResume() {
+    if (!NATIVE.Widget) return;
+    await WIDGET.takeActions();
+    await WIDGET.takeLaunch();
+    WIDGET.schedule();
+    WIDGET.refreshPlaced();
+  },
+  // 저장할 때마다 불림 → 잠깐 모았다가 한 번만 계산 (묶음이 그대로면 넘기지 않음)
+  schedule() {
+    if (!NATIVE.Widget) return;
+    clearTimeout(WIDGET.timer);
+    // 로그아웃·탈퇴처럼 로그인 상태가 바뀌면 기다리지 않고 바로 (홈 화면에 일정이 남지 않게)
+    const on = !!(member() && member().onboarded);
+    if (WIDGET.lastLogin !== undefined && on !== WIDGET.lastLogin) { WIDGET.lastLogin = on; WIDGET.push(true); return; }
+    WIDGET.lastLogin = on;
+    WIDGET.timer = setTimeout(() => WIDGET.push(false), 1200);
+  },
+  async push(force) {
+    if (!NATIVE.Widget) return;
+    if (WIDGET.busy) { WIDGET.again = true; return; }   // 넘기는 중이면 끝나고 한 번 더
+    let snap;
+    try { snap = widgetSnapshot(); } catch (e) { return; } // 계산이 실패해도 앱은 그대로 쓴다 (위젯은 지난 묶음 유지)
+    const { at, ...rest } = snap;
+    const sig = JSON.stringify(rest);
+    if (!force && sig === WIDGET.sig && Date.now() - WIDGET.pushedAt < 6 * 3600e3) return;
+    WIDGET.busy = true;
+    try { await NATIVE.Widget.update({ data: JSON.stringify(snap) }); WIDGET.sig = sig; WIDGET.pushedAt = Date.now(); }
+    catch (e) { /* 플러그인이 없거나 실패: 다음 저장 때 다시 */ }
+    WIDGET.busy = false;
+    if (WIDGET.again) { WIDGET.again = false; WIDGET.push(false); }
+  },
+  async takeActions() {
+    if (!NATIVE.Widget) return;
+    let acts = [];
+    try { const r = await NATIVE.Widget.pending(); acts = Array.isArray(r && r.actions) ? r.actions : []; } catch (e) { return; }
+    if (!acts.length) return;
+    const res = applyWidgetActions(acts);
+    try { await NATIVE.Widget.ack({ ids: acts.map((a) => a.id).filter(Boolean) }); } catch (e) { /* 다음에 다시 받아도 id로 거른다 */ }
+    if (res.changed) { save(); render(); }
+    if (res.skipped) toast(res.skipped === 1 ? '위젯에서 체크한 일정 하나가 그새 바뀌어서 반영하지 못했어요.' : `위젯에서 체크한 일정 ${res.skipped}개가 그새 바뀌어서 반영하지 못했어요.`);
+    WIDGET.push(true);
+  },
+  async takeLaunch() {
+    if (!NATIVE.Widget) return;
+    try { const r = await NATIVE.Widget.consumeLaunch(); if (r && r.target) WIDGET.openFrom(r.target); } catch (e) { /* 무시 */ }
+  },
+  // 위젯을 눌러 앱이 열렸을 때 갈 곳: open:<회차 key> · add · today · records
+  openFrom(target) {
+    const m = member();
+    if (!target || !m || !m.onboarded) return;
+    ui.popup = ui.popup && ui.popup.type && ui.popup.type.startsWith('slack') ? ui.popup : null;
+    ui.result = null; ui.meSub = null; ui.input = null;
+    if (target === 'add') { ui.focusKey = null; ui.tab = 'today'; ACT.openAdd({ dataset: { date: today() } }); return; }
+    if (target === 'records') { ui.sheet = null; ui.focusKey = null; ui.tab = 'records'; render(); return; }
+    if (target.startsWith('open:')) {
+      const key = target.slice(5), st = curOcc(key);
+      ui.tab = 'today'; ui.sheet = null;
+      if (!st) { ui.focusKey = null; render(); toast('그 일정은 지워졌거나 바뀌었어요.'); return; }
+      ui.selDate = st.date >= today() ? st.date : today();
+      if (st.run && st.run.status === 'running') { ui.focusKey = key; render(); return; }  // 진행 중 잡도리 → 집중 화면
+      ui.focusKey = null; openSheet({ type: 'task', key }); return;
+    }
+    ui.sheet = null; ui.focusKey = null; ui.tab = 'today'; render();
+  },
+  async refreshPlaced() {
+    if (!NATIVE.Widget) return;
+    try { const r = await NATIVE.Widget.status(); WIDGET.placed = r && r.placed ? r.placed : null; WIDGET.pinOK = !!(r && r.pinSupported); } catch (e) { WIDGET.placed = null; }
+    if (ui.tab === 'me' && ui.meSub === 'widgets') render();
+  },
+};
+
+SAVE_HOOKS.push(() => WIDGET.schedule());   // 저장할 때마다 위젯 묶음 갱신 예약 (05-native afterSave)
+
+/* 위젯에서 쌓인 할 일을 기록에 반영 (순수 계산 + state 변경, 화면은 부른 쪽에서)
+   지금은 일반 일정 완료 표시(normalDone)만 있다. 대상 일정이 지워졌거나 잡도리로 바뀌었으면 건너뛴다 */
+function applyWidgetActions(acts) {
+  const m = member();
+  let changed = false, skipped = 0;
+  if (!m) return { changed, skipped: 0 };
+  if (!Array.isArray(state.widgetApplied)) state.widgetApplied = [];
+  const seen = new Set(state.widgetApplied);
+  for (const a of acts) {
+    if (!a || !a.id || seen.has(a.id)) continue;
+    seen.add(a.id); state.widgetApplied.push(a.id);
+    if (a.type !== 'normalDone' || typeof a.key !== 'string') { skipped++; continue; }
+    const [tid, d] = splitKey(a.key);
+    const task = findTask(m, tid);
+    const okTask = task && (task.type === 'normal' || task.jabOn === false) && /^\d{4}-\d{2}-\d{2}$/.test(d || '');
+    if (!okTask || !occursOn(task, d)) { skipped++; continue; }   // key의 날짜 = 회차 시작일 (여러 날 일정도 같음)
+    const done = !!a.done;
+    const cur = m.runs[a.key] && m.runs[a.key].status === 'done';
+    if (done && !cur) { m.runs[a.key] = { status: 'done', endedAt: Number(a.at) || Date.now(), via: 'widget' }; changed = true; }
+    else if (!done && cur) { delete m.runs[a.key]; changed = true; }
+  }
+  if (state.widgetApplied.length > 200) state.widgetApplied = state.widgetApplied.slice(-200);
+  return { changed, skipped };
+}
+
+/* ---------- 설정 > 홈 화면 위젯 (안드로이드) ---------- */
+function widgetsPage() {
+  const P = WIDGET.placed || {};
+  const total = Object.values(P).reduce((a, b) => a + (Number(b) || 0), 0);
+  const rows = WIDGET_KINDS.map(([id, name, desc, size]) => {
+    const n = Number(P[id]) || 0;
+    return `<li class="wg-row"><span class="lb-text"><b>${name} <em>${size}</em></b><small>${desc}${n ? ` · 홈 화면에 ${n}개` : ''}</small></span>
+      ${WIDGET.pinOK ? `<button class="btn secondary sm" data-act="widgetPin" data-v="${id}">${n ? '하나 더' : '추가'}</button>` : ''}</li>`;
+  }).join('');
+  return `<p class="wa-meta">${total ? `<b>홈 화면에 위젯 ${total}개</b> · ` : ''}앱을 열지 않아도 홈 화면에서 오늘 일정을 보고 일반 일정을 체크해요</p>
+    <ul class="wg-list">${rows}</ul>
+    <h2 class="sec-label">알아 둘 것</h2>
+    <ul class="kv wg-notes">
+      <li class="sub"><span>${WIDGET.pinOK ? '추가 버튼이 안 되면 홈 화면 빈 곳을 길게 누르고 위젯 > 잡도리에서 골라요' : '홈 화면 빈 곳을 길게 누르고 위젯 > 잡도리에서 골라요'}</span></li>
+      <li class="sub"><span>잡도리 일정은 위젯에서 바꾸지 않아요. 누르면 앱이 열려 시작·끝내기를 해요</span></li>
+      <li class="sub"><span>앱에서 일정을 바꾸면 위젯도 바로 바뀌어요. 시작까지 남은 시간은 위젯이 스스로 줄여 가요</span></li>
+      <li class="sub"><span>'예정 → 시작 전'처럼 시간이 지나 바뀌는 상태는 안드로이드 배터리 규칙 때문에 몇 분 늦게 바뀔 수 있어요</span></li>
+      <li class="sub"><span>앱을 오래 열지 않으면(미루먼지는 이틀, 일정 목록은 7일) 앱을 한 번 열어 달라고 해요</span></li>
+    </ul>`;
+}
+Object.assign(ACT, {
+  widgetPin: async (t) => {
+    if (!NATIVE.Widget) return;
+    try {
+      const r = await NATIVE.Widget.pin({ kind: t.dataset.v });
+      if (!r || !r.ok) toast('이 홈 화면 앱은 바로 추가를 지원하지 않아요. 홈 화면 빈 곳을 길게 눌러 위젯 > 잡도리에서 골라 주세요.');
+    } catch (e) { toast('위젯을 추가하지 못했어요. 홈 화면 빈 곳을 길게 눌러 위젯 > 잡도리에서 골라 주세요.'); }
+    setTimeout(() => WIDGET.refreshPlaced(), 1500);
+  },
 });
 
 </script>

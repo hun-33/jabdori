@@ -276,8 +276,12 @@ function nativeBack() {
 }
 
 // 저장 직후마다 불림 (01-core save 끝)
+// 뒤에 오는 파일(05d-widget 등)은 여기에 함수를 넣는다. 아직 읽히지 않은 const를 직접 부르면
+// 스크립트 첫 실행(clockBoot의 save) 때 'before initialization' 오류로 앱 전체가 멈추기 때문
+const SAVE_HOOKS = [];
 function afterSave() {
   if (NATIVE.on) NOTIF.schedule(false);
+  try { for (const f of SAVE_HOOKS) { try { f(); } catch (e) { /* 한 곳이 실패해도 저장은 그대로 */ } } } catch (e) { /* 이 파일이 다 읽히기 전의 저장 */ }
 }
 
 /* ---------- 시작 ---------- */
@@ -297,10 +301,11 @@ function nativeInit() {
   if (!NATIVE.on) return;
   NOTIF.init();
   WATCH.init();
+  WIDGET.init();
   nativeRestoreSession();
   try {
     NATIVE.App.addListener('backButton', nativeBack);
-    NATIVE.App.addListener('resume', () => { if (state.realTime) syncRealClock(true); nativeRestoreSession(); NOTIF.schedule(true); TTS.check(); WATCH.onResume(); });
+    NATIVE.App.addListener('resume', () => { if (state.realTime) syncRealClock(true); nativeRestoreSession(); NOTIF.schedule(true); TTS.check(); WATCH.onResume(); WIDGET.onResume(); });
     NATIVE.App.addListener('pause', () => TTS.stop()); // 앱을 내리면 읽던 말도 멈춘다
   } catch (e) { /* 무시 */ }
 }

@@ -95,7 +95,7 @@ with sync_playwright() as p:
     check('종일 버튼이 막혀 있지 않음', not ev("document.querySelector('[data-act=formAllDay]').disabled"))
     pg.click('[data-act=formAllDay]'); pg.wait_for_timeout(250); shot('03_form_allday_on')
     check('종일 켜짐 → 일반 일정으로 바뀜 + 안내 문구', ev('ui.form.allDay') and ev('ui.form.type') == 'normal' and '일반 일정' in pg.inner_text('.hint.note'))
-    check('종일 켜짐: 시각 대신 "종일"', ev("[...document.querySelectorAll('.wb-time')].every(x => x.textContent.includes('종일'))"))
+    check('종일 켜짐: 시각 줄이 없어지고 그 자리에 달력', ev("document.querySelectorAll('.wb-time').length") == 0 and ev("!!document.querySelector('.wb-row.allday + .fcal')"))
     pg.click('[data-act=formAllDay]'); pg.wait_for_timeout(250)
     check('종일 끔 → 다시 잡도리', not ev('ui.form.allDay') and ev('ui.form.type') == 'jab' and not ev("!!document.querySelector('.hint.note')"))
     pg.click('[data-act=formType][data-v=normal]'); pg.click('[data-act=formAllDay]'); pg.wait_for_timeout(150)

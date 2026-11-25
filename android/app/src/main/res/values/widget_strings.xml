@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="w_today_name">오늘의 일정</string>
+    <string name="w_today_desc">오늘 일정과 진행률. 일반 일정은 바로 체크해요</string>
+    <string name="w_next_name">다음 일정</string>
+    <string name="w_next_desc">다음 일정과 시작까지 남은 시간</string>
+    <string name="w_mireum_name">미루먼지</string>
+    <string name="w_mireum_desc">오늘 상황에 맞는 미루먼지 표정과 한마디</string>
+    <string name="w_stats_name">잡도리 통계</string>
+    <string name="w_stats_desc">오늘 완료율, 이번 주 성공률, 연속 성공</string>
+    <string name="w_add">새 일정 추가</string>
+    <string name="w_mireum">미루먼지</string>
+</resources>

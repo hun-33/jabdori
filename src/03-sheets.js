@@ -376,23 +376,24 @@ function formCalHTML(f) {
     const off = d < minDate;
     cells += `<button class="fcal-cell ${cls}" data-act="formCalPick" data-date="${d}" ${off ? 'disabled' : ''} aria-label="${fmtDateLong(d)}${d === f.date ? ', 시작' : ''}${d === f.endDate ? ', 종료' : ''}"><span>${parseYmd(d).getDate()}</span></button>`;
   }
-  return `<div class="fcal" data-swipe="fcal">
+  return `<div class="fcal ${f._calRise && Date.now() - f._calRise < 450 ? 'rise' : ''}" data-swipe="fcal">
     <div class="fcal-nav"><button class="icon-btn" data-act="formCalNav" data-delta="-1" aria-label="이전 달">${icon('prev')}</button><b>${y}년 ${mo}월</b><button class="icon-btn" data-act="formCalNav" data-delta="1" aria-label="다음 달">${icon('next')}</button>
-      ${f.pick === 'start' ? `<button class="in-link" data-act="wheelInput" data-target="date" aria-label="시작 날짜 직접 입력">${icon('edit')}입력</button>` : ''}</div>
-    <p class="fcal-tip">${f.pick === 'start' ? '시작 날짜를 누르세요' : '끝나는 날짜를 누르세요'}</p>
+      <button class="in-link" data-act="wheelInput" data-target="${f.pick === 'start' ? 'date' : 'endDate'}" aria-label="${f.pick === 'start' ? '시작' : '종료'} 날짜 직접 입력">${icon('edit')}입력</button></div>
+    <p class="fcal-tip">${f.pick === 'start' ? '시작 날짜를 누르세요' : '끝나는 날짜를 누르세요'} · 위 날짜를 한 번 더 누르면 직접 입력</p>
     <div class="fcal-head" aria-hidden="true">${WEEK_ORDER.map((w, i) => `<span class="wd${i}">${WD[w]}</span>`).join('')}</div>
     <div class="fcal-grid">${cells}</div></div>`;
 }
+/* 날짜·시각 버튼: 한 번 누르면 달력·선택기, 열린 상태에서 한 번 더 누르면 직접 입력 */
 function whenBlock(f) {
   const side = (k, label, d, hm) => `<div class="wb-side"><span class="wb-label">${label}</span>
-      <button class="wb-date ${f.pick === k ? 'on' : ''}" data-act="formPick" data-v="${k}" aria-pressed="${f.pick === k}">${fmtDateShort(d)}</button>
-      ${f.allDay ? '<span class="wb-time muted">종일</span>' : `<button class="wb-time ${f.pick === k + '-time' ? 'on' : ''}" data-act="formPick" data-v="${k}-time" aria-pressed="${f.pick === k + '-time'}">${hm}</button>`}</div>`;
+      <button class="wb-date ${f.pick === k ? 'on' : ''}" data-act="formPick" data-v="${k}" aria-pressed="${f.pick === k}" aria-label="${label} 날짜 ${fmtDateShort(d)}${f.pick === k ? ', 한 번 더 누르면 직접 입력' : ''}">${fmtDateShort(d)}</button>
+      ${f.allDay ? '' : `<button class="wb-time ${f.pick === k + '-time' ? 'on' : ''}" data-act="formPick" data-v="${k}-time" aria-pressed="${f.pick === k + '-time'}" aria-label="${label} 시각 ${hm}${f.pick === k + '-time' ? ', 한 번 더 누르면 직접 입력' : ''}">${hm}</button>`}</div>`;
   let below = '';
   if (f.pick === 'start' || f.pick === 'end') below = formCalHTML(f);
   else if (f.pick === 'start-time') below = `<div class="picker">${subLabel('시작 시각', 'start')}${timeWheels('start', f.start, '시작')}</div>`;
   else if (f.pick === 'end-time') below = `<div class="picker">${subLabel('종료 시각', 'end')}${timeWheels('end', f.end, '종료')}
       <div class="chips quick-dur" role="group" aria-label="걸리는 시간으로 종료 정하기">${[[30, '30분'], [60, '1시간'], [120, '2시간'], [180, '3시간']].map(([v, l]) => `<button class="chip" data-act="formDur" data-v="${v}">${l}</button>`).join('')}</div></div>`;
-  return `<div class="wb-row">${side('start', '시작', f.date, f.start)}<span class="wb-arrow" aria-hidden="true">→</span>${side('end', '종료', f.endDate, f.end)}</div>${below}`;
+  return `<div class="wb-row ${f.allDay ? 'allday' : ''}">${side('start', '시작', f.date, f.start)}<span class="wb-arrow" aria-hidden="true">→</span>${side('end', '종료', f.endDate, f.end)}</div>${below}`;
 }
 function viewForm(m) {
   const f = ui.form;

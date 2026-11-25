@@ -321,8 +321,13 @@ function persona() { return charOf(); }
 
 /* 상황 키마다 마지막으로 고른 문장을 기억해 같은 문장 연속 반복을 피한다 */
 const lineMemo = {};
+/* 위젯용으로 미리 계산할 때(05d-widget)는 LINE_SEED를 켜서 같은 시각·상황이면 늘 같은 문장을 고른다
+   (앱 화면의 '연속 반복 피하기' 기억은 건드리지 않음) */
+let LINE_SEED = null;
+function seededIndex(s, n) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h) % n; }
 function pickLine(ctx, arr, bucket = 0) {
   if (!arr || !arr.length) return { tpl: '', id: ctx };
+  if (LINE_SEED) { const i = arr.length === 1 ? 0 : seededIndex(`${LINE_SEED}|${ctx}|${bucket}`, arr.length); return { tpl: arr[i], id: ctx + '#' + i }; }
   const m = lineMemo[ctx];
   if (m && m.bucket === bucket && m.len === arr.length) return { tpl: arr[m.idx], id: ctx + '#' + m.idx };
   let idx;

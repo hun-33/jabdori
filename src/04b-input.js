@@ -54,10 +54,13 @@ function parseDurationInput(raw) {
   return { ok: false };
 }
 
-// 날짜: 오늘 · 내일 · 모레 · 글피 · 3일 뒤 · 12/3 · 12.3 · 12-3 · 12월 3일 · 1203 · 2026-12-03 · 20261203 · 3일
+// 날짜: 오늘 · 내일 · 모레 · 글피 · 3일 뒤 · 12/3 · 12.3 · 12-3 · 12 3 · 12월 3일 · 1203 · 2026-12-03 · 2026 12 3 · 20261203 · 261203 · 3일 · 18
+//  숫자 사이 띄어쓰기는 구분자로 본다 ("12 5" = 12월 5일). 세 자리(125)는 1/25와 12/5 둘 다 되면 되묻는다
 function parseDateInput(raw, base) {
-  let s = normInput(raw).replace(/\s+/g, '').replace(/\([^)]*\)$/, '').replace(/[월화수목금토일]요일$/, '').replace(/\.$/, '');
+  let s = normInput(raw).replace(/(\d)\s+(?=\d)/g, '$1/').replace(/\s+/g, '').replace(/\([^)]*\)$/, '').replace(/[월화수목금토일]요일$/, '').replace(/\.$/, '');
   if (!s) return { ok: false, error: '날짜를 입력해 주세요.' };
+  if (!base || !/^\d{4}-\d{2}-\d{2}$/.test(base)) base = ymd(Date.now());
+  if (s.length > 20) return { ok: false, error: '날짜를 짧게 적어 주세요. 예) 12 18, 1218' };
   const rel = { 오늘: 0, 내일: 1, 모레: 2, 글피: 3 };
   if (s in rel) return { ok: true, ymd: addDays(base, rel[s]) };
   let mt;
@@ -65,15 +68,29 @@ function parseDateInput(raw, base) {
   let y = null, mo, d;
   if ((mt = s.match(/^(\d{4})[-./년](\d{1,2})[-./월](\d{1,2})일?$/))) { y = +mt[1]; mo = +mt[2]; d = +mt[3]; }
   else if ((mt = s.match(/^(\d{4})(\d{2})(\d{2})$/))) { y = +mt[1]; mo = +mt[2]; d = +mt[3]; }
+  else if ((mt = s.match(/^(\d{2})[-./년](\d{1,2})[-./월](\d{1,2})일?$/)) || (mt = s.match(/^(\d{2})(\d{2})(\d{2})$/))) { y = 2000 + +mt[1]; mo = +mt[2]; d = +mt[3]; }
   else if ((mt = s.match(/^(\d{1,2})[-./월](\d{1,2})일?$/))) { mo = +mt[1]; d = +mt[2]; }
-  else if ((mt = s.match(/^(\d{1,2})(\d{2})$/))) { mo = +mt[1]; d = +mt[2]; }
-  else if ((mt = s.match(/^(\d{1,2})일$/))) {
+  else if ((mt = s.match(/^(\d{2})(\d{2})$/))) { mo = +mt[1]; d = +mt[2]; }
+  else if ((mt = s.match(/^(\d)(\d)(\d)$/))) {
+    // 세 자리: 앞 1자리=월 + 뒤 2자리=일, 또는 앞 2자리=월 + 뒤 1자리=일
+    const a = { mo: +mt[1], d: +(mt[2] + mt[3]) }, b = { mo: +(mt[1] + mt[2]), d: +mt[3] };
+    const okMD = (c) => c.mo >= 1 && c.mo <= 12 && c.d >= 1 && c.d <= new Date(2028, c.mo, 0).getDate(); // 2028 = 윤년 (2/29 허용)
+    const cand = [a, b].filter(okMD);
+    if (cand.length === 2) return { ok: false, error: `${a.mo}월 ${a.d}일인지 ${b.mo}월 ${b.d}일인지 헷갈려요. ${pad(a.mo)}${pad(a.d)} 또는 ${pad(b.mo)}${pad(b.d)}처럼 네 자리로 적어 주세요.` };
+    if (!cand.length) {
+      const near = [a, b].find((c) => c.mo >= 1 && c.mo <= 12 && c.d >= 1 && c.d <= 31);
+      return { ok: false, error: near ? `${near.mo}월에는 ${near.d}일이 없어요.` : '날짜를 알아보지 못했어요. 월과 일을 띄어 적어 주세요. 예) 12 18' };
+    }
+    mo = cand[0].mo; d = cand[0].d;
+  }
+  else if ((mt = s.match(/^(\d{1,2})일?$/))) {
     const [by, bm] = base.split('-').map(Number);
     y = by; mo = bm; d = +mt[1];
     if (d >= 1 && d <= 31 && `${y}-${pad(mo)}-${pad(d)}` < base) { mo += 1; if (mo > 12) { mo = 1; y += 1; } }
   }
-  else return { ok: false, error: '날짜 형식을 알아보지 못했어요. 예) 12/3, 12월 3일, 내일, 2026-12-03' };
+  else return { ok: false, error: '날짜 형식을 알아보지 못했어요. 예) 12 18, 1218, 12/18, 내일' };
   if (mo < 1 || mo > 12) return { ok: false, error: '월은 1~12 사이로 적어 주세요.' };
+  if (!(d >= 1 && d <= 31)) return { ok: false, error: '일은 1~31 사이로 적어 주세요.' };
   const inferYear = y == null;
   if (inferYear) y = +base.slice(0, 4);
   const valid = (yy) => { const dt = new Date(yy, mo - 1, d); return d >= 1 && dt.getFullYear() === yy && dt.getMonth() === mo - 1 && dt.getDate() === d; };
@@ -91,7 +108,8 @@ function parseDateInput(raw, base) {
 
 /* ---------- 입력 대상별 규칙 ---------- */
 const INPUT_SPEC = {
-  date: { kind: 'date', title: '날짜 직접 입력', ph: '예) 12/3 · 12월 3일 · 내일', help: '연도를 안 쓰면 가장 가까운 날로 맞춰요. 지난 날짜면 내년으로 봐요.' },
+  date: { kind: 'date', title: '시작 날짜 직접 입력', ph: '예) 12 18 · 1218 · 내일', help: '숫자만 적어도 돼요 (12 18, 1218). 연도를 안 쓰면 가장 가까운 날로 맞추고, 지난 날짜면 내년으로 봐요.', quick: [['오늘', '오늘'], ['내일', '내일'], ['모레', '모레']] },
+  endDate: { kind: 'date', title: '종료 날짜 직접 입력', ph: '예) 12 18 · 1218', help: '숫자만 적어도 돼요 (12 18, 1218). 시작 날짜보다 앞설 수 없고, 32일까지 이어질 수 있어요.', quick: [['same', '시작과 같은 날'], ['next', '다음 날']] },
   start: { kind: 'time', title: '시작 시각 직접 입력', ph: '예) 18:30 · 1830 · 오후 6시 반', help: '24시간제나 오전·오후 둘 다 돼요. 1분 단위로 정할 수 있어요.' },
   end: { kind: 'time', title: '종료 시각 직접 입력', ph: '예) 20:00 · 90분 · 1시간 30분', help: '종료 시각이나 걸리는 시간(90분, 1시간 반)을 적어 주세요. 같은 날 시작보다 이르면 다음 날로 봐요.' },
   dl: { kind: 'datetime', title: '마감 직접 입력', ph: '예) 12/3 20:00 · 20:00 · 내일 9시', help: '날짜만 적으면 시각은 그대로, 시각만 적으면 날짜는 그대로 둬요.' },
@@ -101,6 +119,7 @@ const INPUT_MAX_DAYS = 365;
 function inputCurrent(target) {
   const f = ui.form;
   if (target === 'date') return fmtMD(f.date).replace('월 ', '/').replace('일', '');
+  if (target === 'endDate') return fmtMD(f.endDate).replace('월 ', '/').replace('일', '');
   if (target === 'start') return f.start;
   if (target === 'end') return f.end;
   if (target === 'dl') return `${fmtMD(f.dlDate).replace('월 ', '/').replace('일', '')} ${f.dlTime}`;
@@ -119,6 +138,23 @@ function evalInput(target, raw) {
     if (r.ymd < minDate) return { ok: false, error: '지난 날짜에는 새 일정을 올릴 수 없어요.' };
     if (r.ymd > maxDate) return { ok: false, error: '1년 안의 날짜만 정할 수 있어요.' };
     return { ok: true, patch: { date: r.ymd }, label: fmtDateShort(r.ymd) };
+  }
+  if (target === 'endDate') {
+    const s = normInput(raw);
+    // 빠른 버튼 값 (시작과 같은 날 / 다음 날)
+    const r = s === 'same' ? { ok: true, ymd: f.date } : s === 'next' ? { ok: true, ymd: addDays(f.date, 1) } : parseDateInput(raw, f.date);
+    if (!r.ok) return r;
+    // 연도 없이 시작보다 앞선 날짜를 적으면 parseDateInput이 내년으로 넘긴다 → 32일 밖이면 '앞선 날짜'로 알려 준다
+    if (r.ymd > f.date && daysBetween(f.date, r.ymd) > 31) {
+      const same = parseDateInput(raw, f.date.slice(0, 4) + '-01-01');
+      if (same.ok && same.ymd < f.date) return { ok: false, error: `종료 날짜는 시작 날짜(${fmtDateShort(f.date)})보다 앞설 수 없어요.` };
+    }
+    if (r.ymd < f.date) return { ok: false, error: `종료 날짜는 시작 날짜(${fmtDateShort(f.date)})보다 앞설 수 없어요.` };
+    if (daysBetween(f.date, r.ymd) > 31) return { ok: false, error: '한 일정은 32일까지 이어질 수 있어요. 나눠서 올려 주세요.' };
+    const patch = { endDate: r.ymd };
+    // 같은 날로 바꿨는데 종료 시각이 시작보다 이르면 시작 + 1시간
+    if (!f.allDay && r.ymd === f.date && hmToMin(f.end) <= hmToMin(f.start)) { const e = at(f.date, f.start) + 60 * MIN; patch.endDate = ymd(e); patch.end = fmtHM(e); }
+    return { ok: true, patch, label: fmtDateShort(patch.endDate) };
   }
   if (target === 'start' || target === 'end') {
     if (target === 'end') {
@@ -169,10 +205,11 @@ function viewWheelInput() {
   return `<div class="in-scrim" data-act="wheelInputCancel"></div>
   <div class="in-box" role="dialog" aria-modal="true" aria-labelledby="in-title">
     <h2 id="in-title" class="in-title">${sp.title}</h2>
-    <input id="in-field" class="txt in-field" type="text" inputmode="${sp.kind === 'time' && st.target !== 'end' ? 'numeric' : 'text'}" autocomplete="off" enterkeyhint="done"
+    <input id="in-field" class="txt in-field" type="text" inputmode="${(sp.kind === 'time' && st.target !== 'end') || sp.kind === 'date' ? 'numeric' : 'text'}" autocomplete="off" enterkeyhint="done"
       value="${esc(st.value)}" placeholder="${esc(sp.ph)}" aria-describedby="in-help${err ? ' in-err' : ''}" ${err ? 'aria-invalid="true"' : ''} data-input-box="1">
     ${err ? `<p id="in-err" class="field-err" role="alert">${icon('alert')}${esc(err)}</p>` : ''}
     <p id="in-help" class="hint">${sp.help}</p>
+    ${sp.quick ? `<div class="chips in-quick" role="group" aria-label="빠르게 고르기">${sp.quick.map(([v, l]) => `<button class="chip" data-act="wheelInputQuick" data-v="${v}">${l}</button>`).join('')}</div>` : ''}
     <p class="in-preview" id="in-preview" aria-live="polite">${st.preview ? esc(st.preview) : ''}</p>
     <div class="in-actions"><button class="btn ghost" data-act="wheelInputCancel">취소</button><button class="btn primary" data-act="wheelInputOk">확인</button></div>
   </div>`;
@@ -208,6 +245,8 @@ function openWheelInput(target) {
 }
 Object.assign(ACT, {
   wheelInput: (t) => openWheelInput(t.dataset.target),
+  // 날짜 입력창의 빠른 버튼 (오늘·내일·모레 / 시작과 같은 날·다음 날): 그 값으로 바로 확인
+  wheelInputQuick: (t) => { if (!ui.input) return; ui.input.value = t.dataset.v; const fd = $('#in-field'); if (fd) fd.value = t.dataset.v; ACT.wheelInputOk(); },
   wheelInputCancel: () => { const tg = ui.input && ui.input.target; ui.input = null; render(); focusWheelGroup(tg); },
   wheelInputOk: () => {
     const st = ui.input; if (!st || !ui.form) return;
@@ -215,8 +254,10 @@ Object.assign(ACT, {
     const r = evalInput(st.target, st.value);
     if (!r.ok) { st.error = r.error; st.preview = ''; render(); return; }
     const span = daysBetween(ui.form.date, ui.form.endDate); // 시작 날짜를 바꾸면 종료 날짜도 같은 간격으로 따라간다
+    const dur = draftDurMs(ui.form);                          // 시작 시각을 바꾸면 걸리는 시간 그대로 종료도 따라간다
     Object.assign(ui.form, r.patch);
     const f = ui.form;
+    if (r.patch.start) keepDuration(f, dur);
     if (r.patch.date) {
       f.endDate = addDays(f.date, Math.max(0, span));
       f.calMonth = f.date.slice(0, 7); // 폼 달력도 그 달로
@@ -224,10 +265,12 @@ Object.assign(ACT, {
       if (!f._dlTouched || f.dlDate < f.date) f.dlDate = f.date;
       delete f.errors.date;
     }
-    if (r.patch.start || r.patch.end) delete f.errors.time;
+    if (r.patch.endDate) { delete f.errors.date; f.calMonth = f.endDate.slice(0, 7); }
+    if (r.patch.start || r.patch.end || r.patch.endDate) delete f.errors.time;
     if (r.patch.dlDate) delete f.errors.deadline;
     const tg = st.target;
     ui.input = null;
+    f._calRise = 0;   // 달력·휠은 열어 둔 채 고른 값을 보여 준다
     rerenderForm();
     toast(`${INPUT_SPEC[tg].title.replace(' 직접 입력', '')}: ${r.label}`);
     focusWheelGroup(tg);
@@ -236,6 +279,7 @@ Object.assign(ACT, {
 function focusWheelGroup(target) {
   if (!target) return;
   const id = { date: 'date', start: 'start-h', end: 'end-h', dl: 'dl-date' }[target];
+  if (!id) return;
   setTimeout(() => { const w = el.sheet && el.sheet.querySelector(`.wheel[data-wheel="${id}"]`); if (w) w.focus({ preventScroll: true }); }, 30);
 }
 // 입력창 안 키보드: Enter 확인, Esc 취소, 입력하면서 미리보기

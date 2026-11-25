@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 안드로이드 12+: 홈 화면 앱이 정한 위젯 모서리를 따른다 -->
+<resources>
+    <dimen name="w_radius">@android:dimen/system_app_widget_background_radius</dimen>
+    <dimen name="w_pad">14dp</dimen>
+</resources>

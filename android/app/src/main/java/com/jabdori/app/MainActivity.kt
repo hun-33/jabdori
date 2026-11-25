@@ -11,6 +11,7 @@ class MainActivity : BridgeActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         registerPlugin(KakaoLoginPlugin::class.java)
         registerPlugin(DistractionPlugin::class.java)
+        registerPlugin(WidgetPlugin::class.java)
         super.onCreate(savedInstanceState)
     }
 }

@@ -701,7 +701,7 @@ function scaleModeBlock(m) {
 }
 /* 설정 탭(ui.tab 'me'): 첫 화면은 계정 상태 + 설정 메뉴, 설정은 하위 화면(ui.meSub)으로 나눈다
    mireum 미루먼지 농도 · voice 목소리 · alerts 알림·딴짓 감지(웹: 앱 설치) · screen 화면 · account 계정 관리 */
-const ME_SUBS = { mireum: '미루먼지 농도', voice: '목소리', alerts: '알림·딴짓 감지', screen: '화면', account: '계정 관리', watchApps: '지켜볼 앱' };
+const ME_SUBS = { mireum: '미루먼지 농도', voice: '목소리', alerts: '알림·딴짓 감지', widgets: '홈 화면 위젯', screen: '화면', account: '계정 관리', watchApps: '지켜볼 앱' };
 /* 하위 화면의 하위 화면: 뒤로 가면 여기로 (없으면 설정 첫 화면) */
 const ME_PARENT = { watchApps: 'alerts' };
 function meSubTitle(k) { return k === 'alerts' ? (!NATIVE.on ? '앱 설치' : NATIVE.Watch ? '알림·딴짓 감지' : '알림') : k === 'mireum' ? scaleOf().title : ME_SUBS[k]; }
@@ -723,6 +723,7 @@ function viewMe(m) {
       ${meMenuRow('mireum', S.icon, `${S.floor} ${lv(floorOf(m))} · 단계 이름 ${m.scaleMode === 'common' ? '공통' : '캐릭터별'}`)}
       ${meMenuRow('voice', 'speaker', `${C.name} 목소리 · ${vm}${v.mode === 'off' ? '' : ' · ' + VOICE_SPEEDS[v.speed].label}`)}
       ${meMenuRow('alerts', NATIVE.on ? 'clock' : 'download', alertsPrev)}
+      ${NATIVE.Widget ? meMenuRow('widgets', 'calendar', '오늘의 일정 · 다음 일정 · 미루먼지 · 잡도리 통계') : ''}
       ${meMenuRow('screen', 'eye', `움직임 줄이기 ${state.reduceMotion ? '켜짐' : '꺼짐'}`)}
       ${meMenuRow('account', 'me', '동의한 항목 · 카카오 로그아웃 · 연결 끊기 · 탈퇴')}
       ${state.devMode ? `<h2 class="sec-label">개발자</h2>
@@ -747,6 +748,8 @@ function viewMeSub(m, sub) {
     body = voiceSection();
   } else if (sub === 'alerts') {
     body = NATIVE.on ? notifRow() + watchSection(m) : installRow();
+  } else if (sub === 'widgets') {
+    body = NATIVE.Widget ? widgetsPage() : '<p class="fine dark">홈 화면 위젯은 안드로이드 앱에서만 쓸 수 있어요.</p>';
   } else if (sub === 'watchApps') {
     body = NATIVE.Watch ? watchAppsPage() : '';
   } else if (sub === 'screen') {

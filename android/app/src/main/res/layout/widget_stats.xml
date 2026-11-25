@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 잡도리 통계 위젯: 오늘 완료율(큰 숫자) · 오늘 진행률 막대 · 이번 주 성공률 · 연속 성공 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/w_bg"
+    android:gravity="center_vertical"
+    android:orientation="vertical"
+    android:padding="@dimen/w_pad">
+
+    <TextView
+        android:id="@+id/s_today_label"
+        style="@style/WSub"
+        android:text="" />
+
+    <TextView
+        android:id="@+id/s_today"
+        style="@style/WBig"
+        android:text="" />
+
+    <ProgressBar
+        android:id="@+id/s_progress"
+        style="@android:style/Widget.ProgressBar.Horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="6dp"
+        android:layout_marginTop="4dp"
+        android:indeterminate="false"
+        android:max="100"
+        android:progress="0"
+        android:progressDrawable="@drawable/w_progress" />
+
+    <TextView
+        android:id="@+id/s_week"
+        style="@style/WSub"
+        android:layout_width="match_parent"
+        android:layout_marginTop="10dp"
+        android:textColor="@color/w_ink"
+        android:text="" />
+
+    <TextView
+        android:id="@+id/s_streak"
+        style="@style/WSub"
+        android:layout_width="match_parent"
+        android:layout_marginTop="2dp"
+        android:text="" />
+</LinearLayout>

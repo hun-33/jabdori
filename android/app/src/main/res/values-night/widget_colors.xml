@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 폰이 어두운 모드일 때: 앱의 숯색 화구(--stove) 팔레트 -->
+<resources>
+    <color name="w_bg">#2B2622</color>      <!-- --stove -->
+    <color name="w_chip">#3A332D</color>    <!-- --stove-2 -->
+    <color name="w_ink">#F3ECE0</color>     <!-- --on-stove -->
+    <color name="w_ink2">#B9AC9A</color>    <!-- --on-stove-2 -->
+    <color name="w_line">#4A423A</color>    <!-- --stove-line -->
+    <color name="w_track">#4A423A</color>
+    <color name="w_ok">#DCE7DA</color>      <!-- --success-soft (어두운 바탕에서 잘 보이게) -->
+    <color name="w_bad">#F3DDD5</color>     <!-- --danger-soft -->
+    <color name="w_heat">#DF7A2C</color>    <!-- --heat-3 -->
+    <color name="w_live">#DF7A2C</color>
+    <color name="w_on_mark">#2B2622</color>
+</resources>

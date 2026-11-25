@@ -74,6 +74,62 @@
                 android:value="사용자가 켠 집중 도우미: 잡도리 일정 중에 지정한 앱(유튜브 등)을 열었는지 확인해 알려 줌" />
         </service>
 
+        <!-- 홈 화면 위젯 4종 (WidgetRender.kt): 오늘의 일정 · 다음 일정 · 미루먼지 · 잡도리 통계 -->
+        <receiver
+            android:name=".TodayWidgetProvider"
+            android:exported="false"
+            android:label="@string/w_today_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/w_today_info" />
+        </receiver>
+        <receiver
+            android:name=".NextWidgetProvider"
+            android:exported="false"
+            android:label="@string/w_next_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/w_next_info" />
+        </receiver>
+        <receiver
+            android:name=".MireumWidgetProvider"
+            android:exported="false"
+            android:label="@string/w_mireum_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/w_mireum_info" />
+        </receiver>
+        <receiver
+            android:name=".StatsWidgetProvider"
+            android:exported="false"
+            android:label="@string/w_stats_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/w_stats_info" />
+        </receiver>
+        <!-- 위젯 다시 그리기: 예약한 시각(앱 안 알람) · 기기 시각/시간대 변경 -->
+        <receiver
+            android:name=".WidgetTickReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

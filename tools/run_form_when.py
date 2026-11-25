@@ -1,0 +1,65 @@
+"""새 일정 시간 칸 검수: 시작을 옮기면 걸리는 시간 그대로 종료도 이동, 날짜·시각을 한 번 더 누르면 직접 입력,
+숫자만으로 날짜 입력(12 18 · 1218 · 261218 …)과 잘못된 입력 안내, 종일이면 시각 줄 대신 달력이 올라옴"""
+import os, pathlib
+from playwright.sync_api import sync_playwright
+URL = 'file:///home/claude/jabdori-app/www/index.html'
+HOOKS = str(pathlib.Path(__file__).resolve().parent / 'test_hooks.js')  # 검사 전용 도우미 (가상 시각)
+out = '/home/claude/jabdori-app/shots/form_when'; os.makedirs(out, exist_ok=True)
+log=[]
+def check(n,c,x=None): log.append(('OK  ' if c else 'FAIL')+' '+n+('' if c else f'  [{x}]'))
+with sync_playwright() as p:
+    b=p.chromium.launch(executable_path='/usr/bin/google-chrome',args=['--no-sandbox'])
+    ctx=b.new_context(viewport={'width':390,'height':844},device_scale_factor=2,locale='ko-KR',timezone_id='Asia/Seoul',has_touch=True,is_mobile=True)
+    ctx.add_init_script(path=HOOKS); pg=ctx.new_page(); errs=[]
+    pg.on('pageerror',lambda e: errs.append(str(e)))
+    ev=lambda c:(lambda r:(pg.wait_for_timeout(120),r)[1])(pg.evaluate(c))
+    pg.goto(URL); ev('localStorage.clear()'); pg.reload(); pg.wait_for_timeout(500)
+    pg.click('.btn-kakao'); pg.wait_for_timeout(1800); pg.click('[data-act=consentAgree]'); pg.wait_for_timeout(2200); pg.click('[data-act=onbSkip]'); pg.wait_for_timeout(400)
+    ev("ACT.openAdd({dataset:{date: today()}})"); pg.wait_for_timeout(400)
+    ev("ui.form.start='18:00'; ui.form.end='19:00'; ui.form.endDate=ui.form.date; ui.form.pick=null; rerenderForm()")
+    pg.click('.wb-time[data-v=start-time]'); pg.wait_for_timeout(250)
+    ev("setWheel('start-h','19')")
+    check('18~19 → 시작 19시 → 종료 20시', ev("ui.form.start+'~'+ui.form.end")=='19:00~20:00', ev("ui.form.start+'~'+ui.form.end"))
+    check('종료 글자도 바로 바뀜', pg.inner_text('.wb-time[data-v=end-time]')=='20:00')
+    ev("setWheel('start-h','23')"); ev("setWheel('start-m','30')")
+    check('23:30 시작 → 다음 날 00:30', ev("ui.form.end")=='00:30' and ev("ui.form.endDate")==ev("addDays(ui.form.date,1)"))
+    check('종료 날짜 글자도 다음 날', pg.inner_text('.wb-date[data-v=end]')==ev("fmtDateShort(addDays(ui.form.date,1))"))
+    pg.click('.wb-time[data-v=start-time]'); pg.wait_for_timeout(250)
+    check('시각 한 번 더 → 직접 입력창', ev("ui.input && ui.input.target")=='start')
+    pg.fill('#in-field','9'); pg.click('[data-act=wheelInputOk]'); pg.wait_for_timeout(250)
+    check('직접 입력 9시 → 10:00까지 (1시간 유지)', ev("ui.form.start+'~'+ui.form.end+' '+(ui.form.endDate===ui.form.date)")=='09:00~10:00 true', ev("ui.form.start+'~'+ui.form.end"))
+    pg.click('.wb-date[data-v=start]'); pg.wait_for_timeout(250)
+    check('날짜 누름 → 달력', ev("!!document.querySelector('.fcal')") and ev("ui.input")==None)
+    pg.click('.wb-date[data-v=start]'); pg.wait_for_timeout(250)
+    check('날짜 한 번 더 → 날짜 입력창(숫자 자판)', ev("ui.input && ui.input.target")=='date' and pg.get_attribute('#in-field','inputmode')=='numeric')
+    pg.screenshot(path=f'{out}/g1_dateinput.png')
+    pg.fill('#in-field','12 18'); pg.wait_for_timeout(150)
+    check('12 18 미리보기', '12월 18일' in pg.inner_text('#in-preview'), pg.inner_text('#in-preview'))
+    pg.click('[data-act=wheelInputOk]'); pg.wait_for_timeout(250)
+    check('12 18 → 12/18 시작, 종료도 따라감', ev("ui.form.date")=='2026-12-18' and ev("ui.form.endDate")=='2026-12-18', ev("ui.form.date+' '+ui.form.endDate"))
+    pg.click('.wb-date[data-v=end]'); pg.wait_for_timeout(200); pg.click('.wb-date[data-v=end]'); pg.wait_for_timeout(200)
+    check('종료 날짜 한 번 더 → 종료 날짜 입력', ev("ui.input && ui.input.target")=='endDate')
+    pg.fill('#in-field','1217'); pg.click('[data-act=wheelInputOk]'); pg.wait_for_timeout(200)
+    check('종료가 시작보다 앞 → 오류', '앞설 수 없어요' in pg.inner_text('#layer-input'), pg.inner_text('#layer-input'))
+    pg.fill('#in-field','1 3'); pg.click('[data-act=wheelInputOk]'); pg.wait_for_timeout(200)
+    check('연말 넘어 1/3 → 다음 해로 (32일 안)', ev("ui.input && ui.input.error")=='' or ev("ui.form.endDate")=='2027-01-03', ev("ui.input && ui.input.error"))
+    ev("ui.form.endDate=ui.form.date; rerenderForm()"); pg.click('.wb-date[data-v=end]'); pg.wait_for_timeout(200)
+    if not ev("ui.input"): pg.click('.wb-date[data-v=end]'); pg.wait_for_timeout(200)
+    pg.click('[data-act=wheelInputQuick][data-v=next]'); pg.wait_for_timeout(200)
+    check('다음 날 버튼', ev("ui.form.endDate")=='2026-12-19' and ev("ui.input")==None)
+    ev("ui.form.pick=null; rerenderForm()")
+    pg.click('[data-act=formAllDay]'); pg.wait_for_timeout(150)
+    check('종일: 시각 줄 없음 + 달력 열림 + 올라오는 움직임', ev("document.querySelectorAll('.wb-time').length")==0 and ev("!!document.querySelector('.fcal.rise')"))
+    pg.wait_for_timeout(500); pg.screenshot(path=f'{out}/g2_allday.png')
+    ev("ui.form.title='다시'; rerenderForm()"); pg.wait_for_timeout(100)
+    check('다시 그려도 움직임 반복 안 함', not ev("!!document.querySelector('.fcal.rise')") and ev("!!document.querySelector('.fcal')"))
+    pg.click('[data-act=formAllDay]'); pg.wait_for_timeout(200)
+    check('종일 끄면 시각 줄 다시', ev("document.querySelectorAll('.wb-time').length")==2)
+    cases={'12 18':'2026-12-18','1218':'2026-12-18','12.18':'2026-12-18','2026 12 18':'2026-12-18','261218':'2026-12-18','20261218':'2026-12-18','12 5':'2026-12-05','131':'2027-01-31','1 5':'2027-01-05','0105':'2027-01-05','229':'2028-02-29','28':'2026-11-28','25':'2026-11-25','24':'2026-12-24','１２１８':'2026-12-18','12월 18일':'2026-12-18','12/18(금)':'2026-12-18'}
+    bad=[(k,ev(f"JSON.stringify(parseDateInput({k!r},'2026-11-25'))")) for k,v in cases.items() if ev(f"parseDateInput({k!r},'2026-11-25').ymd")!=v]
+    check(f'날짜 숫자 입력 {len(cases)}가지', not bad, bad)
+    errs2={'125':'헷갈려요','111':'헷갈려요','1305':'월은','1232':'일은','230':'2월에는 30일이 없어요','1300':'월은','0':'일은','12 0':'일은','abc':'알아보지','1234567':'알아보지','':'입력해'}
+    badE=[(k,ev(f"parseDateInput({k!r},'2026-11-25').error")) for k,v in errs2.items() if v not in (ev(f"parseDateInput({k!r},'2026-11-25').error") or '')]
+    check(f'잘못된 날짜 {len(errs2)}가지 안내', not badE, badE)
+    print('\n'.join(log)); print('errors:', errs); print(f"{sum(1 for l in log if l.startswith('OK'))}/{len(log)} OK")
+    b.close()

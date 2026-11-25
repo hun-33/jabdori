@@ -349,7 +349,8 @@ const ACT = {
   /* 설정 탭 하위 화면 열기·닫기 */
   meOpen: (t) => {
     ui.meSub = t.dataset.v;
-    if (ui.meSub === 'watchApps') { ui.appQ = ''; WATCH.loadApps(); }   // 열 때마다 이 폰의 앱 목록을 새로 읽는다 (그동안은 지난 목록)
+    if (ui.meSub === 'watchApps') { ui.appQ = ''; WATCH.loadApps(); }
+    if (ui.meSub === 'widgets') WIDGET.refreshPlaced();   // 열 때마다 이 폰의 앱 목록을 새로 읽는다 (그동안은 지난 목록)
     render();
   },
   meBack: () => { ui.meSub = ME_PARENT[ui.meSub] || null; render(); },
@@ -521,7 +522,11 @@ const ACT = {
   },
   formPick: (t) => {
     const f = ui.form, v = t.dataset.v;
-    f.pick = f.pick === v ? null : v;
+    if (!f) return;
+    f._calRise = 0;
+    // 이미 열린 날짜·시각을 한 번 더 누르면 직접 입력 (달력·휠을 닫지 않고 그 위에 입력창)
+    if (f.pick === v) { const tg = PICK_INPUT[v]; if (tg) { openWheelInput(tg); return; } }
+    f.pick = v;
     if (f.pick === 'start' || f.pick === 'end') f.calMonth = (f.pick === 'end' ? f.endDate : f.date).slice(0, 7);
     rerenderForm();
   },
@@ -549,8 +554,13 @@ const ACT = {
   /* 종일은 언제나 켜진다. 잡도리는 시작 시각이 있어야 해서, 잡도리 상태에서 켜면
      새 일정은 '일반 일정'으로, 고치는 일정은 '잡도리 끔'으로 바꾸고 화면에 그 사실을 적는다. 끄면 원래대로 돌려 놓는다. */
   formAllDay: () => {
-    const f = ui.form;
+    const f = ui.form; if (!f) return;
     f.allDay = !f.allDay;
+    // 종일이면 시각 줄이 사라지고 그 자리로 달력이 올라온다 (시각 선택기가 열려 있었으면 달력으로 바꿈)
+    // (_calRise: 켠 시각 — 그 뒤 0.45초 안에 그리는 달력만 올라오는 움직임을 준다)
+    if (f.allDay && f.pick !== 'start' && f.pick !== 'end' && f.pick !== 'dl') { f.pick = 'start'; f.calMonth = f.date.slice(0, 7); f._calRise = Date.now(); }
+    else if (f.allDay && (f.pick === 'start' || f.pick === 'end')) f._calRise = Date.now();
+    else f._calRise = 0;
     if (f.allDay && f.type === 'jab') {
       if (!f.id) { f.type = 'normal'; f._autoNormal = true; if (!f._colorTouched) f.color = 'sky'; }
       else if (f.jabOn !== false) { f.jabOn = false; f._autoJabOff = true; }
@@ -762,6 +772,21 @@ function setWheel(id, v) {
   const i = wheelItems(w).findIndex((it) => it.dataset.v === String(v)); if (i < 0) return false;
   w.scrollTop = i * WHEEL_H; commitWheel(w); return true;
 }
+/* 열린 선택기 → 한 번 더 눌렀을 때 여는 직접 입력 */
+const PICK_INPUT = { start: 'date', end: 'endDate', 'start-time': 'start', 'end-time': 'end', dl: 'dl' };
+/* 시작을 옮길 때: 옮기기 전 걸리는 시간(dur, ms)을 그대로 두고 종료를 다시 정한다
+   18:00~19:00에서 시작을 19:00으로 → 20:00. 자정을 넘기면 종료 날짜도 넘어간다.
+   종일이거나 걸리는 시간이 잘못돼 있으면(0 이하) 1시간으로 본다. 32일을 넘기지 않게 자른다 */
+function keepDuration(f, dur) {
+  if (!f || f.allDay) return;
+  let d = Number(dur);
+  if (!Number.isFinite(d) || d <= 0) d = 60 * MIN;
+  d = Math.min(d, 31 * DAY);
+  const e = draftStartMs(f) + d;
+  f.endDate = ymd(e); f.end = fmtHM(e);
+  if (f.type === 'jab' && f.dlMode === 'custom' && !f._dlTouched) { f.dlDate = f.endDate; f.dlTime = f.end; }
+}
+function draftDurMs(f) { try { return draftEndMs(f) - draftStartMs(f); } catch (e) { return 60 * MIN; } }
 function onWheel(id, v) {
   const f = ui.form; if (!f) return;
   const setHM = (key, part, val) => { const [h, mm] = (f[key] || '00:00').split(':'); f[key] = part === 'h' ? `${val}:${mm}` : `${h}:${val}`; };
@@ -772,8 +797,11 @@ function onWheel(id, v) {
     if (!f._dlTouched || f.dlDate < f.date) f.dlDate = f.date;
     rerenderForm(); return;
   }
-  if (id === 'start-h') setHM('start', 'h', v);
-  if (id === 'start-m') setHM('start', 'm', v);
+  if (id === 'start-h' || id === 'start-m') {
+    const dur = draftDurMs(f);
+    setHM('start', id === 'start-h' ? 'h' : 'm', v);
+    keepDuration(f, dur);
+  }
   if (id === 'end-date') { f.endDate = v; delete f.errors.date; delete f.errors.time; }
   if (id === 'end-h') setHM('end', 'h', v);
   if (id === 'end-m') setHM('end', 'm', v);
@@ -787,6 +815,7 @@ function onWheel(id, v) {
   const sh = $('#start-hint'); if (sh) sh.textContent = f.type === 'jab' && f.date === today() && !f.allDay && at(f.date, f.start) < now() ? '시작 시각이 이미 지났어요. 올리면 바로 잡도리가 시작돼요.' : '';
   // 시작·종료 줄의 글자도 바로 바꾼다 (선택기는 그대로 둔 채)
   for (const [k, hm] of [['start-time', f.start], ['end-time', f.end]]) { const b = el.sheet.querySelector(`.wb-time[data-v="${k}"]`); if (b) b.textContent = hm; }
+  for (const [k, d] of [['start', f.date], ['end', f.endDate]]) { const b = el.sheet.querySelector(`.wb-date[data-v="${k}"]`); if (b && b.textContent !== fmtDateShort(d)) b.textContent = fmtDateShort(d); }
   const dlr = el.sheet.querySelector('.when-row[data-v="dl"]');
   if (dlr) { dlr.querySelector('.wr-date').textContent = fmtDateShort(f.dlDate); const tt = dlr.querySelector('.wr-time'); if (tt) tt.textContent = f.dlTime; }
 }

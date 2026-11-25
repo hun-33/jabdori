@@ -954,3 +954,20 @@ textarea.txt.memo { height: auto; min-height: 64px; padding: 10px 14px; resize: 
 .app-row .lb-text small { font-size: 12.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-sep { flex: none; width: 1px; height: 30px; background: var(--line); }
 #wa-none[hidden] { display: none; }
+
+/* 새 일정: 종일이면 시각 줄이 없어지고, 달력이 그 자리로 살짝 올라온다 */
+.wb-row.allday .wb-arrow { padding-top: 16px; }
+.fcal.rise { animation: calRise .32s var(--ease) both; }
+@keyframes calRise { from { opacity: 0; transform: translate3d(0, 26px, 0); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .fcal.rise { animation: none; } }
+.in-quick { margin: 10px 0 0; }
+
+/* 설정 > 홈 화면 위젯 */
+.wg-list { list-style: none; margin: 0; padding: 2px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l); }
+.wg-row { display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.wg-row:last-child { border-bottom: 0; }
+.wg-row .lb-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.wg-row .lb-text b { font-size: 15px; font-weight: 650; }
+.wg-row .lb-text b em { font-style: normal; font-size: 12px; font-weight: 600; color: var(--ink-2); margin-left: 4px; }
+.wg-row .lb-text small { font-size: 12.5px; color: var(--ink-2); line-height: 1.5; }
+.wg-row .btn { flex: none; min-height: 40px; padding: 0 16px; }

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 홈 화면 위젯 색: 앱 DESIGN 토큰 그대로 (밝은 화면 = 종이색 바탕) -->
+<resources>
+    <color name="w_bg">#FBF8F2</color>      <!-- --surface -->
+    <color name="w_chip">#EAE3D6</color>    <!-- --sunken -->
+    <color name="w_ink">#26211C</color>     <!-- --ink -->
+    <color name="w_ink2">#6A6157</color>    <!-- --ink-2 -->
+    <color name="w_line">#DDD3C3</color>    <!-- --line -->
+    <color name="w_track">#EAE3D6</color>
+    <color name="w_ok">#3C7452</color>      <!-- --success -->
+    <color name="w_bad">#B42F1F</color>     <!-- --danger -->
+    <color name="w_heat">#9A3A1E</color>    <!-- --heat-ink -->
+    <color name="w_live">#D4532A</color>    <!-- --heat-4 -->
+    <color name="w_on_mark">#FBF8F2</color>
+</resources>
