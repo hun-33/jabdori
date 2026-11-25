@@ -399,8 +399,7 @@ function formCalHTML(f) {
     cells += `<button class="fcal-cell ${cls}" data-act="formCalPick" data-date="${d}" ${off ? 'disabled' : ''} aria-label="${fmtDateLong(d)}${d === f.date ? ', 시작' : ''}${d === f.endDate ? ', 종료' : ''}"><span>${parseYmd(d).getDate()}</span></button>`;
   }
   return `<div class="fcal ${f._calRise && Date.now() - f._calRise < 450 ? 'rise' : ''}" data-swipe="fcal">
-    <div class="fcal-nav"><button class="icon-btn" data-act="formCalNav" data-delta="-1" aria-label="이전 달">${icon('prev')}</button><b>${y}년 ${mo}월</b><button class="icon-btn" data-act="formCalNav" data-delta="1" aria-label="다음 달">${icon('next')}</button>
-      <button class="in-link" data-act="wheelInput" data-target="${f.pick === 'start' ? 'date' : 'endDate'}" aria-label="${f.pick === 'start' ? '시작' : '종료'} 날짜 직접 입력">${icon('edit')}입력</button></div>
+    <div class="fcal-nav"><button class="icon-btn" data-act="formCalNav" data-delta="-1" aria-label="이전 달">${icon('prev')}</button><b>${y}년 ${mo}월</b><button class="icon-btn" data-act="formCalNav" data-delta="1" aria-label="다음 달">${icon('next')}</button></div>
     <p class="fcal-tip">${f.pick === 'start' ? '시작 날짜를 누르세요' : '끝나는 날짜를 누르세요'} · 위 날짜를 한 번 더 누르면 직접 입력</p>
     <div class="fcal-head" aria-hidden="true">${WEEK_ORDER.map((w, i) => `<span class="wd${i}">${WD[w]}</span>`).join('')}</div>
     <div class="fcal-grid">${cells}</div></div>`;

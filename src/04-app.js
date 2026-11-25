@@ -530,16 +530,22 @@ const ACT = {
     rerenderForm();
   },
   /* 폼 안 달력에서 날짜 누르기: 시작 쪽이면 시작 날짜(기간은 유지) 후 끝 쪽으로 넘어가고, 끝 쪽이면 종료 날짜 */
+  /* 폼 안 달력 (삼성 캘린더처럼 기간 고르기):
+     시작 차례 → 누른 날이 새 시작(그날 하루로 다시 시작), 끝 차례로 넘어감
+     끝 차례 → 시작보다 뒤(같은 날 포함)면 끝으로 정하고 다시 시작 차례로 (다음에 누르면 처음부터 새 기간)
+               시작보다 앞이면 그 날을 새 시작으로 삼고 끝 차례 그대로
+     예) 25 → 28 = 25~28, 이어서 26 → 28 = 26~28 */
   formCalPick: (t) => {
     const f = ui.form, d = t.dataset.date;
-    if (f.pick === 'start') {
-      const span = Math.max(0, daysBetween(f.date, f.endDate));
-      f.date = d; f.endDate = addDays(d, span);
+    if (!f || !/^\d{4}-\d{2}-\d{2}$/.test(d || '')) return;
+    const newStart = () => {
+      f.date = d; f.endDate = d;
       if (f.repeatKind === 'weekly' && f.days.length === 1) f.days = [weekday(d)];
       if (!f._dlTouched || f.dlDate < f.date) f.dlDate = f.date;
-      f.pick = 'end';
-    } else if (d < f.date) { f.date = d; f.endDate = d; } // 시작보다 앞을 누르면 그날 하루 일정으로
-    else f.endDate = d;
+    };
+    if (f.pick !== 'end') { newStart(); f.pick = 'end'; }
+    else if (d < f.date) newStart();               // 끝 차례인데 시작보다 앞 → 그 날부터 다시
+    else { f.endDate = d; f.pick = 'start'; }      // 기간 완성 → 다음 누름은 새 시작
     syncPastRule(f);   // 지난 날짜면 일반 일정으로 (다시 오늘 이후로 옮기면 잡도리로)
     if (!f.allDay && f.endDate === f.date && hmToMin(f.end) <= hmToMin(f.start)) { // 같은 날인데 종료가 앞서면 시작 + 1시간
       const e = draftStartMs(f) + 60 * MIN; f.endDate = ymd(e); f.end = fmtHM(e);
