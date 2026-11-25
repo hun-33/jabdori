@@ -1,0 +1,67 @@
+{
+"source": "ElevenLabs history alignment (character_start_times)",
+"gen": "세대 1",
+"lines": [
+{
+"start": 0,
+"last": 0.56,
+"nl": 0.64
+},
+{
+"start": 0.68,
+"last": 1.2,
+"nl": 1.52
+},
+{
+"start": 1.64,
+"last": 2.08,
+"nl": 2.48
+},
+{
+"start": 2.8,
+"last": 3,
+"nl": 3.2
+},
+{
+"start": 3.32,
+"last": 3.76,
+"nl": 4.24
+},
+{
+"start": 4.48,
+"last": 5.147,
+"nl": 5.28
+},
+{
+"start": 5.44,
+"last": 6.107,
+"nl": 6.453
+},
+{
+"start": 6.56,
+"last": 7.08,
+"nl": 7.2
+},
+{
+"start": 7.68,
+"last": 8.08,
+"nl": 8.4
+},
+{
+"start": 8.48,
+"last": 8.64,
+"nl": 9.92
+},
+{
+"start": 10,
+"last": 10.507,
+"nl": 10.773
+},
+{
+"start": 11.04,
+"last": 11.28,
+"nl": null
+}
+],
+"mode": "snap"
+}

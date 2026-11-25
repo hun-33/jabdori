@@ -7,3 +7,4 @@ android/.idea/
 shots/
 *.log
 .DS_Store
+voice/raw/

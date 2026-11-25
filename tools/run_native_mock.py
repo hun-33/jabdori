@@ -118,11 +118,17 @@ with sync_playwright() as p:
     pg.evaluate("document.querySelector('#screen').scrollTop = 99999"); pg.wait_for_timeout(300)
     pg.screenshot(path=f'{OUT}/n_03_me_bottom.png')
 
-    # 음성: 기기 TTS 플러그인 사용
+    # 음성: 녹음이 있는 대사는 녹음 파일(웹뷰 오디오), 전용 목소리를 끄면 기기 TTS 플러그인
     pg.click('[data-act=tab][data-tab=today]'); pg.wait_for_timeout(400)
+    ev("window.__played = []; HTMLMediaElement.prototype.play = function () { window.__played.push(this.src); return Promise.resolve(); }")
     if pg.query_selector('.say-btn'):
         pg.click('.say-btn'); pg.wait_for_timeout(300)
-    check('말풍선 읽기 → TextToSpeech.speak', any(c.startswith('TextToSpeech.speak') for c in calls()))
+    check('말풍선 읽기 → 미루먼지 녹음 파일 재생', any(str(x).endswith('.mp3') for x in ev('window.__played')), ev('window.__played'))
+    ev("(() => { const v = voicePrefs(); v.useClips = false; save(); TTS.last = { text: '', at: 0 }; })()")
+    if pg.query_selector('.say-btn'):
+        pg.click('.say-btn'); pg.wait_for_timeout(300)
+    check('전용 목소리 끔 → TextToSpeech.speak', any(c.startswith('TextToSpeech.speak') for c in calls()))
+    ev("(() => { const v = voicePrefs(); v.useClips = true; save(); })()")
 
     # 안드로이드 뒤로 가기: 시트 닫기 → 오늘
     ev("ACT.openFloorInfo()")

@@ -279,7 +279,7 @@ Object.assign(ACT, {
   },
   voiceInstall: () => TTS.install(),
   voiceStop: () => { TTS.stop(); render(); },
-  voiceClips: () => { const v = voicePrefs(); v.useClips = !v.useClips; save(); render(); TTS.speak(v.useClips ? '이제 내 목소리로 말할게.' : '기기 목소리로 바꿨어.'); },
+  voiceClips: () => { const v = voicePrefs(); v.useClips = !v.useClips; save(); render(); TTS.speak(v.useClips ? (persona().lines.welcome || ['기기 목소리로 바꿨어.'])[0] : '기기 목소리로 바꿨어.'); }, // 켤 때는 녹음된 인사로 바로 들려준다
   voiceEvent: (t) => { const v = voicePrefs(); v.events[t.dataset.v] = !v.events[t.dataset.v]; save(); render(); },
   /* 온보딩·강도 미리보기: 단계 예시 멘트 듣기 */
   speakSample: (t) => {

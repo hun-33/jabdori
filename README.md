@@ -247,7 +247,8 @@ src/ (화면 코드)  ──npm run build──▶  www/ (합친 화면)  ──
 | `tools/run_calendar_v5.py` | v5 일정 구조(시작·종료·종일·여러 날·반복·마감)·한 폼 등록·일/주/월 달력·옛 데이터 변환을 검사해요(40개) |
 | `tools/run_month_bars.py` | 월간 막대(여러 날 일정이 주마다 이어진 막대 + 제목 가운데, +N), 종일 버튼(잡도리 → 일반 일정/잡도리 끔) 검수 22개 |
 | `tools/lines_dump.js` · `tools/make_voice_script.py` | 캐릭터 대사를 꺼내 목소리 대본(`voice/clips.json`, `voice/batchN.txt`)을 만들어요 |
-| `tools/split_voice.py` | 한 번에 만든 긴 음성을 대사별 파일로 잘라요(가장 긴 쉼 N-1개를 경계로) |
+| `tools/split_voice.py` | 한 번에 만든 긴 음성을 대사별 파일로 잘라요. ElevenLabs 기록의 글자별 시각(`voice/batchN.align.json`)으로 경계를 잡고, 줄 사이 숨소리는 버려요(짧은 소리 묶음은 가까운 무음에 맞춤) |
 | `tools/make_voice_pack.py` | 잘린 음성 파일로 `05b-voice-pack.js` 목록을 만들어요 |
+| `tools/run_voice_clips.py` | 미루먼지 v1 녹음 152개 검수: 파일 디코딩·대사 연결·말하기 버튼 → 녹음 재생·기기 음성 전환(14개) |
 
 > 팀 공용 개발 키(`android/keystore/jabdori-dev.jks`, 비밀번호 `jabdori123`)는 **개발·시연 전용**이에요. 정식 출시에는 새 키를 쓰세요.

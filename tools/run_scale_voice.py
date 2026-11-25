@@ -22,6 +22,13 @@ const fake = {
 };
 Object.defineProperty(window, 'speechSynthesis', { value: fake, configurable: true });
 window.SpeechSynthesisUtterance = function (t) { this.text = t; };
+// 캐릭터 녹음 파일 재생도 '읽음'으로 기록한다 (어떤 대사의 녹음인지 → 그 대사를 읽기 좋게 다듬은 글)
+HTMLMediaElement.prototype.play = function () {
+  const f = (this.src.match(/([^/]+)\.mp3$/) || [])[1];
+  const row = (typeof VOICE_PACKS !== 'undefined' && VOICE_PACKS.mireum.clips.find((c) => c[1] === f)) || null;
+  window.__said.push({ text: row ? speakable(row[0]) : this.src, rate: this.playbackRate, clip: f });
+  return Promise.resolve();
+};
 """
 HEAT_WORDS = re.compile(r'온도|°|미지근|따끈|뜨끈|부글|펄펄|바닥 온도')
 def all_text(pg):
