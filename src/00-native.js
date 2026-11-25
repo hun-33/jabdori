@@ -17,6 +17,7 @@ const NATIVE = (() => {
     Kakao: reg('KakaoLogin'),             // 우리가 만든 카카오 로그인 플러그인 (KakaoLoginPlugin.kt)
     Notif: reg('LocalNotifications'),     // 시작·마감 알림 (앱이 꺼져 있어도 울림)
     Speech: reg('TextToSpeech'),          // 기기 음성으로 멘트 읽기
+    Watch: reg('Distraction'),            // 딴짓 감지 (DistractionPlugin.kt + WatchService.kt)
     App: reg('App'),                      // 뒤로 가기 버튼, 앱 다시 열림 감지
     Bars: on ? (ex.SystemBars || reg('SystemBars')) : null, // 상태 표시줄 글자색
   };

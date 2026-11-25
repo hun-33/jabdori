@@ -1,9 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- 카카오톡 앱이 설치돼 있는지 확인하기 위해 (Android 11+ 패키지 가시성) -->
     <queries>
         <package android:name="com.kakao.talk" />
+        <!-- 딴짓 감지: 이 폰에 깔린 '지켜볼 앱'을 목록에 보여 주려고 (Android 11+ 패키지 가시성) -->
+        <package android:name="com.google.android.youtube" />
+        <package android:name="com.instagram.android" />
+        <package android:name="com.zhiliaoapp.musically" />
+        <package android:name="com.ss.android.ugc.trill" />
+        <package android:name="com.facebook.katana" />
+        <package android:name="com.twitter.android" />
+        <package android:name="com.netflix.mediaclient" />
+        <package android:name="com.nhn.android.webtoon" />
+        <package android:name="com.kakao.page" />
+        <package android:name="tv.twitch.android.app" />
+        <package android:name="com.reddit.frontpage" />
+        <package android:name="com.discord" />
     </queries>
 
     <application
@@ -45,6 +59,16 @@
             </intent-filter>
         </activity>
 
+        <!-- 딴짓 감지: 잡도리 중에만 켜지는 지켜보기 서비스 (상단에 '지켜보는 중' 알림이 보임) -->
+        <service
+            android:name=".WatchService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="사용자가 켠 집중 도우미: 잡도리 일정 중에 지정한 앱(유튜브 등)을 열었는지 확인해 알려 줌" />
+        </service>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -58,5 +82,12 @@
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 딴짓 감지: 어떤 앱이 앞에 열렸는지 확인 (사용자가 설정에서 직접 허용해야 함) -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- 딴짓 감지(선택): 허용하면 딴짓 앱 위로 잡도리 화면을 바로 불러옴 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 시작·마감 알림 (로컬 알림 플러그인이 POST_NOTIFICATIONS 등을 함께 선언함) -->
 </manifest>

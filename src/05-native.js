@@ -298,10 +298,11 @@ function nativeInit() {
   if (!NATIVE.on) return;
   document.body.classList.toggle('demo', !!state.showDemo);
   NOTIF.init();
+  WATCH.init();
   nativeRestoreSession();
   try {
     NATIVE.App.addListener('backButton', nativeBack);
-    NATIVE.App.addListener('resume', () => { if (state.realTime) syncRealClock(true); nativeRestoreSession(); NOTIF.schedule(true); TTS.check(); });
+    NATIVE.App.addListener('resume', () => { if (state.realTime) syncRealClock(true); nativeRestoreSession(); NOTIF.schedule(true); TTS.check(); WATCH.onResume(); });
     NATIVE.App.addListener('pause', () => TTS.stop()); // 앱을 내리면 읽던 말도 멈춘다
   } catch (e) { /* 무시 */ }
 }

@@ -86,6 +86,7 @@ function render(force = false) {
   renderInputLayer();
   renderConsole();
   renderStatus();
+  if (NATIVE.Watch && typeof WATCH !== 'undefined') WATCH.schedule(); // 딴짓 감지: 지켜볼 잡도리가 바뀌면 서비스에 알림
 }
 function renderLayers(m) {
   // 시트
@@ -648,17 +649,7 @@ const ACT = {
   cSlack: (t) => {
     const m = member();
     if (!m || !m.onboarded) { toast('로그인과 소개를 마친 뒤 시연할 수 있어요.'); return; }
-    if (ui.popup) return;
-    const app = t.dataset.app;
-    const st = runningOcc(m);
-    if (st && (st.kind === 'break')) { ui.popup = { type: 'slack', app, key: null, brk: true }; render(); return; }
-    if (st) {
-      st.run.slack.push({ at: now(), app, choice: null });
-      logRun(st.run, 'slack', `딴짓 감지 — ${app} 실행`);
-      ui.popup = { type: 'slack', app, key: st.key, askTpl: pickLine(st.key + ':ask', persona().lines.slackAsk, st.run.slack.length).tpl };
-      save(); render(); return;
-    }
-    ui.popup = { type: 'slack', app, key: null }; render();
+    slackDetected(m, t.dataset.app, false);
   },
   cSeed: () => { const m = member(); if (!m || !m.onboarded) { toast('로그인과 소개를 마친 뒤 넣을 수 있어요.'); return; } seedCommon(m); save(); render(); },
   cSeedExtra: () => { const m = member(); if (!m || !m.onboarded) { toast('로그인과 소개를 마친 뒤 넣을 수 있어요.'); return; } seedExtra(m); save(); render(); },

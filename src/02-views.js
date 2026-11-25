@@ -659,7 +659,7 @@ function viewMe(m) {
       <h2 class="sec-label">${C.name}</h2>
       ${scaleModeBlock(m)}
       ${voiceSection()}
-      ${NATIVE.on ? notifRow() : `<h2 class="sec-label">앱 설치</h2>
+      ${NATIVE.on ? notifRow() + watchSection(m) : `<h2 class="sec-label">앱 설치</h2>
       ${installRow()}`}
       <h2 class="sec-label">화면</h2>
       <div class="list-btn as-row"><span class="lb-text"><b>움직임 줄이기</b><small>${C.name} 숨쉬기·흔들림 같은 반복 애니메이션을 멈춰요</small></span>

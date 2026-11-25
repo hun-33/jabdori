@@ -212,9 +212,20 @@ function viewSlackPopup(m) {
         <button class="opt" data-act="studyChoose" data-v="back"><span><b>이제 과제로 돌아갈게</b><small>바로 돌아가기</small></span></button></div>`}
     </div></div>`;
   }
+  if (p.type === 'slackLate') {
+    // 시작 시간이 지났는데 시작도 안 하고 딴짓 앱을 쓰는 중 (실제 감지)
+    return `<div class="pop-scrim"><div class="popup" role="alertdialog" aria-modal="true" aria-labelledby="pop-t">
+      <div class="pop-src">${icon('phone')}<span>다른 앱 사용 감지 · 아직 시작 전</span><b>${esc(p.app)}</b></div>
+      <div class="pop-persona">${mascot(m, { expr: 'angry', pose: 'nag', motion: 'chase', fluff: 0.4 })}<p id="pop-t" class="pop-line">${esc(p.line)}</p></div>
+      ${st ? `<p class="pop-result">${esc(st.task.title)} · 시작 시간 ${fmtHM(st.w.start)}</p>` : ''}
+      <div class="pop-choices">
+        <button class="btn primary block" data-act="slackLateStart" data-key="${p.key}">${icon('play')}지금 시작할게</button>
+        <button class="btn ghost block" data-act="popupClose">알겠어</button></div>
+    </div></div>`;
+  }
   if (!st) {
     return `<div class="pop-scrim"><div class="popup" role="alertdialog" aria-modal="true" aria-labelledby="pop-t">
-      <div class="pop-src">${icon('phone')}<span>다른 앱 사용 감지 · 시뮬레이션</span><b>${esc(p.app)}</b></div>
+      <div class="pop-src">${icon('phone')}<span>${p.real ? '다른 앱 사용 감지' : '다른 앱 사용 감지 · 시뮬레이션'}</span><b>${esc(p.app)}</b></div>
       <div class="pop-persona">${mascot(m, p.brk ? { expr: 'sleepy', pose: 'curl', motion: 'sleep' } : { expr: 'default', pose: 'wave', motion: 'chase' })}<p id="pop-t" class="pop-line">${p.brk ? L.slackBreak[0] : L.slackIdle[0]}</p></div>
       <div class="pop-choices"><button class="btn primary block" data-act="popupClose">알겠어</button></div>
     </div></div>`;
@@ -224,7 +235,7 @@ function viewSlackPopup(m) {
     : p.choice === 'focus' ? { expr: 'happy', pose: 'cheer', motion: 'bounce' } : p.choice === 'rest' ? { expr: 'sleepy', pose: 'curl', motion: 'sleep' } : { expr: 'suspicious', pose: 'check', motion: 'check' };
   const ask = fillLine(p.askTpl, { app: p.app, title: st.task.title });
   return `<div class="pop-scrim"><div class="popup" role="alertdialog" aria-modal="true" aria-labelledby="pop-t">
-    <div class="pop-src">${icon('phone')}<span>다른 앱 사용 감지 · 시뮬레이션</span><b>${esc(p.app)}</b></div>
+    <div class="pop-src">${icon('phone')}<span>${p.real ? '다른 앱 사용 감지' : '다른 앱 사용 감지 · 시뮬레이션'}</span><b>${esc(p.app)}</b></div>
     <div class="pop-persona">${mascot(m, mc)}<p id="pop-t" class="pop-line">${esc(answered ? p.answer : ask)}</p></div>
     ${answered ? `<p class="pop-result">${{ study: '공부 중으로 기록했어요. 10분 뒤 다시 확인해요.', rest: `${HEAT_POLICY.breakMinutes}분 휴식을 시작했어요.`, focus: '다시 집중으로 기록했어요. 딴짓 가산이 조금 붙었어요.' }[p.choice]}</p>
       <div class="pop-choices"><button class="btn primary block" data-act="popupClose">${p.choice === 'rest' ? '쉬러 가기' : '이어서 하기'}</button></div>`

@@ -10,6 +10,7 @@ import com.getcapacitor.BridgeActivity
 class MainActivity : BridgeActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         registerPlugin(KakaoLoginPlugin::class.java)
+        registerPlugin(DistractionPlugin::class.java)
         super.onCreate(savedInstanceState)
     }
 }

@@ -1,0 +1,37 @@
+# dev 브랜치에 올리면 APK가 컴파일되는지만 확인한다 (릴리스는 만들지 않음, 빌드 번호도 쓰지 않음).
+# 만들어진 APK는 실행 결과 화면 아래 Artifacts(jabdori-dev-apk)에서 받을 수 있다 (GitHub 로그인 필요).
+name: 개발 확인 (dev 브랜치 컴파일)
+
+on:
+  push:
+    branches: [ dev ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm install
+      - run: npm run build
+      - name: APK 빌드
+        working-directory: android
+        env:
+          KAKAO_NATIVE_APP_KEY: ${{ secrets.KAKAO_NATIVE_APP_KEY }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk jabdori-dev.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jabdori-dev-apk
+          path: jabdori-dev.apk

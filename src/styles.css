@@ -937,3 +937,6 @@ textarea.txt.memo { height: auto; min-height: 64px; padding: 10px 14px; resize: 
 .pill-actions i { width: 1px; height: 22px; background: var(--stove-line); }
 .hint.note { background: var(--sunken); border-radius: 8px; padding: 8px 10px; color: var(--ink); }
 .hint.note.top { margin: 0 0 10px; }
+/* 나 탭 설정 안의 작은 제목 (딴짓 감지: 알리는 때·지켜볼 앱) */
+.set-label { font-size: 13px; font-weight: 700; color: var(--ink-2); margin: 18px 0 8px; }
+.watch-perm .link-btn { font-size: 14px; }
