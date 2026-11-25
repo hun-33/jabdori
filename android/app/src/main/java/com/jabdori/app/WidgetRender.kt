@@ -209,8 +209,8 @@ object WidgetRender {
         if (cur != null && !compact) {
             val (label, ci) = cur
             val text = when (label) {
-                "시작 전" -> "${ci.title} · ${WidgetModel.hm(ci.start)} 시작 예정"
-                "지금" -> "${ci.title} · ${WidgetModel.hm(ci.end)}까지"
+                "시작 전" -> "${ci.title} · ${WidgetModel.hm(ci.start)}"
+                "지금" -> "${ci.title} · ~${WidgetModel.hm(ci.end)}"
                 else -> "${ci.title}${if (ci.deadline > 0) " · 마감 ${WidgetModel.hm(ci.deadline)}" else ""}"
             }
             v.setTextViewText(R.id.n_cur_label, label)
@@ -269,7 +269,7 @@ object WidgetRender {
         v.setTextViewText(R.id.s_today, if (total == 0) "일정 없음" else "${pct(done, total)}%")
         if (total > 0) { v.setViewVisibility(R.id.s_progress, View.VISIBLE); v.setProgressBar(R.id.s_progress, 100, pct(done, total), false) }
         val (ok, bad) = m.week()
-        v.setTextViewText(R.id.s_week, if (ok + bad == 0) "이번 주 잡도리 기록 없음" else "이번 주 잡도리 ${pct(ok, ok + bad)}% · ${ok}번 성공 ${bad}번 실패")
+        v.setTextViewText(R.id.s_week, if (ok + bad == 0) "이번 주 잡도리 기록 없음" else "이번 주 잡도리 ${pct(ok, ok + bad)}%\n${ok}번 성공 · ${bad}번 실패")
         v.setTextViewText(R.id.s_streak, when {
             m.recTotal == 0 -> "기록이 쌓이면 연속 성공을 세어 줄게요"
             m.streak > 0 -> "연속 성공 ${m.streak}번"
