@@ -92,7 +92,7 @@ jobs:
               printf '%s\n' "$MSG" | grep -v -E '^(Co-Authored-By|Claude-Session):'
             fi
             echo
-            echo "이 릴리스의 jabdori.apk는 build-$N 때 만든 파일 그대로이며, 이 빌드에 쓰인 코드는 jabdori-source-build-$N.zip(커밋 ${GITHUB_SHA::7})에 있습니다. GitHub가 자동으로 붙이는 Source code 파일은 이 빌드의 코드가 아닙니다."
+            echo "이 릴리스의 jabdori.apk는 build-$N 때 만든 파일 그대로이며, 이 빌드에 쓰인 코드는 jabdori-source-build-$N.zip(커밋 ${GITHUB_SHA::7})에 있습니다."
           } > release-body.md
 
       - name: Releases에 올려서 다운로드 링크 만들기
