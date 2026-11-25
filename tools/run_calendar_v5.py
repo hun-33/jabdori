@@ -90,7 +90,7 @@ with sync_playwright() as p:
     check('끝 날짜 → 3일 기간', ev('ui.form.endDate') == a2)
     pg.click(f'.fcal-cell[data-date="{ev("addDays(today(), 1)")}"]'); pg.wait_for_timeout(200)
     check('끝 쪽에서 시작보다 앞 날짜 → 그날 하루 일정', ev('ui.form.date') == ev('addDays(today(), 1)') and ev('ui.form.endDate') == ev('addDays(today(), 1)'))
-    check('지난 날짜 칸은 누를 수 없음', ev(f"document.querySelector('.fcal-cell[data-date=\"{ev('addDays(today(), -1)')}\"]')?.disabled") in (True, None))
+    check('새 일정은 지난 날짜 칸도 누를 수 있음', ev(f"document.querySelector('.fcal-cell[data-date=\"{ev('addDays(today(), -1)')}\"]')?.disabled") in (False, None))
     ev("ACT.formDiscard()"); pg.wait_for_timeout(300)
 
     # 일반 일정: 종일 + 매년

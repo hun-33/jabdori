@@ -17,7 +17,7 @@ const WIDGET_MOOD_HOURS = 48;   // 미루먼지 표정·대사를 미리 계산�
 const WIDGET_COLORS = { coral: '#E58A6E', sun: '#E2B04A', mint: '#5FAE8E', sky: '#6FA3D6', lilac: '#A48BD0', stone: '#9A8F82' };
 const WIDGET_KINDS = [
   ['today', '오늘의 일정', '오늘 날짜, 완료 수와 진행률, 일정 목록. 일반 일정은 위젯에서 바로 체크해요', '4×2'],
-  ['month', '달력', '한 달 일정을 색 막대로. 여러 날 일정은 이어서, 넘치면 +N. 날짜를 누르면 앱 달력이 그 날로 열려요', '4×4'],
+  ['month', '달력', '한 달 일정을 색 막대로. 날짜를 누르면 고르고, 한 번 더 누르면 그 날 일정(없으면 새 일정)을 앱에서 열어요', '4×4'],
   ['next', '다음 일정', '다음 일정 이름, 시작 시각, 남은 시간. 진행 중인 잡도리도 따로 보여 줘요', '2×2'],
   ['mireum', '미루먼지', '오늘 상황에 맞는 미루먼지 표정과 한마디, 지금 농도', '2×2'],
   ['stats', '잡도리 통계', '오늘 완료율, 이번 주 잡도리 성공률, 연속 성공', '2×2'],
@@ -204,7 +204,7 @@ const WIDGET = {
     if (!NATIVE.Widget) return;
     try { const r = await NATIVE.Widget.consumeLaunch(); if (r && r.target) WIDGET.openFrom(r.target); } catch (e) { /* 무시 */ }
   },
-  // 위젯을 눌러 앱이 열렸을 때 갈 곳: open:<회차 key> · add · today · records · day:<날짜> · month:<YYYY-MM>
+  // 위젯을 눌러 앱이 열렸을 때 갈 곳: open:<회차 key> · add · today · records · day:<날짜> · month:<YYYY-MM> · pick:<날짜>
   openFrom(target) {
     const m = member();
     if (!target || !m || !m.onboarded) return;
@@ -215,6 +215,14 @@ const WIDGET = {
     // 달력 위젯: 날짜 칸 → 앱 월간 달력에서 그 날을 고른 채로 (아래에 그 날 일정), 제목(11월) → 그 달
     const dm = target.match(/^day:(\d{4}-\d{2}-\d{2})$/) || target.match(/^month:(\d{4}-\d{2})$/);
     const realDate = (x) => { try { return ymd(parseYmd(x.length === 7 ? x + '-01' : x)) === (x.length === 7 ? x + '-01' : x); } catch (e) { return false; } };
+    // 달력 위젯에서 고른 날을 한 번 더 누름: 저장된 일정이 있으면 앱 달력에서 그 날 목록, 없으면 그 날로 새 일정
+    const pk = target.match(/^pick:(\d{4}-\d{2}-\d{2})$/);
+    if (pk && realDate(pk[1])) {
+      const d = pk[1];
+      ui.sheet = null; ui.focusKey = null; ui.tab = 'calendar'; ui.calMode = 'month'; ui.calMonth = d.slice(0, 7); ui.selDate = d;
+      if (occurrencesCovering(m, d).length) { render(); return; }
+      ui.form = newDraft(m, d); openSheet({ type: 'form' }); return;   // 지난 날짜면 일반 일정으로 열린다
+    }
     if (dm && realDate(dm[1])) {
       const v = dm[1], isDay = v.length === 10;
       ui.sheet = null; ui.focusKey = null; ui.tab = 'calendar'; ui.calMode = 'month';

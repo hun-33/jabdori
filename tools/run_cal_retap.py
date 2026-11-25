@@ -43,10 +43,11 @@ with sync_playwright() as p:
     other = ev('addDays(today(), 4)')
     pg.click(f'.mo-cell[data-date="{other}"]'); pg.wait_for_timeout(250)
     check('월간: 다른 날을 누르면 다시 고르기만', ev('ui.selDate') == other and sheet() is None)
-    # 지난 날짜: 고르기 → 한 번 더 누르면 안내만
+    # 지난 날짜: 고르기 → 한 번 더 누르면 그 날로 새 일정 (지난 날짜는 일반 일정으로)
     pg.click(f'.mo-cell[data-date="{past}"]'); pg.wait_for_timeout(250)
     pg.click(f'.mo-cell[data-date="{past}"]'); pg.wait_for_timeout(300)
-    check('월간: 지난 날짜는 새 일정 대신 안내', sheet() is None and '지난 날짜' in (pg.inner_text('#toast') if pg.query_selector('#toast') else pg.inner_text('body')))
+    check('월간: 지난 날짜도 새 일정 (일반 일정 + 안내)', sheet() == 'form' and ev('ui.form.date') == past and ev('ui.form.type') == 'normal' and '지난 날짜라' in pg.inner_text('#layer-sheet'))
+    ev("ui.form = null; closeSheet()"); pg.wait_for_timeout(200)
     # 기간 정해서 올리기 모드에서는 기존대로
     pg.click(f'.mo-cell[data-date="{fut}"]'); pg.wait_for_timeout(200)
     pg.click('[data-act=rangeStart]'); pg.wait_for_timeout(200)

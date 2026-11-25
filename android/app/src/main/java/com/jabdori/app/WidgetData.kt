@@ -66,7 +66,18 @@ object WidgetStore {
     /** 달력 위젯마다 지금 보고 있는 달 (이번 달 = 0, 다음 달 = 1 …) */
     fun monthOffset(c: Context, id: Int): Int = prefs(c).getString("mo_$id", "0")?.toIntOrNull() ?: 0
     fun setMonthOffset(c: Context, id: Int, v: Int) { prefs(c).edit().putString("mo_$id", v.toString()).commit() }
-    fun clearMonth(c: Context, id: Int) { prefs(c).edit().remove("mo_$id").commit() }
+    fun clearMonth(c: Context, id: Int) { prefs(c).edit().remove("mo_$id").remove("mosel_$id").commit() }
+
+    /** 달력 위젯마다 한 번 눌러 고른 날짜. 고른 날이 오늘이 아닌 날에 고른 것이면(날짜가 바뀜) 지운다 */
+    fun monthSelected(c: Context, id: Int, today: String): String? {
+        val v = prefs(c).getString("mosel_$id", null) ?: return null
+        val p = v.split("|")
+        if (p.size != 2 || p[1] != today) { prefs(c).edit().remove("mosel_$id").commit(); return null }
+        return p[0]
+    }
+    fun setMonthSelected(c: Context, id: Int, date: String?, today: String) {
+        prefs(c).edit().apply { if (date == null) remove("mosel_$id") else putString("mosel_$id", "$date|$today") }.commit()
+    }
 
     fun setLaunch(c: Context, target: String?) {
         prefs(c).edit().apply { if (target == null) remove(K_LAUNCH) else putString(K_LAUNCH, target) }.commit()

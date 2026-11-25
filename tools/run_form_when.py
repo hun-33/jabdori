@@ -41,8 +41,8 @@ with sync_playwright() as p:
     check('종료 날짜 한 번 더 → 종료 날짜 입력', ev("ui.input && ui.input.target")=='endDate')
     pg.fill('#in-field','1217'); pg.click('[data-act=wheelInputOk]'); pg.wait_for_timeout(200)
     check('종료가 시작보다 앞 → 오류', '앞설 수 없어요' in pg.inner_text('#layer-input'), pg.inner_text('#layer-input'))
-    pg.fill('#in-field','1 3'); pg.click('[data-act=wheelInputOk]'); pg.wait_for_timeout(200)
-    check('연말 넘어 1/3 → 다음 해로 (32일 안)', ev("ui.input && ui.input.error")=='' or ev("ui.form.endDate")=='2027-01-03', ev("ui.input && ui.input.error"))
+    pg.fill('#in-field','0103'); pg.click('[data-act=wheelInputOk]'); pg.wait_for_timeout(200)
+    check('연말 넘어 0103 → 다음 해 1/3 (32일 안)', ev("ui.input") is None and ev("ui.form.endDate")=='2027-01-03', (ev("ui.input && ui.input.error"), ev('ui.form.endDate')))
     ev("ui.form.endDate=ui.form.date; rerenderForm()"); pg.click('.wb-date[data-v=end]'); pg.wait_for_timeout(200)
     if not ev("ui.input"): pg.click('.wb-date[data-v=end]'); pg.wait_for_timeout(200)
     pg.click('[data-act=wheelInputQuick][data-v=next]'); pg.wait_for_timeout(200)
@@ -55,11 +55,50 @@ with sync_playwright() as p:
     check('다시 그려도 움직임 반복 안 함', not ev("!!document.querySelector('.fcal.rise')") and ev("!!document.querySelector('.fcal')"))
     pg.click('[data-act=formAllDay]'); pg.wait_for_timeout(200)
     check('종일 끄면 시각 줄 다시', ev("document.querySelectorAll('.wb-time').length")==2)
-    cases={'12 18':'2026-12-18','1218':'2026-12-18','12.18':'2026-12-18','2026 12 18':'2026-12-18','261218':'2026-12-18','20261218':'2026-12-18','12 5':'2026-12-05','131':'2027-01-31','1 5':'2027-01-05','0105':'2027-01-05','229':'2028-02-29','28':'2026-11-28','25':'2026-11-25','24':'2026-12-24','１２１８':'2026-12-18','12월 18일':'2026-12-18','12/18(금)':'2026-12-18'}
+    cases={'1218':'2026-12-18','12 18':'2026-12-18','12.18':'2026-12-18','261218':'2026-12-18','12/18':'2026-12-18','12월 18일':'2026-12-18','12/18(금)':'2026-12-18','１２１８':'2026-12-18','0105':'2027-01-05','1120':'2026-11-20','260105':'2026-01-05','2026-01-05':'2026-01-05','271231':'2027-12-31','11/20':'2026-11-20','28일':'2026-11-28','3일':'2026-12-03','내일':'2026-11-26'}
     bad=[(k,ev(f"JSON.stringify(parseDateInput({k!r},'2026-11-25'))")) for k,v in cases.items() if ev(f"parseDateInput({k!r},'2026-11-25').ymd")!=v]
-    check(f'날짜 숫자 입력 {len(cases)}가지', not bad, bad)
-    errs2={'125':'헷갈려요','111':'헷갈려요','1305':'월은','1232':'일은','230':'2월에는 30일이 없어요','1300':'월은','0':'일은','12 0':'일은','abc':'알아보지','1234567':'알아보지','':'입력해'}
+    check(f'날짜 입력 {len(cases)}가지 (4·6자리 숫자, 기존 형식, 가까운 해)', not bad, bad)
+    errs2={'125':'4자리','111':'4자리','12345':'4자리','20261218':'4자리','2026 12 18':'4자리','1 5':'4자리','18':'4자리','0':'4자리','1305':'월은','1232':'일은','0230':'2월에는 30일','260230':'2월에는 30일','abc':'알아보지','':'입력해'}
     badE=[(k,ev(f"parseDateInput({k!r},'2026-11-25').error")) for k,v in errs2.items() if v not in (ev(f"parseDateInput({k!r},'2026-11-25').error") or '')]
-    check(f'잘못된 날짜 {len(errs2)}가지 안내', not badE, badE)
+    check(f'4·6자리가 아닌 숫자·없는 날짜 {len(errs2)}가지는 바꾸지 않고 안내', not badE, badE)
+
+    # 자동 모양: 한 글자씩 칠 때 2자리마다 '/'
+    ev("ui.form && (ui.form.pick = null); rerenderForm()")
+    if ev("ui.form.allDay"): pg.click('[data-act=formAllDay]'); pg.wait_for_timeout(150)
+    pg.click('.wb-date[data-v=start]'); pg.wait_for_timeout(150); pg.click('.wb-date[data-v=start]'); pg.wait_for_timeout(250)
+    check('미리 채운 값도 MM/DD 모양', bool(__import__('re').match(r'^\d{2}/\d{2}$', pg.input_value('#in-field'))), pg.input_value('#in-field'))
+    pg.keyboard.type('1128'); pg.wait_for_timeout(150)
+    check('1128 → 11/28 로 보임 + 미리보기', pg.input_value('#in-field') == '11/28' and '11월 28일' in pg.inner_text('#in-preview'), (pg.input_value('#in-field'), pg.inner_text('#in-preview')))
+    pg.keyboard.press('Backspace'); pg.wait_for_timeout(80); pg.keyboard.press('Backspace'); pg.wait_for_timeout(80)
+    check('지우면 "/"도 같이 정리 (11/28 → 11)', pg.input_value('#in-field') == '11', pg.input_value('#in-field'))
+    check('덜 적었을 때 안내', '4자리' in pg.inner_text('#in-preview'), pg.inner_text('#in-preview'))
+    pg.keyboard.type('2'); pg.wait_for_timeout(80)
+    pg.click('[data-act=wheelInputOk]'); pg.wait_for_timeout(200)
+    check('3자리(11/2로 보여도)는 날짜로 바꾸지 않음 + 안내', pg.query_selector('#in-field') is not None and '4자리' in pg.inner_text('#layer-input'), pg.inner_text('#layer-input')[:120])
+    pg.fill('#in-field', ''); pg.keyboard.type('261128'); pg.wait_for_timeout(150)
+    check('261128 → 26/11/28', pg.input_value('#in-field') == '26/11/28', pg.input_value('#in-field'))
+    pg.click('[data-act=wheelInputOk]'); pg.wait_for_timeout(250)
+    check('6자리 → 2026-11-28, 달력 선택도 그 날', ev('ui.form.date') == '2026-11-28' and ev("document.querySelector('.fcal-cell.a') && document.querySelector('.fcal-cell.a').dataset.date") in ('2026-11-28', None), ev('ui.form.date'))
+    pg.click('.wb-date[data-v=start]'); pg.wait_for_timeout(150)
+    if not ev('ui.input'): pg.click('.wb-date[data-v=start]'); pg.wait_for_timeout(200)
+    pg.keyboard.press('Control+A'); pg.keyboard.type('12/3'); pg.wait_for_timeout(150)
+    check('"/"를 직접 치면 손대지 않음 (12/3 → 12월 3일)', pg.input_value('#in-field') == '12/3' and '12월 3일' in pg.inner_text('#in-preview'), (pg.input_value('#in-field'), pg.inner_text('#in-preview')))
+    pg.click('[data-act=wheelInputOk]'); pg.wait_for_timeout(250)
+    check('기존 형식(12/3)도 그대로 됨', ev('ui.form.date') == '2026-12-03')
+
+    # 지난 날짜에 새 일정: 일반 일정으로 + 안내, 오늘 이후로 옮기면 다시 잡도리
+    ev("ui.form = null; closeSheet()"); pg.wait_for_timeout(150)
+    ev("ACT.openAdd({dataset:{date: addDays(today(), -3)}})"); pg.wait_for_timeout(350)
+    check('지난 날짜로 새 일정 → 날짜 그대로 + 일반 일정 + 안내', ev('ui.form.date') == ev('addDays(today(),-3)') and ev('ui.form.type') == 'normal' and '지난 날짜라' in pg.inner_text('#layer-sheet'))
+    pg.click('[data-act=formType][data-v=jab]'); pg.wait_for_timeout(200)
+    check('지난 날짜에서 잡도리 누름 → 바꾸지 않고 안내', ev('ui.form.type') == 'normal' and '지난 날짜는 일반 일정만' in pg.inner_text('#toast'))
+    pg.screenshot(path=f'{out}/g3_past.png')
+    pg.click(f'.fcal-cell[data-date="{ev("today()")}"]'); pg.wait_for_timeout(200)
+    check('오늘로 옮기면 다시 잡도리', ev('ui.form.type') == 'jab' and '지난 날짜라' not in pg.inner_text('#layer-sheet'))
+    pg.click(f'.fcal-cell[data-date="{ev("addDays(today(), -10)")}"]') if pg.query_selector(f'.fcal-cell[data-date="{ev("addDays(today(), -10)")}"]') else None
+    ev("ui.form.pick = 'start'; rerenderForm()"); pg.wait_for_timeout(100)
+    ev("ACT.formCalPick({dataset:{date: addDays(today(), -10)}})"); pg.wait_for_timeout(150)
+    pg.fill('#f-title', '지난 일 기록'); pg.click('[data-act=formSave]'); pg.wait_for_timeout(400)
+    check('지난 날짜 일반 일정 저장됨', ev("member().tasks.some(t => t.title === '지난 일 기록' && t.date === addDays(today(), -10) && t.type === 'normal')"), ev("JSON.stringify(member().tasks.map(t=>[t.title,t.date,t.type]))"))
     print('\n'.join(log)); print('errors:', errs); print(f"{sum(1 for l in log if l.startswith('OK'))}/{len(log)} OK")
     b.close()

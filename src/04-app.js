@@ -357,10 +357,7 @@ const ACT = {
   /* 월간 날짜 칸·주간 날짜: 처음 누르면 그 날을 고르고, 고른 날을 한 번 더 누르면 그 날로 새 일정 (삼성 캘린더처럼) */
   calPick: (t) => {
     const d = t.dataset.date;
-    if (d === ui.selDate) {
-      if (d < today()) { toast('지난 날짜에는 새 일정을 만들 수 없어요.'); return; }
-      ui.form = newDraft(member(), d); openSheet({ type: 'form' }); return;
-    }
+    if (d === ui.selDate) { ui.form = newDraft(member(), d); openSheet({ type: 'form' }); return; }   // 지난 날짜면 일반 일정으로 열린다
     ui.selDate = d; if (ui.calMode === 'month' && d.slice(0, 7) !== ui.calMonth) ui.calMonth = d.slice(0, 7); render();
   },
   calMode: (t) => { ui.calMode = t.dataset.v; ui.calMonth = ui.selDate.slice(0, 7); ui.range = null; ui.slot = null; render(); },
@@ -489,7 +486,9 @@ const ACT = {
     ui.sheet = null; save(); render(); toast('지웠어요.');
   },
   formType: (t) => {
-    const f = ui.form; f.type = t.dataset.v;
+    const f = ui.form;
+    if (t.dataset.v === 'jab' && !f.id && f.date < today()) { toast('지난 날짜는 일반 일정만 올릴 수 있어요. 잡도리는 날짜를 오늘 이후로 바꿔 주세요.'); return; }
+    f.type = t.dataset.v; f._pastNormal = false;
     if (f.type === 'jab') { f.heat = Math.max(f.heat, f.minHeat); f.allDay = false; } // 잡도리는 시작 시각이 있어야 한다
     f._autoNormal = false;
     if (!f._colorTouched) f.color = f.type === 'jab' ? 'coral' : 'sky';
@@ -541,6 +540,7 @@ const ACT = {
       f.pick = 'end';
     } else if (d < f.date) { f.date = d; f.endDate = d; } // 시작보다 앞을 누르면 그날 하루 일정으로
     else f.endDate = d;
+    syncPastRule(f);   // 지난 날짜면 일반 일정으로 (다시 오늘 이후로 옮기면 잡도리로)
     if (!f.allDay && f.endDate === f.date && hmToMin(f.end) <= hmToMin(f.start)) { // 같은 날인데 종료가 앞서면 시작 + 1시간
       const e = draftStartMs(f) + 60 * MIN; f.endDate = ymd(e); f.end = fmtHM(e);
     }
@@ -565,7 +565,9 @@ const ACT = {
       if (!f.id) { f.type = 'normal'; f._autoNormal = true; if (!f._colorTouched) f.color = 'sky'; }
       else if (f.jabOn !== false) { f.jabOn = false; f._autoJabOff = true; }
     } else if (!f.allDay) {
-      if (f._autoNormal) { f.type = 'jab'; f.heat = Math.max(f.heat, f.minHeat); if (!f._colorTouched) f.color = 'coral'; }
+      // 종일을 꺼도 지난 날짜면 일반 일정 그대로 (지난 날짜 안내로 바꿔 보여 줌)
+      if (f._autoNormal && !f.id && f.date < today()) f._pastNormal = true;
+      else if (f._autoNormal) { f.type = 'jab'; f.heat = Math.max(f.heat, f.minHeat); if (!f._colorTouched) f.color = 'coral'; }
       if (f._autoJabOff) f.jabOn = true;
       f._autoNormal = f._autoJabOff = false;
     }
@@ -795,6 +797,7 @@ function onWheel(id, v) {
     f.date = v; f.endDate = addDays(v, Math.max(0, span)); delete f.errors.date;
     if (f.repeatKind === 'weekly' && f.days.length === 1) f.days = [weekday(v)];
     if (!f._dlTouched || f.dlDate < f.date) f.dlDate = f.date;
+    syncPastRule(f);
     rerenderForm(); return;
   }
   if (id === 'start-h' || id === 'start-m') {

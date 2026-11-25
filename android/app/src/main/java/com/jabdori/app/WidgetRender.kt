@@ -42,6 +42,8 @@ object WidgetRender {
     const val ACTION_TICK = "com.jabdori.app.widget.TICK"
     const val ACTION_OPEN = "com.jabdori.app.widget.OPEN"
     const val ACTION_MONTH = "com.jabdori.app.widget.MONTH"
+    const val ACTION_SELECT = "com.jabdori.app.widget.SELECT"
+    const val EXTRA_DATE = "date"
     const val EXTRA_ID = "widgetId"
     const val EXTRA_DELTA = "delta"
     const val EXTRA_KEY = "key"
@@ -321,6 +323,8 @@ object WidgetRender {
         val start = WidgetModel.weekStart(first)
         val weeksN = (WidgetModel.daysBetween(start, first) + lastDay + 6) / 7
         val data = if (m.login) m.monthWeeks(month) else null
+        // 한 번 누른 날 = 고른 날 (그 칸만 '앱 열기', 나머지 칸은 '고르기')
+        val sel = WidgetStore.monthSelected(c, id, m.today)
         v.setTextViewText(R.id.mo_note, when {
             !m.login -> "로그인하면 일정이 보여요"
             data == null -> "이 달 일정은 앱에서 볼 수 있어요"
@@ -341,10 +345,16 @@ object WidgetRender {
                 val d = WidgetModel.addDays(ws, i)
                 val out = !d.startsWith(month)
                 r.setTextViewText(DAY[i], d.substring(8).trimStart('0'))
+                val cellBg = when {
+                    d == sel && d == m.today -> R.drawable.mo_sel_today_cell
+                    d == sel -> R.drawable.mo_sel_cell
+                    d == m.today -> R.drawable.mo_today_cell
+                    else -> 0
+                }
+                if (cellBg != 0) r.setInt(CELL[i], "setBackgroundResource", cellBg)
                 if (d == m.today) {
                     r.setInt(DAY[i], "setBackgroundResource", R.drawable.mo_today_num)
                     tc(c, r, DAY[i], R.color.w_bg)
-                    r.setInt(CELL[i], "setBackgroundResource", R.drawable.mo_today_cell)
                 } else {
                     tc(c, r, DAY[i], when (i) {
                         0 -> if (out) R.color.w_sun_dim else R.color.w_sun
@@ -352,9 +362,10 @@ object WidgetRender {
                         else -> if (out) R.color.w_ink_dim else R.color.w_ink
                     })
                 }
-                r.setOnClickPendingIntent(CELL[i], open(c, "day:$d"))
+                // 처음 누르면 고르기만(위젯을 다시 그림), 고른 날을 한 번 더 누르면 앱에서 그 날 일정 또는 새 일정
+                r.setOnClickPendingIntent(CELL[i], if (d == sel) open(c, "pick:$d") else monthSelect(c, id, d))
                 val cnt = wk?.n?.getOrNull(i) ?: 0
-                r.setContentDescription(CELL[i], "${WidgetModel.dateLong(d)}${if (d == m.today) ", 오늘" else ""}${if (cnt > 0) ", 일정 ${cnt}개" else ""}")
+                r.setContentDescription(CELL[i], "${WidgetModel.dateLong(d)}${if (d == m.today) ", 오늘" else ""}${if (cnt > 0) ", 일정 ${cnt}개" else ""}${if (d == sel) ", 선택됨, 한 번 더 누르면 ${if (cnt > 0) "일정 보기" else "새 일정"}" else ""}")
             }
             if (wk != null) {
                 val shown = IntArray(7)
@@ -404,6 +415,16 @@ object WidgetRender {
         b.setTextViewText(R.id.sg_t, title)
         tc(c, b, R.id.sg_t, when { g.failed -> R.color.w_bad; g.done -> R.color.w_ink2; else -> R.color.w_ink })
         return b
+    }
+
+    private fun monthSelect(c: Context, id: Int, date: String): PendingIntent {
+        val i = Intent(c, MonthWidgetProvider::class.java).apply {
+            action = ACTION_SELECT
+            data = Uri.parse("jabdori-widget://select/$id/$date")
+            putExtra(EXTRA_ID, id)
+            putExtra(EXTRA_DATE, date)
+        }
+        return PendingIntent.getBroadcast(c, ("s:$id:$date").hashCode(), i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 
     private fun monthNav(c: Context, id: Int, delta: Int): PendingIntent {
@@ -558,6 +579,17 @@ abstract class JabdoriWidgetProvider(private val kind: String) : AppWidgetProvid
             val delta = intent.getIntExtra(WidgetRender.EXTRA_DELTA, 0)
             val next = if (delta == 0) 0 else (WidgetStore.monthOffset(context, id) + delta).coerceIn(-24, 24)
             WidgetStore.setMonthOffset(context, id, next)
+            WidgetStore.setMonthSelected(context, id, null, "")   // 달을 넘기면 고른 날 해제
+            WidgetRender.updateOne(context, AppWidgetManager.getInstance(context), id, "month")
+            return
+        }
+        if (intent.action == WidgetRender.ACTION_SELECT) {
+            // 달력 위젯 날짜 처음 누름: 고른 날만 바꾸고 다시 그림 (다른 날을 누르면 그 날로 바뀜)
+            val id = intent.getIntExtra(WidgetRender.EXTRA_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+            val date = intent.getStringExtra(WidgetRender.EXTRA_DATE) ?: return
+            if (id == AppWidgetManager.INVALID_APPWIDGET_ID || !Regex("\\d{4}-\\d{2}-\\d{2}").matches(date)) return
+            val today = WidgetModel.ymd(System.currentTimeMillis())
+            WidgetStore.setMonthSelected(context, id, date, today)
             WidgetRender.updateOne(context, AppWidgetManager.getInstance(context), id, "month")
             return
         }

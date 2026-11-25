@@ -417,7 +417,7 @@ function monthGridHTML(m, month, sel, act) {
       const d = addDays(ws, i), out = d.slice(0, 7) !== month;
       const dm = dayMarks(m, d);
       const inRange = R && R.a && d === R.a;
-      cells += `<button class="mo-cell ${out ? 'out' : ''} ${d === sel && !R ? 'sel' : ''} ${d === td ? 'today' : ''} ${inRange ? 'range-a' : ''} wd${i}" style="grid-column:${i + 1}" data-act="${act}" data-date="${d}" aria-pressed="${d === sel}" aria-label="${fmtDateLong(d)}${d === td ? ', 오늘' : ''}${dm.label ? ', ' + dm.label : ''}${d === sel && !R && d >= td ? ', 한 번 더 누르면 새 일정' : ''}"><span class="mo-n">${parseYmd(d).getDate()}</span></button>`;
+      cells += `<button class="mo-cell ${out ? 'out' : ''} ${d === sel && !R ? 'sel' : ''} ${d === td ? 'today' : ''} ${inRange ? 'range-a' : ''} wd${i}" style="grid-column:${i + 1}" data-act="${act}" data-date="${d}" aria-pressed="${d === sel}" aria-label="${fmtDateLong(d)}${d === td ? ', 오늘' : ''}${dm.label ? ', ' + dm.label : ''}${d === sel && !R ? ', 한 번 더 누르면 새 일정' : ''}"><span class="mo-n">${parseYmd(d).getDate()}</span></button>`;
     }
     const { segs, hidden } = weekBars(m, ws);
     const bars = segs.map((g) => {
@@ -435,7 +435,7 @@ function weekAgendaHTML(m, sel) {
   for (let i = 0; i < 7; i++) {
     const d = addDays(ws, i), occs = occurrencesCovering(m, d);
     days += `<div class="ag-day ${d === sel ? 'sel' : ''} ${d === td ? 'today' : ''}">
-      <button class="ag-date wd${i}" data-act="calPick" data-date="${d}" aria-pressed="${d === sel}" aria-label="${fmtDateLong(d)}${d === sel && d >= td ? ', 한 번 더 누르면 새 일정' : ''}"><b>${WD[WEEK_ORDER[i]]}</b><span>${parseYmd(d).getDate()}</span></button>
+      <button class="ag-date wd${i}" data-act="calPick" data-date="${d}" aria-pressed="${d === sel}" aria-label="${fmtDateLong(d)}${d === sel ? ', 한 번 더 누르면 새 일정' : ''}"><b>${WD[WEEK_ORDER[i]]}</b><span>${parseYmd(d).getDate()}</span></button>
       <div class="ag-items">${occs.length ? `<ul class="rows tight">${occs.map(rowOcc).join('')}</ul>` : '<p class="ag-empty">비어 있음</p>'}</div>
     </div>`;
   }
@@ -480,7 +480,7 @@ function viewCalendar(m) {
     const R = ui.range;
     body = `${R ? `<div class="range-bar" role="status">${icon('calendar')}<span>${R.a ? `<b>${fmtMD(R.a)}</b> 시작 · 끝나는 날을 누르세요` : '시작하는 날을 누르세요'}</span><button class="link-btn" data-act="rangeCancel">취소</button></div>` : ''}
       ${monthGridHTML(m, ui.calMonth, sel, R ? 'rangePick' : 'calPick')}
-      <div class="sec-head mt"><h2 class="sec-title">${fmtDateLong(sel)}</h2>${R ? '' : `<div class="sec-acts">${sel >= td ? `<button class="link-btn" data-act="openAdd" data-date="${sel}">${icon('plus')}이 날 일정</button>` : ''}<button class="link-btn" data-act="rangeStart">${icon('calendar')}기간으로</button></div>`}</div>
+      <div class="sec-head mt"><h2 class="sec-title">${fmtDateLong(sel)}</h2>${R ? '' : `<div class="sec-acts"><button class="link-btn" data-act="openAdd" data-date="${sel}">${icon('plus')}이 날 일정</button><button class="link-btn" data-act="rangeStart">${icon('calendar')}기간으로</button></div>`}</div>
       ${dayList(m, sel)}`;
   } else if (mode === 'week') {
     const ws = weekStartOf(sel);

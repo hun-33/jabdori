@@ -253,11 +253,31 @@ function viewSlackPopup(m) {
    f.more = 상세 설정 펼침, f.pick = 지금 열린 날짜·시간 선택기('start' | 'end' | 'dl' | null) */
 const COLORS = [['coral', '산호'], ['sun', '노랑'], ['mint', '민트'], ['sky', '하늘'], ['lilac', '라일락'], ['stone', '회색']];
 const ALARMS = [[0, '정각'], [5, '5분 전'], [10, '10분 전'], [30, '30분 전'], [60, '1시간 전'], [1440, '하루 전']];
+/* 지난 날짜는 일반 일정만: 새 일정의 시작 날짜가 오늘보다 앞이면 일반 일정으로 바꾸고(_pastNormal, 폼에 안내),
+   다시 오늘 이후로 옮기면 잡도리로 돌려 놓는다 (종일이 켜져 있으면 종일 규칙대로 일반 일정 유지). 고치는 일정은 종류가 고정이라 손대지 않음 */
+function syncPastRule(f) {
+  if (!f || f.id) return;
+  const past = f.date < today();
+  if (past && f.type === 'jab') {
+    f.type = 'normal'; f._pastNormal = true; f._autoNormal = false;
+    if (!f._colorTouched) f.color = 'sky';
+  } else if (!past && f._pastNormal) {
+    f._pastNormal = false;
+    if (f.allDay) f._autoNormal = true;
+    else { f.type = 'jab'; f.heat = Math.max(f.heat, f.minHeat); if (!f._colorTouched) f.color = 'coral'; }
+  }
+}
+/* 고치는 잡도리 일정이 옮길 수 있는 가장 이른 날 (원래 날짜가 이미 지났으면 그 날까지). 그 밖에는 null = 제한 없음 */
+function jabEditMin(f) {
+  if (!f || !f.id || f.type !== 'jab' || f.jabOn === false) return null;
+  const td = today();
+  return f.origDate && f.origDate < td ? f.origDate : td;
+}
 function newDraft(m, date, type = 'jab', range) {
   const f = floorOf(m);
-  const d = date && date >= today() ? date : today();
+  const d = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : today();   // 지난 날짜도 그대로 (일반 일정으로)
   const r = range || {};
-  return {
+  const draft = {
     id: null, type, title: '', date: d, start: r.start || '18:00', endDate: r.endDate || d, end: r.end || '20:00', allDay: false,
     repeatKind: 'none', days: [weekday(d)], every: 1,
     heat: f, minHeat: sliderMinFor(m), jabOn: true,
@@ -265,6 +285,8 @@ function newDraft(m, date, type = 'jab', range) {
     alarms: [], color: type === 'jab' ? 'coral' : 'sky', memo: '',
     more: false, pick: 'start', calMonth: d.slice(0, 7), errors: {},
   };
+  syncPastRule(draft);
+  return draft;
 }
 function draftFromTask(m, t) {
   const kind = t.repeat.kind === 'interval' ? 'daily' : t.repeat.kind;
@@ -367,13 +389,13 @@ function formCalHTML(f) {
   const [y, mo] = month.split('-').map(Number);
   const first = `${y}-${pad(mo)}-01`, start = weekStartOf(first);
   const cellsN = Math.ceil((daysBetween(start, first) + new Date(y, mo, 0).getDate()) / 7) * 7;
-  const minDate = f.id ? (f.origDate && f.origDate < td ? f.origDate : td) : td;
+  const minDate = jabEditMin(f);   // 새 일정·일반 일정은 지난 날짜도 고를 수 있다
   let cells = '';
   for (let i = 0; i < cellsN; i++) {
     const d = addDays(start, i);
     const cls = [d.slice(0, 7) !== month ? 'out' : '', d === td ? 'today' : '', `wd${i % 7}`,
       d === f.date ? 'a' : '', d === f.endDate ? 'b' : '', d > f.date && d < f.endDate ? 'in' : '', f.date !== f.endDate && d === f.date ? 'ra' : '', f.date !== f.endDate && d === f.endDate ? 'rb' : ''].filter(Boolean).join(' ');
-    const off = d < minDate;
+    const off = !!minDate && d < minDate;
     cells += `<button class="fcal-cell ${cls}" data-act="formCalPick" data-date="${d}" ${off ? 'disabled' : ''} aria-label="${fmtDateLong(d)}${d === f.date ? ', 시작' : ''}${d === f.endDate ? ', 종료' : ''}"><span>${parseYmd(d).getDate()}</span></button>`;
   }
   return `<div class="fcal ${f._calRise && Date.now() - f._calRise < 450 ? 'rise' : ''}" data-swipe="fcal">
@@ -470,7 +492,8 @@ function viewForm(m) {
       <section class="f-sec when" aria-labelledby="lb-time">
         <div class="f-row-head"><h3 id="lb-time" class="f-label">시간</h3>
           <span class="allday"><span>종일</span><button class="switch sm ${f.allDay ? 'on' : ''}" role="switch" aria-checked="${f.allDay}" aria-label="종일 일정" data-act="formAllDay"><i></i></button></span></div>
-        ${f.allDay && f._autoNormal ? `<p class="hint note top" role="status">종일 일정은 시작 시각이 없어서 <b>일반 일정</b>으로 바꿨어요. ${P.name} 잡도리를 받으려면 종일을 끄세요.</p>` : ''}
+        ${!f.id && f._pastNormal && f.type === 'normal' ? `<p class="hint note top" role="status">지난 날짜라 <b>일반 일정</b>으로 올려요. ${P.name} 잡도리는 오늘 이후 날짜에만 올릴 수 있어요.</p>` : ''}
+        ${f.allDay && f._autoNormal && !f._pastNormal ? `<p class="hint note top" role="status">종일 일정은 시작 시각이 없어서 <b>일반 일정</b>으로 바꿨어요. ${P.name} 잡도리를 받으려면 종일을 끄세요.</p>` : ''}
         ${f.allDay && f._autoJabOff ? `<p class="hint note top" role="status">종일로 바꿔서 <b>잡도리를 껐어요</b>. 종일을 끄면 다시 켜져요.</p>` : ''}
         ${whenBlock(f)}
         <p class="summary" id="time-summary">${icon('clock')}<span>${draftSummary(f)}</span></p>
@@ -488,7 +511,7 @@ function validateDraft(m, f) {
   if (!title) e.title = '제목을 적어 주세요.';
   else if (title.length > 30) e.title = '제목은 30자까지 쓸 수 있어요.';
   if (!f.date || !f.endDate) e.date = '시작·종료 날짜를 골라 주세요.';
-  else if (!f.id && f.date < today()) e.date = '지난 날짜에는 새 일정을 올릴 수 없어요.';
+  else if (f.type === 'jab' && f.jabOn !== false && f.date < (jabEditMin(f) || today())) e.date = f.id ? '잡도리 일정은 지난 날짜로 옮길 수 없어요.' : '잡도리 일정은 오늘 이후 날짜에만 올릴 수 있어요. 지난 날짜는 일반 일정으로 올려 주세요.';
   else if (f.endDate < f.date) e.date = '종료 날짜가 시작 날짜보다 앞이에요.';
   if (!e.date) {
     const d = draftDuration(f);

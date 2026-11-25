@@ -18,10 +18,10 @@ DATE_BASE = '2026-11-24'
 DATE_CASES = [
     ('오늘', '2026-11-24'), ('내일', '2026-11-25'), ('모레', '2026-11-26'), ('3일 뒤', '2026-11-27'), ('+7', '2026-12-01'),
     ('12/3', '2026-12-03'), ('12.3', '2026-12-03'), ('12-3', '2026-12-03'), ('12월 3일', '2026-12-03'), ('1203', '2026-12-03'),
-    ('2026-12-03', '2026-12-03'), ('20261203', '2026-12-03'), ('1/5', '2027-01-05'), ('11/24', '2026-11-24'), ('11/23', '2027-11-23'),
+    ('2026-12-03', '2026-12-03'), ('261203', '2026-12-03'), ('1/5', '2027-01-05'), ('11/24', '2026-11-24'), ('11/23', '2026-11-23'), ('1120', '2026-11-20'), ('0105', '2027-01-05'),
     ('30일', '2026-11-30'), ('3일', '2026-12-03'), ('2/29', '2028-02-29'), ('12/3(목)', '2026-12-03'), ('12월 3일 목요일', '2026-12-03'),
 ]
-DATE_BAD = ['', '13/1', '2/30', '4/31', '2026-02-30', 'abc', '0/5', '12/0']
+DATE_BAD = ['', '13/1', '2/30', '4/31', '2026-02-30', 'abc', '0/5', '12/0', '20261203', '123', '12345', '18', '1234567']
 
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
@@ -75,15 +75,17 @@ with sync_playwright() as p:
     pg.wait_for_timeout(200)
     if pg.query_selector('#in-field'): ev("ACT.wheelInputCancel()")
 
-    # 날짜: 지난 날짜 거절, 내년 추정, 1년 넘김 거절 (폼 달력을 열면 '입력' 버튼)
+    # 날짜: 지난 날짜도 됨(일반 일정으로), 1년 넘김 거절 (폼 달력을 열면 '입력' 버튼)
     pg.click('.wb-date[data-v=start]'); pg.wait_for_timeout(250)
     pg.click('[data-act=wheelInput][data-target=date]'); pg.wait_for_timeout(200)
     td = ev('today()'); y, mo, d = map(int, td.split('-'))
-    pg.fill('#in-field', f'{y - 1}-{mo:02d}-{d:02d}'); pg.click('[data-act=wheelInputOk]'); pg.wait_for_timeout(200)
-    check('지난 날짜 거절', '지난 날짜' in (pg.inner_text('#in-err') if pg.query_selector('#in-err') else ''))
+    pg.fill('#in-field', f'{y - 1}-{mo:02d}-{d:02d}'); pg.click('[data-act=wheelInputOk]'); pg.wait_for_timeout(300)
+    check('지난 날짜(1년 전)도 됨 → 일반 일정으로', ev('ui.form.date') == f'{y - 1}-{mo:02d}-{d:02d}' and ev('ui.form.type') == 'normal' and pg.query_selector('#in-field') is None)
+    pg.click('[data-act=wheelInput][data-target=date]'); pg.wait_for_timeout(200)
     pg.fill('#in-field', f'{y + 2}-01-01'); pg.click('[data-act=wheelInputOk]'); pg.wait_for_timeout(200)
     check('1년 넘는 날짜 거절', '1년' in (pg.inner_text('#in-err') if pg.query_selector('#in-err') else ''))
     pg.fill('#in-field', '내일'); pg.keyboard.press('Enter'); pg.wait_for_timeout(400)
+    check('내일로 옮기면 다시 잡도리', ev('ui.form.type') == 'jab')
     check('내일 → 날짜 반영 + 선택기 이동', ev('ui.form.date') == ev('addDays(today(),1)') and ev("document.querySelector('.fcal-cell.a').dataset.date") == ev('addDays(today(),1)'))
     pg.click('[data-act=wheelInput][data-target=date]'); pg.wait_for_timeout(200)
     pg.fill('#in-field', '+200'); pg.keyboard.press('Enter'); pg.wait_for_timeout(400)
