@@ -4,6 +4,7 @@
    - 잡도리 일정이 진행 중이거나 시작 시간이 지났는데 아직 시작 전(지각)일 때,
      지켜볼 앱(유튜브·인스타그램 등)을 정해 둔 시간 넘게 쓰면 미루먼지가 알린다.
    - 안드로이드 쪽: DistractionPlugin + WatchService (사용 정보 접근 권한 필요)
+   - 아이폰은 다른 앱 실행을 알아낼 수 없어서 NATIVE.Watch가 없고, 나 탭에 안내만 보여 준다
    - '다른 앱 위에 표시'까지 허용하면 딴짓 앱 위로 잡도리 화면이 바로 뜨고, 아니면 알림으로 알린다.
    - 휴식 중이거나 '공부 중이야'라고 답한 동안은 알리지 않는다.
    ========================================================= */
@@ -162,6 +163,11 @@ function slackDetected(m, app, real) {
 
 /* 나 탭 '딴짓 감지' 구역 (진짜 앱에서만) */
 function watchSection(m) {
+  // 아이폰: 앱이 다른 앱(유튜브 등)이 열렸는지 알 수 있는 방법을 Apple이 열어 두지 않았다
+  if (!NATIVE.Watch) {
+    return NATIVE.ios ? `<h2 class="sec-label">딴짓 감지</h2>
+      <div class="list-btn as-row"><span class="lb-text"><b>실제 앱 사용 감지</b><small>아이폰에서는 쓸 수 없어요. Apple이 앱끼리 어떤 앱을 여는지 알 수 없게 막아 두었어요 (안드로이드 앱에서만 돼요)</small></span></div>` : '';
+  }
   const W = watchPrefs(), P = WATCH.perm, C = charOf(m);
   const row = (ok, name, tag, act, desc) => `<li><span>${name} <em>${tag}</em></span>${ok ? `<b class="yes">${icon('check')}허용됨</b>` : `<button class="link-btn" data-act="${act}">허용하러 가기${icon('chevron')}</button>`}</li>`;
   const apps = WATCH.apps || [];

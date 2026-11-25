@@ -1,0 +1,16 @@
+{
+  "name": "jabdori-ios-kakao",
+  "version": "1.0.0",
+  "description": "잡도리 아이폰 앱의 카카오 로그인 다리 (안드로이드 KakaoLoginPlugin.kt와 같은 메서드)",
+  "private": true,
+  "license": "UNLICENSED",
+  "files": ["ios/Sources", "Package.swift"],
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  },
+  "peerDependencies": {
+    "@capacitor/core": ">=8.0.0"
+  }
+}

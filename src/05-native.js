@@ -28,7 +28,7 @@ async function nativeLogin(opt = {}) {
   diagBegin('real', 'login'); // 단계별 결과 기록 시작 (개발자 진단에서 확인)
   try {
     const st = await NATIVE.Kakao.status();
-    if (!st.configured) { diagFail('config', 'NOT_CONFIGURED'); ui.login = { busy: false, error: 'notConfigured', detail: `패키지 ${st.packageName} · 키 해시 ${st.keyHash}` }; render(); return; }
+    if (!st.configured) { diagFail('config', 'NOT_CONFIGURED'); ui.login = { busy: false, error: 'notConfigured', detail: st.platform === 'ios' ? `번들 ID ${st.packageName}` : `패키지 ${st.packageName} · 키 해시 ${st.keyHash}` }; render(); return; }
     diagStep('config');
     // 카카오 토큰이 남아 있으면(앱 로그아웃만 했던 경우) 카카오톡을 다시 열지 않고 바로 들어간다
     if (st.hasToken && !opt.forceAccount) {
@@ -258,7 +258,7 @@ function nativeBars(dark) {
   // 웹뷰가 상태 표시줄 밑까지 그려지면(최신 웹뷰) 화면 색에 맞춰 글자색을 바꾸고,
   // 옛 웹뷰처럼 상태 표시줄 아래에서 시작하면 바탕이 늘 숯색이라 밝은 글자로 고정한다
   const inset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-top')) || 0;
-  const edge = inset > 0;
+  const edge = inset > 0 || NATIVE.ios; // 아이폰 웹뷰는 늘 상태 표시줄 밑까지 그린다
   const style = dark || !edge ? 'DARK' : 'LIGHT'; // DARK = 어두운 바탕 위 밝은 글자
   if (style === lastBarStyle) return;
   lastBarStyle = style;
@@ -322,7 +322,7 @@ function kakaoConsentRows(m) {
 function notifRow() {
   const on = !state.notifOff;
   let sub = `앱을 꺼 둬도 시작·10분 지각·마감 30분 전·마감 때 알려요 · 예약 ${NOTIF.pending}개`;
-  if (on && NOTIF.perm === 'denied') sub = '알림 권한이 꺼져 있어요. 스위치를 다시 켜거나 휴대폰 설정 > 애플리케이션 > 잡도리 > 알림에서 켜 주세요';
+  if (on && NOTIF.perm === 'denied') sub = NATIVE.ios ? '알림 권한이 꺼져 있어요. 아이폰 설정 > 알림 > 잡도리에서 알림 허용을 켜 주세요' : '알림 권한이 꺼져 있어요. 스위치를 다시 켜거나 휴대폰 설정 > 애플리케이션 > 잡도리 > 알림에서 켜 주세요';
   else if (on && !state.realTime) sub = '시연용 가상 시각을 쓰는 중이라 알림을 예약하지 않아요 (시연 도구에서 실제 시각 쓰기를 켜면 예약)';
   else if (!on) sub = '알림을 껐어요. 앱 안에서만 잔소리해요';
   return `<h2 class="sec-label">알림</h2>

@@ -218,9 +218,10 @@ const TTS = {
     this.warned = true;
     toast(NATIVE.on ? '기기에 한국어 음성이 없어요. 나 탭 > 목소리에서 음성 설치를 눌러 주세요.' : '이 브라우저에 한국어 음성이 없어서 다른 음성으로 읽어요.');
   },
-  /* 안드로이드: 음성 데이터 설치 화면 열기 */
+  /* 안드로이드: 음성 데이터 설치 화면 열기 (아이폰은 앱에서 열 수 없어 경로만 안내) */
   install() {
     if (!NATIVE.on || !NATIVE.Speech) return;
+    if (NATIVE.ios) { toast('아이폰 설정 > 손쉬운 사용 > 읽기 및 말하기 > 음성 > 한국어에서 음성을 내려받아 주세요.'); return; }
     NATIVE.Speech.openInstall().catch(() => toast('음성 설정을 열지 못했어요. 폰 설정 > 일반 > 텍스트 음성 변환에서 바꿔 주세요.'));
   },
 };

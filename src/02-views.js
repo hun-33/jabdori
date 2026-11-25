@@ -148,7 +148,9 @@ const LOGIN_ERR = {
   tokenExpired: { t: '로그인이 만료됐어요', b: '다시 로그인하면 일정과 기록은 그대로예요.', a: [], info: true },
   // ↓ 진짜 앱(카카오 공식 SDK)에서만 나오는 안내
   notConfigured: { t: '카카오 앱 키가 아직 설정되지 않았어요', b: '개발자 안내: android/gradle.properties의 KAKAO_NATIVE_APP_KEY에 카카오 디벨로퍼스의 네이티브 앱 키를 넣고 다시 빌드해 주세요. 그 전에는 흉내 모드로 둘러볼 수 있어요.', a: [['흉내 모드로 둘러보기', 'loginFake']], dev: true },
-  keyHash: { t: '카카오 앱 설정이 맞지 않아요', b: '개발자 안내: ① 카카오 로그인 > 사용 설정이 ON인지 ② 앱 > 플랫폼 키 > 네이티브 앱 키에 패키지명 com.jabdori.app 과 키 해시가 등록됐는지 ③ gradle.properties의 키가 같은지 확인해 주세요.', a: [['다시 시도', 'login'], ['흉내 모드로 둘러보기', 'loginFake']], dev: true },
+  keyHash: { t: '카카오 앱 설정이 맞지 않아요', b: NATIVE.ios
+    ? '개발자 안내: ① 카카오 로그인 > 사용 설정이 ON인지 ② 앱 > 플랫폼 > iOS에 이 앱의 번들 ID가 등록됐는지 (나 탭 > 로그인 진단에서 확인) ③ 빌드에 넣은 네이티브 앱 키가 같은지 확인해 주세요.'
+    : '개발자 안내: ① 카카오 로그인 > 사용 설정이 ON인지 ② 앱 > 플랫폼 키 > 네이티브 앱 키에 패키지명 com.jabdori.app 과 키 해시가 등록됐는지 ③ gradle.properties의 키가 같은지 확인해 주세요.', a: [['다시 시도', 'login'], ['흉내 모드로 둘러보기', 'loginFake']], dev: true },
   loginFailed: { t: '카카오 로그인에 실패했어요', b: '잠시 뒤 다시 시도해 주세요. 카카오톡이 안 되면 카카오계정으로 로그인할 수 있어요.', a: [['다시 시도', 'login'], ['카카오계정으로 로그인', 'loginAccount']], dev: true },
 };
 const LOGIN_NOTE = {
@@ -671,7 +673,7 @@ function viewMe(m) {
       <button class="list-btn" data-act="openDiag">${icon('sliders')}<span class="lb-text"><b>로그인 진단</b><small>카카오 인증·토큰·사용자 정보·회원·세션을 단계별로 확인해요</small></span>${icon('chevron', 'muted')}</button>` : ''}
       <h2 class="sec-label">계정</h2>
       <ul class="acct">${acct.map(([a, ic, t, d]) => `<li><button class="list-btn ${a === 'withdraw' ? 'danger' : ''}" data-act="acct" data-v="${a}">${icon(ic)}<span class="lb-text"><b>${t}</b><small>${d}</small></span>${icon('chevron', 'muted')}</button></li>`).join('')}</ul>
-      <p class="fine dark">${NATIVE.on ? '잡도리 안드로이드 앱 · 데이터는 이 폰 안에만 저장돼요. 앱을 지우면 함께 지워져요.' : `잡도리 프로토타입 · 데이터는 이 브라우저(LocalStorage)에만 저장돼요${storageOK ? '' : ' — 지금은 저장소를 쓸 수 없어 새로고침하면 사라져요'}.`}</p>
+      <p class="fine dark">${NATIVE.on ? `잡도리 ${NATIVE.ios ? '아이폰' : '안드로이드'} 앱 · 데이터는 이 폰 안에만 저장돼요. 앱을 지우면 함께 지워져요.` : `잡도리 프로토타입 · 데이터는 이 브라우저(LocalStorage)에만 저장돼요${storageOK ? '' : ' — 지금은 저장소를 쓸 수 없어 새로고침하면 사라져요'}.`}</p>
     </div>
   </section>`;
   return { id: 'me', html };

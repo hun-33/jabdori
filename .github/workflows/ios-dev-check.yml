@@ -1,0 +1,61 @@
+# dev 브랜치에 올리면 아이폰 앱이 컴파일되는지만 확인한다 (릴리스는 만들지 않음, 빌드 번호도 쓰지 않음).
+# 만들어진 .ipa 는 실행 결과 화면 아래 Artifacts(jabdori-dev-ipa)에서 받을 수 있다 (GitHub 로그인 필요).
+name: 개발 확인 (dev 브랜치 아이폰 컴파일)
+
+on:
+  push:
+    branches: [ dev ]
+    paths-ignore:
+      - 'android/**'
+      - 'release-notes/**'
+      - '**.md'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run build:ios
+      - run: xcodebuild -version
+      - name: 카카오 키 준비 (값은 로그에 나오지 않게 가림)
+        env:
+          SECRET_KEY: ${{ secrets.KAKAO_NATIVE_APP_KEY }}
+        run: |
+          KEY="$SECRET_KEY"
+          if [ -z "$KEY" ]; then KEY=$(grep -E '^KAKAO_NATIVE_APP_KEY=' android/gradle.properties | cut -d= -f2 | tr -d '[:space:]'); fi
+          if [ -n "$KEY" ]; then echo "::add-mask::$KEY"; echo "KAKAO_KEY=$KEY" >> "$GITHUB_ENV"; fi
+      - name: 앱 빌드 (서명 없이)
+        working-directory: ios/App
+        run: |
+          set +e
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -derivedDataPath build \
+            -skipPackagePluginValidation -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            KAKAO_NATIVE_APP_KEY="$KAKAO_KEY" \
+            build > build.log 2>&1
+          code=$?
+          grep -E "(error|warning): " build.log | grep -v "/SourcePackages/" | sort -u | head -80
+          if [ $code -ne 0 ]; then tail -120 build.log; exit $code; fi
+      - name: 빌드 기록 보관
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-dev-build-log
+          path: ios/App/build.log
+      - name: .ipa 로 묶기
+        run: |
+          APP=ios/App/build/Build/Products/Release-iphoneos/App.app
+          test -f "$APP/public/index.html"
+          mkdir Payload && cp -R "$APP" Payload/ && zip -qry jabdori-dev.ipa Payload && ls -l jabdori-dev.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jabdori-dev-ipa
+          path: jabdori-dev.ipa

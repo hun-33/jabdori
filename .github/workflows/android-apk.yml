@@ -3,25 +3,47 @@
 #   (등록 안 해도 APK는 만들어지고, 앱에서 '흉내 모드로 둘러보기'로 써 볼 수 있다)
 # - 결과: 저장소 첫 화면 오른쪽 Releases > 맨 위 > jabdori.apk  (폰에서 눌러 바로 받기)
 #   고정 주소: https://github.com/<아이디>/<저장소>/releases/latest/download/jabdori.apk
+# - 아이폰(ios-ipa.yml)과 따로 돈다: 아이폰 쪽 파일(ios/, native/ios-kakao/)만 바뀌면 안드로이드는 빌드하지 않는다
+# - 커밋 설명에 [android skip] 이 있으면 안드로이드 빌드를 건너뛴다 (번호도 쓰지 않음)
 name: 안드로이드 APK 만들기
 
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - 'ios/**'
+      - 'native/ios-kakao/**'
+      - '.github/workflows/ios-ipa.yml'
+      - '.github/workflows/ios-dev-check.yml'
+      - '.github/workflows/restore-releases.yml'
+      - 'release-notes/**'
+      - 'tools/**'
+      - 'voice/**'
+      - '**.md'
   workflow_dispatch:
 
 permissions:
   contents: write   # Releases에 APK를 올리려면 필요
 
+concurrency:
+  group: android-release  # 두 번 연달아 올려도 번호가 겹치지 않게 차례대로
+  cancel-in-progress: false
+
 jobs:
   build:
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[android skip]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: 빌드 번호 (실행 번호 + 7 → build-10부터 이어짐. 1번 실행=문서만 바뀐 빌드(지움), 2번 실행=취소)
+      - name: 빌드 번호 (지금까지 build-N 태그 중 가장 큰 번호 + 1 → 건너뛴 실행이 있어도 번호가 비지 않음)
         id: num
-        run: echo "n=$((GITHUB_RUN_NUMBER + 7))" >> "$GITHUB_OUTPUT"
+        run: |
+          git fetch --tags --force -q
+          last=$(git tag -l 'build-*' | sed 's/^build-//' | grep -E '^[0-9]+$' | sort -n | tail -1)
+          echo "n=$(( ${last:-0} + 1 ))" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v4
         with:

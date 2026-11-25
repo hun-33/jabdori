@@ -8,3 +8,5 @@ shots/
 *.log
 .DS_Store
 voice/raw/
+www/
+tools/__pycache__/

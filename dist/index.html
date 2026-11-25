@@ -1103,13 +1103,15 @@ var capacitorExports=function(e){"use strict";var t;e.ExceptionCode=void 0,(t=e.
 <script>
 'use strict';
 /* =========================================================
-   00-native: 지금 '진짜 안드로이드 앱' 안에서 실행 중인지 알아내고,
+   00-native: 지금 '진짜 앱'(안드로이드·아이폰) 안에서 실행 중인지 알아내고,
    앱에서만 쓰는 네이티브 플러그인 손잡이를 준비한다.
    - 브라우저(PWA·미리보기)에서는 NATIVE.on === false → 기존 동작 그대로
+   - 아이폰(NATIVE.ios)은 다른 앱 실행을 알아낼 방법이 없어 딴짓 감지(Watch)가 없다
    ========================================================= */
 const NATIVE = (() => {
   const C = (typeof window !== 'undefined' && window.Capacitor) || null;
   const on = !!(C && typeof C.isNativePlatform === 'function' && C.isNativePlatform());
+  const platform = on && typeof C.getPlatform === 'function' ? C.getPlatform() : 'web'; // 'android' | 'ios' | 'web'
   const ex = (typeof window !== 'undefined' && window.capacitorExports) || {};
   const reg = (name) => {
     if (!on || !C || typeof C.registerPlugin !== 'function') return null;
@@ -1117,15 +1119,17 @@ const NATIVE = (() => {
   };
   return {
     on,                                   // 진짜 앱이면 true
-    Kakao: reg('KakaoLogin'),             // 우리가 만든 카카오 로그인 플러그인 (KakaoLoginPlugin.kt)
+    platform,
+    ios: platform === 'ios',              // 아이폰 앱이면 true
+    Kakao: reg('KakaoLogin'),             // 우리가 만든 카카오 로그인 플러그인 (안드로이드 KakaoLoginPlugin.kt · 아이폰 KakaoLoginPlugin.swift)
     Notif: reg('LocalNotifications'),     // 시작·마감 알림 (앱이 꺼져 있어도 울림)
     Speech: reg('TextToSpeech'),          // 기기 음성으로 멘트 읽기
-    Watch: reg('Distraction'),            // 딴짓 감지 (DistractionPlugin.kt + WatchService.kt)
+    Watch: platform === 'ios' ? null : reg('Distraction'), // 딴짓 감지 (안드로이드만: DistractionPlugin.kt + WatchService.kt)
     App: reg('App'),                      // 뒤로 가기 버튼, 앱 다시 열림 감지
     Bars: on ? (ex.SystemBars || reg('SystemBars')) : null, // 상태 표시줄 글자색
   };
 })();
-if (NATIVE.on && typeof document !== 'undefined') document.documentElement.classList.add('native');
+if (NATIVE.on && typeof document !== 'undefined') document.documentElement.classList.add('native', 'pf-' + NATIVE.platform);
 
 /* =========================================================
    잡도리앱 프로토타입 — "물 올린다" 시안
@@ -2285,7 +2289,9 @@ const LOGIN_ERR = {
   tokenExpired: { t: '로그인이 만료됐어요', b: '다시 로그인하면 일정과 기록은 그대로예요.', a: [], info: true },
   // ↓ 진짜 앱(카카오 공식 SDK)에서만 나오는 안내
   notConfigured: { t: '카카오 앱 키가 아직 설정되지 않았어요', b: '개발자 안내: android/gradle.properties의 KAKAO_NATIVE_APP_KEY에 카카오 디벨로퍼스의 네이티브 앱 키를 넣고 다시 빌드해 주세요. 그 전에는 흉내 모드로 둘러볼 수 있어요.', a: [['흉내 모드로 둘러보기', 'loginFake']], dev: true },
-  keyHash: { t: '카카오 앱 설정이 맞지 않아요', b: '개발자 안내: ① 카카오 로그인 > 사용 설정이 ON인지 ② 앱 > 플랫폼 키 > 네이티브 앱 키에 패키지명 com.jabdori.app 과 키 해시가 등록됐는지 ③ gradle.properties의 키가 같은지 확인해 주세요.', a: [['다시 시도', 'login'], ['흉내 모드로 둘러보기', 'loginFake']], dev: true },
+  keyHash: { t: '카카오 앱 설정이 맞지 않아요', b: NATIVE.ios
+    ? '개발자 안내: ① 카카오 로그인 > 사용 설정이 ON인지 ② 앱 > 플랫폼 > iOS에 이 앱의 번들 ID가 등록됐는지 (나 탭 > 로그인 진단에서 확인) ③ 빌드에 넣은 네이티브 앱 키가 같은지 확인해 주세요.'
+    : '개발자 안내: ① 카카오 로그인 > 사용 설정이 ON인지 ② 앱 > 플랫폼 키 > 네이티브 앱 키에 패키지명 com.jabdori.app 과 키 해시가 등록됐는지 ③ gradle.properties의 키가 같은지 확인해 주세요.', a: [['다시 시도', 'login'], ['흉내 모드로 둘러보기', 'loginFake']], dev: true },
   loginFailed: { t: '카카오 로그인에 실패했어요', b: '잠시 뒤 다시 시도해 주세요. 카카오톡이 안 되면 카카오계정으로 로그인할 수 있어요.', a: [['다시 시도', 'login'], ['카카오계정으로 로그인', 'loginAccount']], dev: true },
 };
 const LOGIN_NOTE = {
@@ -2808,7 +2814,7 @@ function viewMe(m) {
       <button class="list-btn" data-act="openDiag">${icon('sliders')}<span class="lb-text"><b>로그인 진단</b><small>카카오 인증·토큰·사용자 정보·회원·세션을 단계별로 확인해요</small></span>${icon('chevron', 'muted')}</button>` : ''}
       <h2 class="sec-label">계정</h2>
       <ul class="acct">${acct.map(([a, ic, t, d]) => `<li><button class="list-btn ${a === 'withdraw' ? 'danger' : ''}" data-act="acct" data-v="${a}">${icon(ic)}<span class="lb-text"><b>${t}</b><small>${d}</small></span>${icon('chevron', 'muted')}</button></li>`).join('')}</ul>
-      <p class="fine dark">${NATIVE.on ? '잡도리 안드로이드 앱 · 데이터는 이 폰 안에만 저장돼요. 앱을 지우면 함께 지워져요.' : `잡도리 프로토타입 · 데이터는 이 브라우저(LocalStorage)에만 저장돼요${storageOK ? '' : ' — 지금은 저장소를 쓸 수 없어 새로고침하면 사라져요'}.`}</p>
+      <p class="fine dark">${NATIVE.on ? `잡도리 ${NATIVE.ios ? '아이폰' : '안드로이드'} 앱 · 데이터는 이 폰 안에만 저장돼요. 앱을 지우면 함께 지워져요.` : `잡도리 프로토타입 · 데이터는 이 브라우저(LocalStorage)에만 저장돼요${storageOK ? '' : ' — 지금은 저장소를 쓸 수 없어 새로고침하면 사라져요'}.`}</p>
     </div>
   </section>`;
   return { id: 'me', html };
@@ -4869,9 +4875,10 @@ const TTS = {
     this.warned = true;
     toast(NATIVE.on ? '기기에 한국어 음성이 없어요. 나 탭 > 목소리에서 음성 설치를 눌러 주세요.' : '이 브라우저에 한국어 음성이 없어서 다른 음성으로 읽어요.');
   },
-  /* 안드로이드: 음성 데이터 설치 화면 열기 */
+  /* 안드로이드: 음성 데이터 설치 화면 열기 (아이폰은 앱에서 열 수 없어 경로만 안내) */
   install() {
     if (!NATIVE.on || !NATIVE.Speech) return;
+    if (NATIVE.ios) { toast('아이폰 설정 > 손쉬운 사용 > 읽기 및 말하기 > 음성 > 한국어에서 음성을 내려받아 주세요.'); return; }
     NATIVE.Speech.openInstall().catch(() => toast('음성 설정을 열지 못했어요. 폰 설정 > 일반 > 텍스트 음성 변환에서 바꿔 주세요.'));
   },
 };
@@ -4967,7 +4974,7 @@ document.addEventListener('change', (ev) => {
 
 /* 진단 단계: [키, 이름, 성공 글자, 실패 글자] */
 const DIAG_STEPS = [
-  ['config', '앱 설정 (앱 키·키 해시)', '정상', '설정 안 됨'],
+  ['config', NATIVE.ios ? '앱 설정 (앱 키·번들 ID)' : '앱 설정 (앱 키·키 해시)', '정상', '설정 안 됨'],
   ['auth', '카카오 인증', '성공', '실패'],
   ['token', '액세스 토큰 발급', '성공', '실패'],
   ['me', '사용자 정보 조회', '성공', '실패'],
@@ -5183,7 +5190,7 @@ async function nativeLogin(opt = {}) {
   diagBegin('real', 'login'); // 단계별 결과 기록 시작 (개발자 진단에서 확인)
   try {
     const st = await NATIVE.Kakao.status();
-    if (!st.configured) { diagFail('config', 'NOT_CONFIGURED'); ui.login = { busy: false, error: 'notConfigured', detail: `패키지 ${st.packageName} · 키 해시 ${st.keyHash}` }; render(); return; }
+    if (!st.configured) { diagFail('config', 'NOT_CONFIGURED'); ui.login = { busy: false, error: 'notConfigured', detail: st.platform === 'ios' ? `번들 ID ${st.packageName}` : `패키지 ${st.packageName} · 키 해시 ${st.keyHash}` }; render(); return; }
     diagStep('config');
     // 카카오 토큰이 남아 있으면(앱 로그아웃만 했던 경우) 카카오톡을 다시 열지 않고 바로 들어간다
     if (st.hasToken && !opt.forceAccount) {
@@ -5413,7 +5420,7 @@ function nativeBars(dark) {
   // 웹뷰가 상태 표시줄 밑까지 그려지면(최신 웹뷰) 화면 색에 맞춰 글자색을 바꾸고,
   // 옛 웹뷰처럼 상태 표시줄 아래에서 시작하면 바탕이 늘 숯색이라 밝은 글자로 고정한다
   const inset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-top')) || 0;
-  const edge = inset > 0;
+  const edge = inset > 0 || NATIVE.ios; // 아이폰 웹뷰는 늘 상태 표시줄 밑까지 그린다
   const style = dark || !edge ? 'DARK' : 'LIGHT'; // DARK = 어두운 바탕 위 밝은 글자
   if (style === lastBarStyle) return;
   lastBarStyle = style;
@@ -5477,7 +5484,7 @@ function kakaoConsentRows(m) {
 function notifRow() {
   const on = !state.notifOff;
   let sub = `앱을 꺼 둬도 시작·10분 지각·마감 30분 전·마감 때 알려요 · 예약 ${NOTIF.pending}개`;
-  if (on && NOTIF.perm === 'denied') sub = '알림 권한이 꺼져 있어요. 스위치를 다시 켜거나 휴대폰 설정 > 애플리케이션 > 잡도리 > 알림에서 켜 주세요';
+  if (on && NOTIF.perm === 'denied') sub = NATIVE.ios ? '알림 권한이 꺼져 있어요. 아이폰 설정 > 알림 > 잡도리에서 알림 허용을 켜 주세요' : '알림 권한이 꺼져 있어요. 스위치를 다시 켜거나 휴대폰 설정 > 애플리케이션 > 잡도리 > 알림에서 켜 주세요';
   else if (on && !state.realTime) sub = '시연용 가상 시각을 쓰는 중이라 알림을 예약하지 않아요 (시연 도구에서 실제 시각 쓰기를 켜면 예약)';
   else if (!on) sub = '알림을 껐어요. 앱 안에서만 잔소리해요';
   return `<h2 class="sec-label">알림</h2>
@@ -5668,6 +5675,7 @@ const VOICE_PACKS = {
    - 잡도리 일정이 진행 중이거나 시작 시간이 지났는데 아직 시작 전(지각)일 때,
      지켜볼 앱(유튜브·인스타그램 등)을 정해 둔 시간 넘게 쓰면 미루먼지가 알린다.
    - 안드로이드 쪽: DistractionPlugin + WatchService (사용 정보 접근 권한 필요)
+   - 아이폰은 다른 앱 실행을 알아낼 수 없어서 NATIVE.Watch가 없고, 나 탭에 안내만 보여 준다
    - '다른 앱 위에 표시'까지 허용하면 딴짓 앱 위로 잡도리 화면이 바로 뜨고, 아니면 알림으로 알린다.
    - 휴식 중이거나 '공부 중이야'라고 답한 동안은 알리지 않는다.
    ========================================================= */
@@ -5826,6 +5834,11 @@ function slackDetected(m, app, real) {
 
 /* 나 탭 '딴짓 감지' 구역 (진짜 앱에서만) */
 function watchSection(m) {
+  // 아이폰: 앱이 다른 앱(유튜브 등)이 열렸는지 알 수 있는 방법을 Apple이 열어 두지 않았다
+  if (!NATIVE.Watch) {
+    return NATIVE.ios ? `<h2 class="sec-label">딴짓 감지</h2>
+      <div class="list-btn as-row"><span class="lb-text"><b>실제 앱 사용 감지</b><small>아이폰에서는 쓸 수 없어요. Apple이 앱끼리 어떤 앱을 여는지 알 수 없게 막아 두었어요 (안드로이드 앱에서만 돼요)</small></span></div>` : '';
+  }
   const W = watchPrefs(), P = WATCH.perm, C = charOf(m);
   const row = (ok, name, tag, act, desc) => `<li><span>${name} <em>${tag}</em></span>${ok ? `<b class="yes">${icon('check')}허용됨</b>` : `<button class="link-btn" data-act="${act}">허용하러 가기${icon('chevron')}</button>`}</li>`;
   const apps = WATCH.apps || [];

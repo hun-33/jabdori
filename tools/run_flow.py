@@ -22,7 +22,7 @@ with sync_playwright() as p:
     page.click('.btn-kakao'); page.click('.btn-kakao', force=True); page.click('.btn-kakao', force=True)
     page.wait_for_timeout(300); shot(page, '02_login_busy')
     page.wait_for_selector('.sheet', timeout=5000); shot(page, '03_consent')
-    page.click('[data-act=consentToggle][data-k=email]'); page.wait_for_timeout(200)
+    # (이메일 동의 항목은 build-10에서 뺐음)
     page.click('[data-act=consentAgree]')
     page.wait_for_selector('.onb', timeout=6000); shot(page, '04_onb1')
     page.click('[data-act=onbNext]'); shot(page, '05_onb2')

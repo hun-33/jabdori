@@ -1,8 +1,8 @@
-# 잡도리 — 미루먼지 안드로이드 앱 (v3)
+# 잡도리 — 미루먼지 안드로이드·아이폰 앱 (v3)
 
-폰에 직접 설치하는 **진짜 안드로이드 앱**이에요.
+폰에 직접 설치하는 **진짜 앱**이에요. 안드로이드는 `build-N`, 아이폰은 `ios-build-N` 릴리스로 따로 올라가요.
 
-빌드마다 무엇이 바뀌었는지는 [CHANGELOG.md](CHANGELOG.md)에 있어요. 다음 빌드의 릴리스 노트는 `release-notes/build-번호.md`로 미리 넣어 두면 릴리스 설명에 그대로 들어가요(없으면 커밋 설명).
+빌드마다 무엇이 바뀌었는지는 [CHANGELOG.md](CHANGELOG.md)에 있어요. 다음 빌드의 릴리스 노트는 `release-notes/build-번호.md`(안드로이드)·`release-notes/ios-build-번호.md`(아이폰)로 미리 넣어 두면 릴리스 설명에 그대로 들어가요(없으면 커밋 설명).
 
 - **카카오 로그인**: 카카오 공식 SDK로 진짜 카카오톡이 열리고, 카카오 동의 화면에서 동의한 개인정보(닉네임·프로필 사진·이메일)를 받아 와요.
 - **시작·마감 알림**: 앱을 꺼 둬도 시작·마감 때 폰 알림으로 와요.
@@ -14,7 +14,7 @@
 | 카카오 키 해시 (팀 공용 개발 키) | `+NLMMnMAs9uu+AA/aQ5qYLC3q6U=` |
 | 최소 안드로이드 | 7.0 (API 24) |
 | 만든 방식 | 화면은 기존 웹 코드 그대로 + Capacitor 8 안드로이드 껍데기 + 코틀린 네이티브 플러그인 |
-| 아이폰 | 이번엔 안드로이드만. 아이폰 앱은 맥과 애플 개발자 등록(유료)이 필요해요 |
+| 아이폰 | 번들 ID `com.jabdori.app`, iOS 15 이상. GitHub의 맥 서버가 `.ipa`를 만들고, Windows에서 Sideloadly로 설치해요 ([아이폰에 설치하기](#아이폰에-설치하기)) |
 
 ---
 
@@ -25,10 +25,10 @@
 | 카카오 로그인 (FN01) | **진짜** | 카카오톡 앱 → 카카오 동의 화면 → 회원번호·닉네임·프로필 사진·이메일 수신. 카카오톡이 없으면 카카오계정(브라우저) 로그인 |
 | 로그아웃 / 카카오 로그아웃 / 연결 끊기 / 탈퇴 | **진짜** | 카카오 서버에 logout·unlink 요청 |
 | 동의 내역 보기, 이메일 추가 동의 | **진짜** | 나 탭 |
-| 시작·지각·임박·마감 알림 (FN03) | **진짜** | 앱이 꺼져 있어도 폰 알림 (안드로이드 로컬 알림) |
+| 시작·지각·임박·마감 알림 (FN03) | **진짜** | 앱이 꺼져 있어도 폰 알림 (로컬 알림, 안드로이드·아이폰 둘 다) |
 | 목소리 (TTS) | **진짜** | 폰에 설치된 한국어 음성 엔진. 한국어 음성이 없으면 나 탭에 '음성 설치' 버튼이 나와요 |
 | 일정·반복·달력·미루먼지 농도·쌓인 먼지·기록 | **진짜** | 데이터는 폰 안에만 저장 |
-| 딴짓 감지 (FN07) | 흉내 | 시연 도구의 YouTube/Instagram 버튼. 진짜 감지는 '사용 기록 접근' 특수 권한이 필요해 다음 단계 |
+| 딴짓 감지 (FN07) | **진짜** (안드로이드만) | 안드로이드: '사용 정보 접근' 권한으로 유튜브·인스타그램 등을 열면 알림·잡도리 화면. 아이폰: Apple이 다른 앱 실행을 알 수 없게 막아 둬서 안 돼요(시연 도구 버튼은 둘 다 돼요) |
 | 서버·DB·LLM | 없음 | 기기 간 동기화 없음 |
 
 ---
@@ -142,6 +142,47 @@ PC에 아무것도 설치하지 않고, 폰에서 링크를 눌러 APK를 받는
 
 빨간 X가 뜨면 실행 기록 → **build** → 빨간 줄이 있는 단계를 열어 오류 내용을 복사해 보내 주세요.
 
+## 아이폰에 설치하기
+
+아이폰 앱은 맥에서만 빌드할 수 있어서, **GitHub의 맥 서버가 대신 만들어요.** `main`에 올리면 **아이폰 IPA 만들기**가 돌고, Releases에 `ios-build-N` 이름으로 `jabdori.ipa`가 올라가요. 아이폰 릴리스는 **Latest**로 표시하지 않아서, 안드로이드 고정 주소(`releases/latest/download/jabdori.apk`)는 그대로예요.
+
+이 `.ipa`는 서명이 안 된 파일이에요. 각자 **Windows PC + Sideloadly + 자기 Apple ID(무료)**로 서명해서 설치해요.
+
+### ① 카카오에 아이폰 등록 (팀에서 한 명, 처음 한 번)
+
+1. developers.kakao.com → 잡도리 앱 → **[앱] > [플랫폼 키] > [네이티브 앱 키]**
+2. iOS 정보의 **번들 ID**에 `com.jabdori.app`을 넣고 저장해요.
+   - 네이티브 앱 키는 안드로이드와 **같은 키**를 써요. 따로 만들 필요 없어요.
+   - GitHub 빌드는 `android/gradle.properties`(또는 Secrets)의 같은 키를 아이폰 앱에도 넣어요.
+
+### ② PC 준비 (처음 한 번)
+
+1. **iTunes**와 **iCloud**를 **Apple 홈페이지에서 받은 버전**으로 설치해요. (Microsoft Store 버전은 Sideloadly가 못 써요)
+2. **Sideloadly**를 sideloadly.io에서 받아 설치해요.
+
+### ③ 설치하기 (빌드마다)
+
+1. GitHub 저장소 → **Releases** → 맨 위 `ios-build-N` → `jabdori.ipa`를 PC에 받아요.
+2. 아이폰을 USB로 PC에 연결하고, 아이폰에 "이 컴퓨터를 신뢰하겠습니까?"가 뜨면 **신뢰**를 눌러요.
+3. Sideloadly를 열고 `jabdori.ipa`를 창에 끌어다 놓아요. **Apple account** 칸에 자기 Apple ID를 넣어요.
+4. **Advanced options**에서 **Use automatic bundle ID**의 체크를 **끄고**, 번들 ID가 `com.jabdori.app`인지 확인해요.
+   - 체크가 켜져 있으면 번들 ID가 바뀌어서 **카카오 로그인이 안 돼요** (카카오에는 `com.jabdori.app`만 등록돼 있어요).
+5. **Start**를 누르고 Apple ID 비밀번호를 넣어요.
+6. 아이폰에서 마무리해요.
+   - **설정 > 일반 > VPN 및 기기 관리** → 내 Apple ID → **신뢰**
+   - iOS 16 이상이면 **설정 > 개인정보 보호 및 보안 > 개발자 모드**를 켜고 재시동해요.
+7. 홈 화면의 **잡도리**를 열어요.
+
+### 알아 둘 것
+
+- **7일마다 다시 설치해야 해요.** 무료 Apple ID로 서명한 앱은 7일 뒤에 안 열려요. 다시 설치할 때 앱을 지우지 말고 ③으로 덮어 설치하세요. 앱을 지우면 기록도 같이 지워져요.
+- 무료 Apple ID 하나로는 **앱 3개, 기기 3대**까지예요.
+- **번들 ID `com.jabdori.app`은 Apple ID 하나만 쓸 수 있어요.** 처음 설치한 사람의 Apple ID에 묶여요.
+  - 팀원 아이폰도 카카오 로그인까지 쓰려면, 그 Apple ID를 가진 사람의 PC에 팀원 아이폰을 연결해서 같은 방법으로 설치해요 (기기 3대까지).
+  - 다른 Apple ID로 설치하면 "not available" 오류가 나요. 이때는 **Use automatic bundle ID**를 켜고 설치하면 앱은 열려요. 대신 카카오 로그인은 안 되니 로그인 화면의 **흉내 모드로 둘러보기**로 써요.
+- 아이폰에서 안 되는 것: **딴짓 감지**(Apple이 막아 둠), 딴짓 앱 위로 잡도리 화면 띄우기. 알림·카카오 로그인·목소리·달력은 안드로이드와 같아요.
+- 무음 모드(옆 스위치)를 켜 두면 미루먼지 목소리가 안 들릴 수 있어요.
+
 ---
 
 ## 안 될 때
@@ -234,6 +275,16 @@ src/ (화면 코드)  ──npm run build──▶  www/ (합친 화면)  ──
 | `AndroidManifest.xml` | `AuthCodeHandlerActivity`(카카오 인증 뒤 돌아오는 문, 스킴 `kakao{앱키}://oauth`)와 카카오톡 설치 확인(`queries`)을 선언해요 |
 | `res/` | 미루먼지 앱 아이콘·적응형 아이콘·알림 아이콘(`ic_stat_mireum`)·스플래시 |
 
+### 아이폰 구역 (`ios/App/`, `native/ios-kakao/`)
+| 파일 | 담당 |
+|---|---|
+| `native/ios-kakao/ios/Sources/KakaoLoginPlugin/KakaoLoginPlugin.swift` | **아이폰용 카카오 다리.** 안드로이드 `KakaoLoginPlugin.kt`와 이름(`KakaoLogin`)·메서드 8개(`status`, `login`, `me`, `tokenInfo`, `scopes`, `requestScopes`, `logout`, `unlink`)·오류 코드가 같아서 웹 코드는 그대로 써요. 카카오 iOS SDK 2.30.0(SPM)을 써요 |
+| `native/ios-kakao/Package.swift` | 위 플러그인을 Swift 패키지로 묶어요. `npx cap sync ios`가 자동으로 앱에 넣어요 |
+| `ios/App/App/Info.plist` | 앱 이름 `잡도리`, 세로 고정, 카카오 스킴 `kakao{앱키}`, 카카오톡 설치 확인(`LSApplicationQueriesSchemes`), 앱 키 자리 `KAKAO_NATIVE_APP_KEY` |
+| `ios/App/App/Assets.xcassets` | 미루먼지 앱 아이콘·스플래시 (`tools/make_ios_assets.py`로 만듦) |
+
+맥이 있다면 `npm run build:ios` → `npm run open:ios`로 Xcode에서 열 수 있어요. 카카오 키는 Xcode 빌드 설정에 `KAKAO_NATIVE_APP_KEY`를 추가해서 넣어요.
+
 ### 빌드 설정
 | 파일 | 담당 |
 |---|---|
@@ -241,7 +292,11 @@ src/ (화면 코드)  ──npm run build──▶  www/ (합친 화면)  ──
 | `android/app/build.gradle` | 키를 코드(`BuildConfig.KAKAO_NATIVE_APP_KEY`)와 매니페스트에 넣어요. 카카오 SDK `v2-user 2.26.0`과 팀 공용 서명 키(`keystore/jabdori-dev.jks`)를 설정해요 |
 | `android/build.gradle`, `variables.gradle` | 코틀린 2.3.0, 카카오 SDK 저장소(`devrepo.kakao.com`), 버전 값 |
 | `build.mjs` | `src/`를 한 파일로 합쳐 `dist/`·`www/`에 써요 |
-| `.github/workflows/android-apk.yml` | GitHub에서 APK를 자동으로 만들어요 |
+| `.github/workflows/android-apk.yml` | GitHub에서 APK를 자동으로 만들어요. 태그 `build-N` (지금까지 가장 큰 번호 + 1). 아이폰 쪽 파일만 바뀌거나 커밋 설명에 `[android skip]`이 있으면 건너뛰어요 |
+| `.github/workflows/ios-ipa.yml` | GitHub의 맥 서버(macos-26)에서 서명 없는 `.ipa`를 만들어 `ios-build-N` 릴리스로 올려요(Latest 아님). 안드로이드 쪽 파일만 바뀌거나 `[ios skip]`이 있으면 건너뛰어요 |
+| `.github/workflows/dev-check.yml` · `ios-dev-check.yml` | `dev` 브랜치에 올리면 안드로이드·아이폰이 컴파일되는지만 확인해요 (릴리스 없음) |
+| `tools/run_ios_mock.py` | 아이폰 앱 환경을 흉내 내 아이폰 전용 분기(딴짓 감지 안내, 번들 ID 안내, 알림·음성 설정 경로)를 검사해요(15개) |
+| `tools/make_ios_assets.py` | 아이폰 앱 아이콘(1024)·스플래시(2732)를 미루먼지 그림으로 만들어요 |
 | `tools/run_native_mock.py` | 진짜 앱 환경을 흉내 내 로그인·알림·TTS·뒤로 가기를 검사해요 |
 | `tools/run_scale_voice.py` | 미루먼지 농도·단계 이름 전환·쌓인 먼지·숫자 조사·목소리 모드를 검사해요(57개) |
 | `tools/run_input.py` | 휠 직접 입력의 형식·예외 처리를 검사해요 |
