@@ -1,5 +1,6 @@
 import sys, json, time
 from playwright.sync_api import sync_playwright
+HOOKS = __import__('pathlib').Path(__file__).resolve().parent / 'test_hooks.js'  # 검사 전용 도우미 (가상 시각·테스트 일정)
 URL = 'file:///home/claude/jabdori-app/dist/index.html'
 OUT = sys.argv[1] if len(sys.argv) > 1 else '/home/claude/jabdori-app/shots'
 W, H = (int(sys.argv[2]), int(sys.argv[3])) if len(sys.argv) > 3 else (390, 844)
@@ -12,6 +13,7 @@ def act(page, code):
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
     ctx = b.new_context(viewport={'width': W, 'height': H}, device_scale_factor=2, has_touch=W < 900, is_mobile=W < 900, locale='ko-KR', timezone_id='Asia/Seoul')
+    ctx.add_init_script(path=str(HOOKS))
     page = ctx.new_page()
     page.on('pageerror', lambda e: errors.append('PAGEERROR ' + str(e)))
     page.on('console', lambda m: errors.append('CONSOLE ' + m.type + ' ' + m.text) if m.type in ('error', 'warning') else None)

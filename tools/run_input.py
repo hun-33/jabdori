@@ -1,5 +1,6 @@
 """선택기 '직접 입력' 검사: 파서 단위 검사 + 화면 흐름 검사."""
 from playwright.sync_api import sync_playwright
+HOOKS = __import__('pathlib').Path(__file__).resolve().parent / 'test_hooks.js'  # 검사 전용 도우미 (가상 시각·테스트 일정)
 URL = 'file:///home/claude/jabdori-app/www/index.html'
 OUT = '/home/claude/jabdori-app/shots'
 log, errors = [], []
@@ -25,6 +26,7 @@ DATE_BAD = ['', '13/1', '2/30', '4/31', '2026-02-30', 'abc', '0/5', '12/0']
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
     pg = b.new_page(viewport={'width': 390, 'height': 844}, device_scale_factor=2)
+    pg.add_init_script(path=str(HOOKS))
     pg.on('pageerror', lambda e: errors.append('PAGEERROR ' + str(e)))
     pg.on('console', lambda m: errors.append('CONSOLE ' + m.text) if m.type == 'error' else None)
     pg.goto(URL); pg.evaluate('localStorage.clear()'); pg.reload(); pg.wait_for_timeout(400)

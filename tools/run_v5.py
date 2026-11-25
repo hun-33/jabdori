@@ -1,5 +1,6 @@
 """v5 · 미루먼지 추가분 검수 — 알림 배너, 메뉴바, 옷장 저장, 스와이프 월간, TTS 버튼, 움직임 줄이기, 375px·데스크톱 렌더."""
 from playwright.sync_api import sync_playwright
+HOOKS = __import__('pathlib').Path(__file__).resolve().parent / 'test_hooks.js'  # 검사 전용 도우미 (가상 시각·테스트 일정)
 URL = 'file:///home/claude/jabdori-app/dist/index.html'
 OUT = '/home/claude/jabdori-app/shots'
 log, errors = [], []
@@ -8,6 +9,7 @@ def check(name, cond): log.append(('OK  ' if cond else 'FAIL') + ' ' + name)
 def boot(b, w, h, mobile=True, reduce=False):
     ctx = b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=2, has_touch=mobile, is_mobile=mobile,
                         locale='ko-KR', reduced_motion='reduce' if reduce else 'no-preference')
+    ctx.add_init_script(path=str(HOOKS))
     page = ctx.new_page()
     page.on('pageerror', lambda e: errors.append('PAGEERROR ' + str(e)))
     page.on('console', lambda m: errors.append('CONSOLE ' + m.text) if m.type == 'error' else None)

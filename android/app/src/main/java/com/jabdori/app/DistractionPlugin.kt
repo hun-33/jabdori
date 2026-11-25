@@ -3,10 +3,20 @@ package com.jabdori.app
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import android.content.pm.ResolveInfo
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
 import android.os.Process
 import android.provider.Settings
+import android.util.Base64
+import java.io.ByteArrayOutputStream
+import java.text.Collator
+import java.util.Locale
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -22,6 +32,7 @@ import com.getcapacitor.annotation.CapacitorPlugin
  *  openUsageSettings()    '사용 정보 접근 허용' 설정 화면 열기
  *  openOverlaySettings()  '다른 앱 위에 표시' 설정 화면 열기
  *  installed({packages})  주어진 앱 중 이 폰에 깔린 것과 그 이름
+ *  apps({iconSize})       이 폰의 앱 서랍에 보이는 앱 전부: 패키지·이름·분류(동영상·SNS·게임…)·아이콘(PNG, iconSize=0이면 생략)
  *  start({...})           지켜보기 시작 (WatchService, 상단에 '지켜보는 중' 알림이 계속 보임)
  *  stop()                 지켜보기 멈춤
  *  pending()              앱이 꺼져 있던 동안 감지된 딴짓 목록을 받고 비움
@@ -83,6 +94,49 @@ class DistractionPlugin : Plugin() {
         call.resolve(ret)
     }
 
+    /** 앱 서랍(런처)에 보이는 앱 목록. 아이콘을 그리느라 시간이 걸려서 따로 스레드에서 만든다 */
+    @PluginMethod
+    fun apps(call: PluginCall) {
+        val size = (call.getInt("iconSize") ?: 96).coerceIn(0, 192)
+        val ctx = context
+        Thread {
+            try {
+                val pm = ctx.packageManager
+                val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                val list: List<ResolveInfo> = if (Build.VERSION.SDK_INT >= 33) {
+                    pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0L))
+                } else {
+                    @Suppress("DEPRECATION")
+                    pm.queryIntentActivities(intent, 0)
+                }
+                val seen = HashSet<String>()
+                val items = ArrayList<JSObject>()
+                for (ri in list) {
+                    val ai = ri.activityInfo ?: continue
+                    val pkg = ai.packageName ?: continue
+                    if (pkg == ctx.packageName || !seen.add(pkg)) continue
+                    val o = JSObject()
+                    o.put("id", pkg)
+                    o.put("label", ri.loadLabel(pm).toString())
+                    o.put("category", categoryOf(ai.applicationInfo))
+                    if (size > 0) {
+                        try { o.put("icon", iconData(ri.loadIcon(pm), size)) } catch (e: Exception) { o.put("icon", "") }
+                    }
+                    items.add(o)
+                }
+                val col = Collator.getInstance(Locale.KOREAN)
+                items.sortWith(Comparator { a, b -> col.compare(a.getString("label") ?: "", b.getString("label") ?: "") })
+                val arr = JSArray()
+                for (o in items) arr.put(o)
+                val ret = JSObject()
+                ret.put("apps", arr)
+                call.resolve(ret)
+            } catch (e: Exception) {
+                call.reject("앱 목록을 불러오지 못했어요: " + (e.message ?: ""), "APPS_FAILED")
+            }
+        }.start()
+    }
+
     @PluginMethod
     fun start(call: PluginCall) {
         if (!hasUsageAccess(context)) {
@@ -102,7 +156,14 @@ class DistractionPlugin : Plugin() {
         i.putExtra("watchText", d.optString("watchText", ""))
         i.putExtra("alertTitle", d.optString("alertTitle", ""))
         i.putExtra("alertText", d.optString("alertText", ""))
-        i.putExtra("bringToFront", d.optBoolean("bringToFront", true))
+        i.putExtra("bringToFront", d.optBoolean("bringToFront", false))
+        i.putExtra("overlay", d.optBoolean("overlay", true))
+        i.putExtra("late", d.optBoolean("late", false))
+        i.putExtra("popLine", d.optString("popLine", ""))
+        i.putExtra("popInfo", d.optString("popInfo", ""))
+        i.putExtra("replies", d.optJSONObject("replies")?.toString() ?: "{}")
+        i.putExtra("studyMin", d.optInt("studyMin", 10))
+        i.putExtra("restMin", d.optInt("restMin", 5))
         try {
             if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(i) else context.startService(i)
             call.resolve()
@@ -147,5 +208,33 @@ class DistractionPlugin : Plugin() {
             else ops.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), ctx.packageName)
 
         fun canOverlay(ctx: Context): Boolean = Settings.canDrawOverlays(ctx)
+
+        /** 앱 분류 (Android 8+). 모르면 빈 문자열 */
+        fun categoryOf(ai: ApplicationInfo?): String {
+            if (ai == null || Build.VERSION.SDK_INT < 26) return ""
+            return when (ai.category) {
+                ApplicationInfo.CATEGORY_GAME -> "game"
+                ApplicationInfo.CATEGORY_AUDIO -> "audio"
+                ApplicationInfo.CATEGORY_VIDEO -> "video"
+                ApplicationInfo.CATEGORY_IMAGE -> "image"
+                ApplicationInfo.CATEGORY_SOCIAL -> "social"
+                ApplicationInfo.CATEGORY_NEWS -> "news"
+                ApplicationInfo.CATEGORY_MAPS -> "maps"
+                ApplicationInfo.CATEGORY_PRODUCTIVITY -> "productivity"
+                else -> ""
+            }
+        }
+
+        /** 아이콘 → 정사각 PNG data URL */
+        fun iconData(d: Drawable, size: Int): String {
+            val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val c = Canvas(bmp)
+            d.setBounds(0, 0, size, size)
+            d.draw(c)
+            val out = ByteArrayOutputStream()
+            bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
+            bmp.recycle()
+            return "data:image/png;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+        }
     }
 }

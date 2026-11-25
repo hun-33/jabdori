@@ -1,6 +1,7 @@
-"""UI 다듬기 검수: 농도 숫자 이름 · 기록 요약 · 나 탭 하위 화면 · 달력 '이 날 일정' · 한 줄로 쓰기 · 토스트 · 월간 막대."""
+"""UI 다듬기 검수: 농도 숫자 이름 · 기록 요약 · 설정 하위 화면 · 달력 '이 날 일정' · 토스트 · 월간 막대 · 지운 것(시연 도구·한 줄로 쓰기·예시 문구) · 도장 문구."""
 import json
 from playwright.sync_api import sync_playwright
+HOOKS = __import__('pathlib').Path(__file__).resolve().parent / 'test_hooks.js'  # 검사 전용 도우미 (가상 시각·테스트 일정)
 URL = 'file:///home/claude/jabdori-app/dist/index.html'
 OUT = '/home/claude/jabdori-app/shots'
 log, errors = [], []
@@ -9,6 +10,7 @@ def check(name, cond, extra=None): log.append(('OK  ' if cond else 'FAIL') + ' '
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
     ctx = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, has_touch=True, is_mobile=True, locale='ko-KR')
+    ctx.add_init_script(path=str(HOOKS))
     pg = ctx.new_page()
     pg.on('pageerror', lambda e: errors.append(str(e)))
     ev = lambda c: (lambda r: (pg.wait_for_timeout(120), r)[1])(pg.evaluate(c))
@@ -44,32 +46,11 @@ with sync_playwright() as p:
     log.append('     월간 막대 (제목, 글자 폭, 보이는 폭): ' + json.dumps(bars, ensure_ascii=False))
     pg.screenshot(path=f'{OUT}/up_01_month.png')
 
-    # 4) 한 줄로 쓰기
+    # 4) 새 일정: 한 줄로 쓰기·제목 예시 문구는 없음
     ev("ACT.openAdd({dataset:{date: today()}})"); pg.wait_for_timeout(500)
-    check('새 일정: 한 줄로 쓰기 칸', pg.query_selector('#f-quick') is not None)
-    pg.fill('#f-quick', '내일 3시 데이터베이스 과제 2시간'); pg.wait_for_timeout(200)
-    hint = pg.inner_text('#quick-hint')
-    check('입력하면 미리보기 (날짜·시각·제목)', '15:00–17:00' in hint and '데이터베이스 과제' in hint, hint)
-    pg.press('#f-quick', 'Enter'); pg.wait_for_timeout(400)
-    f = ev("({ t: ui.form.title, d: ui.form.date, s: ui.form.start, e: ui.form.end, ed: ui.form.endDate })")
-    tm = ev("addDays(today(), 1)")
-    check('엔터 → 제목·날짜·시작·끝 채움', f == {'t': '데이터베이스 과제', 'd': tm, 's': '15:00', 'e': '17:00', 'ed': tm}, f)
-    check('채운 뒤 한 줄 칸은 비움', pg.input_value('#f-quick') == '')
-    pg.fill('#f-quick', '매주 화요일 7시 자료구조 스터디 1시간 반'); pg.wait_for_timeout(150)
-    pg.click('[data-act=quickApply]'); pg.wait_for_timeout(400)
-    f = ev("({ t: ui.form.title, s: ui.form.start, e: ui.form.end, r: ui.form.repeatKind, days: ui.form.days })")
-    check('매주 화요일 → 반복 매주 화, 19:00–20:30', f == {'t': '자료구조 스터디', 's': '19:00', 'e': '20:30', 'r': 'weekly', 'days': [2]}, f)
-    pg.screenshot(path=f'{OUT}/up_02_quick.png')
-    cases = {
-        '12/3 14:00부터 16:00까지 팀 회의': ['2026-12-03', '14:00', '16:00', None, '팀 회의'],
-        '모레 오전 9시 30분 운동 30분': [None, '09:30', None, 30, '운동'],
-        '데이터베이스 과제': [None, None, None, None, '데이터베이스 과제'],
-        '과제 3': [None, None, None, None, '과제 3'],
-    }
-    for txt, want in cases.items():
-        r = ev(f"(() => {{ const q = parseQuickAdd({json.dumps(txt)}, '2026-11-25'); return [q.date, q.start, q.end, q.dur, q.title]; }})()")
-        if want[0] is None and txt.startswith('모레'): want[0] = '2026-11-27'
-        check(f'한 줄 해석: {txt}', r == want, r)
+    check('새 일정: 한 줄로 쓰기 칸 없음', pg.query_selector('#f-quick') is None and 'quickApply' not in pg.content())
+    check('새 일정: 제목 칸 예시 문구 없음', not pg.get_attribute('#f-title', 'placeholder'))
+    check('한 줄 해석 함수도 없음', ev("typeof parseQuickAdd") == 'undefined')
     ev("ACT.formClose()"); pg.wait_for_timeout(200)
     if pg.query_selector('[data-act=formDiscard]'): pg.click('[data-act=formDiscard]'); pg.wait_for_timeout(200)
 
@@ -97,10 +78,20 @@ with sync_playwright() as p:
     pg.evaluate("document.querySelector('#screen').scrollTop = 520"); pg.wait_for_timeout(200)
     pg.screenshot(path=f'{OUT}/up_04_records_2.png')
 
+    # 도장 문구: 성공 '훌륭해!' · 실패 '아쉽네!'
+    rows = pg.query_selector_all('.rec-row')
+    stamps = []
+    for r in rows[:6]:
+        r.click(); pg.wait_for_timeout(250)
+        stamps.append(pg.inner_text('#layer-sheet .stamp'))
+        pg.click('#layer-sheet [data-act=closeSheet]'); pg.wait_for_timeout(200)
+    check('기록 도장: 훌륭해! / 아쉽네!', set(stamps) <= {'훌륭해!', '아쉽네!'} and '훌륭해!' in stamps and '아쉽네!' in stamps, stamps)
+
     # 6) 나 탭: 첫 화면 짧게, 하위 화면으로
     pg.click('[data-act=tab][data-tab=me]'); pg.wait_for_timeout(400)
     h = ev("document.querySelector('#screen .paper').scrollHeight")
-    check('나 첫 화면: 메뉴 5개', ev("document.querySelectorAll('[data-act=meOpen]').length") == 5)
+    check('설정 첫 화면: 메뉴 5개', ev("document.querySelectorAll('[data-act=meOpen]').length") == 5)
+    check('시연 도구 없음 (탭·콘솔)', ev("!document.getElementById('console-tab') && !document.getElementById('console')"))
     check('나 첫 화면 높이가 한 화면 남짓 (≤ 900px)', h <= 900, h)
     pg.screenshot(path=f'{OUT}/up_05_me.png')
     for k, want in [('mireum', '시작 농도'), ('voice', '소리 모드'), ('alerts', '설치'), ('screen', '움직임 줄이기'), ('account', '회원 탈퇴')]:

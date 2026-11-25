@@ -18,7 +18,6 @@ const ui = {
   login: { busy: false },
   onb: { step: 0, stage: 3 },
   form: null,
-  consoleOpen: false,
   lastScreen: null,
 };
 
@@ -221,7 +220,7 @@ function viewOnboarding(m) {
     art = mascot(m, { expr: 'proud', pose: 'flag', motion: 'breathe' });
     const S = scaleOf(m);
     body = `<h1 class="onb-title">${S.onbFailTitle}</h1>
-      <div class="stamps"><span class="stamp ok sm">참 잘했어</span><span class="stamp bad sm">넘쳤다</span></div>
+      <div class="stamps"><span class="stamp ok sm">훌륭해!</span><span class="stamp bad sm">아쉽네!</span></div>
       <p class="onb-body">${fillLine(S.onbFailBody, { step: HEAT_POLICY.failStep, streak: HEAT_POLICY.coolStreak })}</p>`;
   }
   const dots = Array.from({ length: N }, (_, i) => `<i class="${i <= s ? 'on' : ''}"></i>`).join('');
@@ -701,8 +700,10 @@ function scaleModeBlock(m) {
     </div>`;
 }
 /* 설정 탭(ui.tab 'me'): 첫 화면은 계정 상태 + 설정 메뉴, 설정은 하위 화면(ui.meSub)으로 나눈다
-   mireum 미루먼지 농도 · voice 목소리 · alerts 알림·딴짓 감지(웹: 앱 설치) · screen 화면·시연 · account 계정 관리 */
-const ME_SUBS = { mireum: '미루먼지 농도', voice: '목소리', alerts: '알림·딴짓 감지', screen: '화면', account: '계정 관리' };
+   mireum 미루먼지 농도 · voice 목소리 · alerts 알림·딴짓 감지(웹: 앱 설치) · screen 화면 · account 계정 관리 */
+const ME_SUBS = { mireum: '미루먼지 농도', voice: '목소리', alerts: '알림·딴짓 감지', screen: '화면', account: '계정 관리', watchApps: '지켜볼 앱' };
+/* 하위 화면의 하위 화면: 뒤로 가면 여기로 (없으면 설정 첫 화면) */
+const ME_PARENT = { watchApps: 'alerts' };
 function meSubTitle(k) { return k === 'alerts' ? (!NATIVE.on ? '앱 설치' : NATIVE.Watch ? '알림·딴짓 감지' : '알림') : k === 'mireum' ? scaleOf().title : ME_SUBS[k]; }
 function meMenuRow(k, ic, preview) {
   return `<button class="list-btn me-row" data-act="meOpen" data-v="${k}">${icon(ic)}<span class="lb-text"><b>${meSubTitle(k)}</b><small>${preview}</small></span>${icon('chevron', 'muted')}</button>`;
@@ -722,11 +723,11 @@ function viewMe(m) {
       ${meMenuRow('mireum', S.icon, `${S.floor} ${lv(floorOf(m))} · 단계 이름 ${m.scaleMode === 'common' ? '공통' : '캐릭터별'}`)}
       ${meMenuRow('voice', 'speaker', `${C.name} 목소리 · ${vm}${v.mode === 'off' ? '' : ' · ' + VOICE_SPEEDS[v.speed].label}`)}
       ${meMenuRow('alerts', NATIVE.on ? 'clock' : 'download', alertsPrev)}
-      ${meMenuRow('screen', 'eye', `움직임 줄이기 ${state.reduceMotion ? '켜짐' : '꺼짐'}${NATIVE.on ? ` · 시연 도구 ${state.showDemo ? '보임' : '숨김'}` : ''}`)}
+      ${meMenuRow('screen', 'eye', `움직임 줄이기 ${state.reduceMotion ? '켜짐' : '꺼짐'}`)}
       ${meMenuRow('account', 'me', '동의한 항목 · 카카오 로그아웃 · 연결 끊기 · 탈퇴')}
-      ${state.showDemo ? `<h2 class="sec-label">개발자</h2>
+      ${state.devMode ? `<h2 class="sec-label">개발자</h2>
       <button class="list-btn" data-act="openDiag">${icon('sliders')}<span class="lb-text"><b>로그인 진단</b><small>카카오 인증부터 세션까지 단계별로 확인해요</small></span>${icon('chevron', 'muted')}</button>` : ''}
-      <p class="fine dark">${NATIVE.on ? `잡도리 ${NATIVE.ios ? '아이폰' : '안드로이드'} 앱 · 데이터는 이 폰 안에만 저장돼요. 앱을 지우면 함께 지워져요.` : `잡도리 프로토타입 · 데이터는 이 브라우저(LocalStorage)에만 저장돼요${storageOK ? '' : ' — 지금은 저장소를 쓸 수 없어 새로고침하면 사라져요'}.`}</p>
+      <p class="fine dark dev-tap" data-act="devTap">${NATIVE.on ? `잡도리 ${NATIVE.ios ? '아이폰' : '안드로이드'} 앱 · 데이터는 이 폰 안에만 저장돼요. 앱을 지우면 함께 지워져요.` : `잡도리 프로토타입 · 데이터는 이 브라우저(LocalStorage)에만 저장돼요${storageOK ? '' : ' — 지금은 저장소를 쓸 수 없어 새로고침하면 사라져요'}.`}</p>
     </div>
   </section>`;
   return { id: 'me', html };
@@ -746,12 +747,12 @@ function viewMeSub(m, sub) {
     body = voiceSection();
   } else if (sub === 'alerts') {
     body = NATIVE.on ? notifRow() + watchSection(m) : installRow();
+  } else if (sub === 'watchApps') {
+    body = NATIVE.Watch ? watchAppsPage() : '';
   } else if (sub === 'screen') {
     body = `<div class="list-btn as-row"><span class="lb-text"><b>움직임 줄이기</b><small>${C.name} 숨쉬기·흔들림 같은 반복 움직임을 멈춰요</small></span>
         <button class="switch ${state.reduceMotion ? 'on' : ''}" role="switch" aria-checked="${state.reduceMotion}" aria-label="움직임 줄이기" data-act="reduceMotion"><i></i></button></div>
-      <button class="list-btn" data-act="replayOnboarding">${icon('eye')}<span>${C.name} 소개 다시 보기</span>${icon('chevron', 'muted')}</button>
-      ${NATIVE.on ? `<div class="list-btn as-row"><span class="lb-text"><b>발표용 시연 도구 보이기</b><small>오른쪽 가장자리에 '시연' 탭을 띄워요. 설정 첫 화면에 로그인 진단도 나타나요</small></span>
-        <button class="switch ${state.showDemo ? 'on' : ''}" role="switch" aria-checked="${!!state.showDemo}" aria-label="발표용 시연 도구 보이기" data-act="demoToggle"><i></i></button></div>` : ''}`;
+      <button class="list-btn" data-act="replayOnboarding">${icon('eye')}<span>${C.name} 소개 다시 보기</span>${icon('chevron', 'muted')}</button>`;
   } else if (sub === 'account') {
     const c = m.consent;
     // 진짜 앱 + 진짜 카카오 로그인: 카카오에서 받은 정보와 동의 내역을 그대로 보여 준다
@@ -773,7 +774,7 @@ function viewMeSub(m, sub) {
       <ul class="acct">${acct.map(([a, ic, t, d]) => `<li><button class="list-btn ${a === 'withdraw' ? 'danger' : ''}" data-act="acct" data-v="${a}">${icon(ic)}<span class="lb-text"><b>${t}</b><small>${d}</small></span>${icon('chevron', 'muted')}</button></li>`).join('')}</ul>`;
   }
   const html = `<section class="scr me me-sub" aria-labelledby="me-h">
-    <header class="hdr sub-hdr"><button class="icon-btn" data-act="meBack" aria-label="설정으로 돌아가기">${icon('back')}</button><div><h1 id="me-h" class="hdr-title">${meSubTitle(sub)}</h1></div></header>
+    <header class="hdr sub-hdr"><button class="icon-btn" data-act="meBack" aria-label="${ME_PARENT[sub] ? josa(meSubTitle(ME_PARENT[sub]), '으로/로') : '설정으로'} 돌아가기">${icon('back')}</button><div><h1 id="me-h" class="hdr-title">${meSubTitle(sub)}</h1></div></header>
     <div class="paper">${body}</div>
   </section>`;
   return { id: 'me-' + sub, html };

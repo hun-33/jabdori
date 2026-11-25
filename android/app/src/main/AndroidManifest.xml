@@ -18,6 +18,11 @@
         <package android:name="tv.twitch.android.app" />
         <package android:name="com.reddit.frontpage" />
         <package android:name="com.discord" />
+        <!-- 딴짓 감지 > 지켜볼 앱: 앱 서랍에 보이는 앱 목록 (QUERY_ALL_PACKAGES 없이 런처 앱만) -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
     </queries>
 
     <application

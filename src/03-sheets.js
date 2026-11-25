@@ -136,7 +136,7 @@ function viewRecordSheet(m, key) {
   if (!done) facts.push(['핑계', run.excuse ? EXCUSES[run.excuse] : run.reason || '남기지 않음']);
   return sheetWrap(`${sheetHead(esc(run.title), 'closeSheet', fmtDateLong(d))}
     <div class="sheet-body">
-      <div class="rec-head"><span class="stamp ${done ? 'ok' : 'bad'} sm still">${done ? '참 잘했어' : '넘쳤다'}</span><p class="rec-line">“${esc(run.line || '')}”</p></div>
+      <div class="rec-head"><span class="stamp ${done ? 'ok' : 'bad'} sm still">${done ? '훌륭해!' : '아쉽네!'}</span><p class="rec-line">“${esc(run.line || '')}”</p></div>
       <dl class="facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
       <h3 class="sec-label">잡도리 로그</h3>
       <ol class="log">${(run.log || []).map((e) => `<li class="lg-${e.kind}"><time>${fmtHM(e.at)}</time><span>${esc(logText(e))}</span></li>`).join('') || '<li><span>남은 로그가 없어요.</span></li>'}</ol>
@@ -174,7 +174,7 @@ function viewResult(m) {
   return `<div class="result ${done ? 'r-ok' : 'r-bad'}" role="dialog" aria-modal="true" aria-labelledby="res-title">
     <div class="res-scroll">
       <div class="res-top">
-        <span class="stamp ${done ? 'ok' : 'bad'}" aria-hidden="true">${done ? '참 잘했어' : '넘쳤다'}</span>
+        <span class="stamp ${done ? 'ok' : 'bad'}" aria-hidden="true">${done ? '훌륭해!' : '아쉽네!'}</span>
         <div class="res-mascot">${resultMascot(m, run, done)}</div>
       </div>
       <h1 id="res-title" class="res-title">${esc(run.title)} ${done ? '완료' : '실패'}</h1>
@@ -453,14 +453,9 @@ function viewForm(m) {
       ${heatSec}` : '';
   return sheetWrap(`<div class="sheet-head"><div><h2 id="sheet-title" class="sheet-title">${f.id ? '일정 고치기' : '새 일정'}</h2></div></div>
     <div class="sheet-body form-body">
-      ${f.id ? '' : `<section class="f-sec quick">
-        <div class="f-row-head"><label for="f-quick" class="f-label">한 줄로 쓰기</label><span class="f-aside">선택</span></div>
-        <div class="quick-row"><input id="f-quick" class="txt" data-field="quick" enterkeyhint="done" autocomplete="off" placeholder="예: 내일 3시 과제 2시간" value="${esc(f.quick || '')}"><button class="btn secondary sm" data-act="quickApply">채우기</button></div>
-        <p class="hint" id="quick-hint" aria-live="polite">${esc(quickPreview(f, f.quick))}</p>
-      </section>`}
       <section class="f-sec">
         <div class="f-row-head"><label for="f-title" class="f-label">제목</label><span class="f-aside" id="title-count">${f.title.length}/30</span></div>
-        <input id="f-title" class="txt" data-field="title" maxlength="30" autocomplete="off" placeholder="예: 데이터베이스 과제" value="${esc(f.title)}" ${f.errors.title ? 'aria-invalid="true" aria-describedby="err-title"' : ''}>
+        <input id="f-title" class="txt" data-field="title" maxlength="30" autocomplete="off" value="${esc(f.title)}" ${f.errors.title ? 'aria-invalid="true" aria-describedby="err-title"' : ''}>
         ${fieldErr(f, 'title')}
       </section>
       <section class="f-sec" aria-labelledby="lb-type">

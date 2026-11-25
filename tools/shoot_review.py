@@ -2,10 +2,12 @@
 from playwright.sync_api import sync_playwright
 OUT = '/tmp/review'
 import os; os.makedirs(OUT, exist_ok=True)
+HOOKS = __import__('pathlib').Path(__file__).resolve().parent / 'test_hooks.js'  # 검사 전용 도우미 (가상 시각·테스트 일정)
 errs = []
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
     ctx = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, has_touch=True, is_mobile=True, locale='ko-KR')
+    ctx.add_init_script(path=str(HOOKS))
     pg = ctx.new_page()
     pg.on('pageerror', lambda e: errs.append(str(e)))
     shot = lambda n: pg.screenshot(path=f'{OUT}/{n}.png')
@@ -17,7 +19,7 @@ with sync_playwright() as p:
     pg.click('[data-act=onbNext]'); pg.wait_for_timeout(400); shot('04_onb2')
     pg.click('[data-act=onbSkip]'); pg.wait_for_timeout(500); shot('05_today_empty')
     ev('ACT.cSeed()'); pg.wait_for_timeout(300); ev('ACT.cSeedExtra && ACT.cSeedExtra()'); pg.wait_for_timeout(300)
-    ev('hideBanner && hideBanner()'); ev("document.querySelector('#console') && document.body.classList.remove('console-open')"); pg.wait_for_timeout(500)
+    ev('hideBanner && hideBanner()'); pg.wait_for_timeout(500)
     shot('06_today_seeded')
     ev("window.scrollTo(0,0); document.querySelector('#screen').scrollTop = 600"); pg.wait_for_timeout(300); shot('07_today_scrolled')
     ev("document.querySelector('#screen').scrollTop = 0"); pg.wait_for_timeout(200)

@@ -95,6 +95,7 @@ const ICON_PATHS = {
   down: '<path d="M6 9.5l6 6 6-6"/>',
   shirt: '<path d="M8.5 4.5L4 7l1.8 4 2.2-1V20h8V10l2.2 1L20 7l-4.5-2.5c-.6 1.6-2 2.5-3.5 2.5s-2.9-.9-3.5-2.5z"/>',
   download: '<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
 };
 function icon(name, cls = '') {
   return `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICON_PATHS[name] || ''}</svg>`;
@@ -336,14 +337,13 @@ function fillLine(tpl, v) { return tpl.replace(/\{(\w+)\}/g, (_, k) => (v[k] ?? 
 /* ---------- 저장소 ---------- */
 const STORE_KEY = 'jabdori.proto.v1';
 const TEST_KAKAO = { id: '4100231', nickname: '테스트 사용자', email: 'test.user@example.com' };
-const BASE_CLOCK = new Date(2026, 10, 23, 18, 0, 0, 0).getTime();
+const BASE_CLOCK = new Date(2026, 10, 23, 18, 0, 0, 0).getTime(); // 자동 검사(tools/test_hooks.js)의 가상 시각 기준
 
 function freshState() {
   return {
     v: 1,
-    clock: BASE_CLOCK,
-    realTime: false,
-    auto: false,
+    clock: Math.floor(Date.now() / 60000) * 60000,
+    realTime: true,              // 이 기기의 실제 시각을 따라간다 (05-native.js clockBoot)
     session: null,            // { kakaoId, memberId, method, at, expired? }
     kakao: {},                // kakaoId -> { linked, token, consent }  (카카오 쪽 상태 재현)
     members: {},              // memberId -> member
@@ -353,7 +353,7 @@ function freshState() {
     ignoredClicks: 0,
     reduceMotion: false,
     voice: { mode: 'off', speed: 'normal' }, // 목소리 설정 (04c-voice.js)
-    settledDay: ymd(BASE_CLOCK),
+    settledDay: ymd(Date.now()),
   };
 }
 let storageOK = true;

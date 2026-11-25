@@ -5,6 +5,7 @@
 - 종일 버튼: 잡도리 상태에서도 눌리고, 새 일정은 일반 일정으로 / 고치는 일정은 잡도리 끔으로 바뀌는지"""
 import json, os
 from playwright.sync_api import sync_playwright
+HOOKS = __import__('pathlib').Path(__file__).resolve().parent / 'test_hooks.js'  # 검사 전용 도우미 (가상 시각·테스트 일정)
 URL = 'file:///home/claude/jabdori-app/dist/index.html'
 OUT = '/home/claude/jabdori-app/shots/month_bars'
 os.makedirs(OUT, exist_ok=True)
@@ -29,6 +30,7 @@ TASKS = [
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
     ctx = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, has_touch=True, is_mobile=True, locale='ko-KR', timezone_id='Asia/Seoul')
+    ctx.add_init_script(path=str(HOOKS))
     pg = ctx.new_page()
     pg.on('pageerror', lambda e: errors.append('PAGEERROR ' + str(e)))
     pg.on('console', lambda m: errors.append('CONSOLE ' + m.text) if m.type == 'error' else None)

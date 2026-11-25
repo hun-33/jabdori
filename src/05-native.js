@@ -22,7 +22,7 @@ function kakaoErrorToLogin(e) {
 }
 
 async function nativeLogin(opt = {}) {
-  if (ui.login.busy) { state.ignoredClicks++; save(); renderConsole(); return; }
+  if (ui.login.busy) { state.ignoredClicks++; save(); return; }
   ui.login = { busy: true, step: opt.forceAccount ? 'account' : 'opening' };
   render();
   diagBegin('real', 'login'); // 단계별 결과 기록 시작 (개발자 진단에서 확인)
@@ -266,7 +266,6 @@ function nativeBars(dark) {
 }
 function nativeBack() {
   if (ui.input) { ACT.wheelInputCancel(); return; }
-  if (document.body.classList.contains('console-open')) { ACT.cToggle(); return; }
   if (ui.popup) return; // 딴짓 팝업은 답을 골라야 닫힘
   if (ui.sheet) { ACT.sheetScrim(); return; }
   if (ui.result) { ACT.resultClose(); return; }
@@ -282,22 +281,20 @@ function afterSave() {
 }
 
 /* ---------- 시작 ---------- */
-// 스크립트가 읽히자마자(화면 그리기 전에) 실행: 진짜 앱은 처음부터 실제 시각으로 동작
-(function nativeBoot() {
-  if (!NATIVE.on) return;
-  if (!state.nativeInit) {
-    state.nativeInit = true;
-    state.realTime = true;
-    state.auto = false;
-    state.clock = Math.floor(Date.now() / MIN) * MIN;
-    state.settledDay = ymd(state.clock);
-    save();
-  }
+// 스크립트가 읽히자마자(화면 그리기 전에) 실행: 앱·웹 모두 처음부터 이 기기의 실제 시각으로 동작
+// (예전 시연용 가상 시각을 쓰던 웹 기록도 실제 시각으로 옮긴다)
+(function clockBoot() {
+  if (state.nativeInit || state.clockInit || state.testClock) return;
+  state.clockInit = true;
+  if (NATIVE.on) state.nativeInit = true;
+  state.realTime = true;
+  state.clock = Math.floor(Date.now() / MIN) * MIN;
+  state.settledDay = ymd(state.clock);
+  save();
 })();
 // init() 끝에서 불림
 function nativeInit() {
   if (!NATIVE.on) return;
-  document.body.classList.toggle('demo', !!state.showDemo);
   NOTIF.init();
   WATCH.init();
   nativeRestoreSession();
@@ -324,7 +321,6 @@ function notifRow() {
   const on = !state.notifOff;
   let sub = `앱을 꺼 둬도 시작·10분 지각·마감 30분 전·마감 때 알려요 · 예약 ${NOTIF.pending}개`;
   if (on && NOTIF.perm === 'denied') sub = NATIVE.ios ? '알림 권한이 꺼져 있어요. 아이폰 설정 > 알림 > 잡도리에서 알림 허용을 켜 주세요' : '알림 권한이 꺼져 있어요. 스위치를 다시 켜거나 휴대폰 설정 > 애플리케이션 > 잡도리 > 알림에서 켜 주세요';
-  else if (on && !state.realTime) sub = '시연용 가상 시각을 쓰는 중이라 알림을 예약하지 않아요 (시연 도구에서 실제 시각 쓰기를 켜면 예약)';
   else if (!on) sub = '알림을 껐어요. 앱 안에서만 잔소리해요';
   return `<h2 class="sec-label">알림</h2>
       <div class="list-btn as-row"><span class="lb-text"><b>시작·마감 알림</b><small>${sub}</small></span>
@@ -338,9 +334,7 @@ Object.assign(ACT, {
     NOTIF.schedule(true); render();
     setTimeout(render, 900); // 예약 개수 반영
   },
-  demoToggle: () => { state.showDemo = !state.showDemo; document.body.classList.toggle('demo', state.showDemo); save(); render(); if (state.showDemo) toast("오른쪽 가장자리의 '시연' 탭을 눌러 보세요."); },
   // 카카오 설정 전에도 앱을 둘러볼 수 있게: 흉내 로그인으로 바로 들어가기
   loginFake: () => { state.fakeLogin = true; ui.login = { busy: false }; save(); startLogin(); },
   realLogin: () => { state.fakeLogin = false; ui.login = { busy: false }; save(); render(); },
-  cFake: () => { state.fakeLogin = !state.fakeLogin; save(); renderConsole(true); toast(state.fakeLogin ? '다음 로그인부터 흉내 모드예요 (카카오에 연결하지 않음).' : '다음 로그인부터 진짜 카카오 로그인이에요.'); },
 });

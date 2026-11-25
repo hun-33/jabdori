@@ -1,6 +1,7 @@
 """달력 '고른 날짜 한 번 더 누르면 새 일정' + 이메일 제거 검수."""
 import os
 from playwright.sync_api import sync_playwright
+HOOKS = __import__('pathlib').Path(__file__).resolve().parent / 'test_hooks.js'  # 검사 전용 도우미 (가상 시각·테스트 일정)
 URL = 'file:///home/claude/jabdori-app/dist/index.html'
 OUT = '/home/claude/jabdori-app/shots/cal_retap'; os.makedirs(OUT, exist_ok=True)
 log, errors = [], []
@@ -9,7 +10,9 @@ def check(name, cond, extra=''):
 
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
-    pg = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, locale='ko-KR', timezone_id='Asia/Seoul').new_page()
+    _ctx = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, locale='ko-KR', timezone_id='Asia/Seoul')
+    _ctx.add_init_script(path=str(HOOKS))
+    pg = _ctx.new_page()
     pg.on('pageerror', lambda e: errors.append(str(e)))
     ev = lambda c: pg.evaluate(c)
     pg.goto(URL); ev('localStorage.clear()'); pg.reload(); pg.wait_for_timeout(500)

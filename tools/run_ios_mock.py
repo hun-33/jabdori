@@ -5,6 +5,7 @@
 import re
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+HOOKS = __import__('pathlib').Path(__file__).resolve().parent / 'test_hooks.js'  # 검사 전용 도우미 (가상 시각·테스트 일정)
 
 # 안드로이드 흉내(run_native_mock.py)의 MOCK 문자열을 그대로 가져와 플랫폼만 바꾼다
 _src = (Path(__file__).resolve().parent / 'run_native_mock.py').read_text(encoding='utf-8')
@@ -21,6 +22,7 @@ assert 'webkit' in MOCK and "platform: 'ios'" in MOCK
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
     ctx = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, has_touch=True, is_mobile=True, locale='ko-KR')
+    ctx.add_init_script(path=str(HOOKS))
     ctx.add_init_script(MOCK)
     pg = ctx.new_page()
     pg.on('pageerror', lambda e: errors.append('PAGEERROR ' + str(e)))

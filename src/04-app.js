@@ -1,10 +1,10 @@
 /* =========================================================
-   04-app: 렌더링 엔진, 사용자 동작, 로그인 시뮬레이션, 시연 콘솔
+   04-app: 렌더링 엔진, 사용자 동작, 로그인 시뮬레이션(흉내 모드)
    ========================================================= */
 
 let el = {};
 let cur = { id: null, sig: null, tpl: null };
-const layerState = { sheetKey: null, sheetHtml: '', popupHtml: '', resultHtml: '', tabHtml: '', consoleHtml: '' };
+const layerState = { sheetKey: null, sheetHtml: '', popupHtml: '', resultHtml: '', tabHtml: '' };
 let formDirty = false;
 let lastFocus = null;
 let enterTimer = null;
@@ -87,7 +87,6 @@ function render(force = false) {
   if (!(ui.sheet && ui.sheet.type === 'form')) ui.input = null;
   renderLayers(m);
   renderInputLayer();
-  renderConsole();
   renderStatus();
   if (NATIVE.Watch && typeof WATCH !== 'undefined') WATCH.schedule(); // 딴짓 감지: 지켜볼 잡도리가 바뀌면 서비스에 알림
 }
@@ -235,7 +234,7 @@ function ensureExistingMember() {
 }
 async function startLogin(opt = {}) {
   if (NATIVE.on && !state.fakeLogin) return nativeLogin(opt); // 진짜 앱: 카카오 공식 SDK (05-native)
-  if (ui.login.busy) { state.ignoredClicks++; save(); renderConsole(); return; }
+  if (ui.login.busy) { state.ignoredClicks++; save(); return; }
   const sc = state.scenario;
   const kid = kakaoId();
   if (sc === 'existing') ensureExistingMember();
@@ -300,25 +299,6 @@ async function completeLogin(kid, method) {
   if (!isNew) toast(relinked ? '다시 연결됐어요. 기록은 그대로예요.' : `다시 왔네요, ${mm.nickname} 님. 기록은 그대로예요.`);
 }
 
-/* ---------- 테스트 데이터 ---------- */
-function testTaskSpec() {
-  return { type: 'jab', title: '데이터베이스 과제', date: '2026-11-23', repeatKind: 'weekly', days: [1], every: 1, start: '18:00', endDate: '2026-11-23', end: '20:00', heat: 50, dlMode: 'custom', dlDate: '2026-11-23', dlTime: '20:00', more: true };
-}
-function seedCommon(m) {
-  if (m.tasks.some((t) => t.title === '데이터베이스 과제')) { toast('데이터베이스 과제가 이미 있어요.'); return; }
-  const s = testTaskSpec();
-  m.tasks.push(migrateTask({ id: uid('t'), type: 'jab', title: s.title, date: s.date, repeat: { kind: 'weekly', days: [1] }, start: s.start, duration: 120, heat: 50, deadline: { enabled: true, date: s.date, time: s.dlTime }, createdAt: now() }));
-  ui.selDate = today();
-  toast('공통 테스트 일정을 넣었어요 · 데이터베이스 과제');
-}
-function seedExtra(m) {
-  const add = (title, days, start, duration) => { if (!m.tasks.some((t) => t.title === title)) m.tasks.push(migrateTask({ id: uid('t'), type: 'normal', title, date: '2026-11-23', repeat: { kind: 'weekly', days }, start, duration, heat: null, deadline: null, createdAt: now() })); };
-  add('자료구조 스터디', [2], '19:00', 90);
-  add('팀 프로젝트 회의', [4], '16:00', 60);
-  add('편의점 아르바이트', [6], '13:00', 300);
-  toast('일반 일정 3개를 넣었어요');
-}
-
 /* ---------- 사용자 동작 ---------- */
 function curOcc(key) {
   const m = member(); if (!m) return null;
@@ -357,9 +337,22 @@ const ACT = {
   /* 탐색 */
   tab: (t) => { if (ui.tab !== t.dataset.tab) TTS.stop(); if (t.dataset.tab === 'me') ui.meSub = null; ui.tab = t.dataset.tab; ui.focusKey = null; ui.sheet = null; if (ui.tab === 'calendar') { ui.calMonth = (ui.selDate || today()).slice(0, 7);  } render(); },
   selDate: (t) => { ui.selDate = t.dataset.date; render(); },
+  /* 숨은 개발자 메뉴: 설정 맨 아래 문구를 2초 안에 7번 누르면 켜고 끈다 (로그인 진단) */
+  devTap: () => {
+    const t = Date.now();
+    ui.devTaps = (ui.devTaps || []).filter((x) => t - x < 2000).concat(t);
+    if (ui.devTaps.length < 7) return;
+    ui.devTaps = [];
+    state.devMode = !state.devMode; save(); render();
+    toast(state.devMode ? '개발자 메뉴를 켰어요. 설정 첫 화면에 로그인 진단이 생겼어요.' : '개발자 메뉴를 껐어요.');
+  },
   /* 설정 탭 하위 화면 열기·닫기 */
-  meOpen: (t) => { ui.meSub = t.dataset.v; render(); },
-  meBack: () => { ui.meSub = null; render(); },
+  meOpen: (t) => {
+    ui.meSub = t.dataset.v;
+    if (ui.meSub === 'watchApps') { ui.appQ = ''; WATCH.loadApps(); }   // 열 때마다 이 폰의 앱 목록을 새로 읽는다 (그동안은 지난 목록)
+    render();
+  },
+  meBack: () => { ui.meSub = ME_PARENT[ui.meSub] || null; render(); },
   /* 월간 날짜 칸·주간 날짜: 처음 누르면 그 날을 고르고, 고른 날을 한 번 더 누르면 그 날로 새 일정 (삼성 캘린더처럼) */
   calPick: (t) => {
     const d = t.dataset.date;
@@ -641,50 +634,6 @@ const ACT = {
     save(); render();
   },
 
-  /* 시연 콘솔 */
-  cTime: (t) => { state.realTime = false; setClockHM(t.dataset.hm); renderConsole(true); },
-  cBase: () => { state.realTime = false; setClock(BASE_CLOCK); renderConsole(true); },
-  cShift: (t) => { state.realTime = false; setClock(now() + Number(t.dataset.min) * MIN); renderConsole(true); },
-  cAuto: () => { state.auto = !state.auto; if (state.auto) state.realTime = false; save(); renderConsole(true); },
-  cReal: () => { state.realTime = !state.realTime; if (state.realTime) { state.auto = false; syncRealClock(); toast('이제 이 기기의 실제 시각을 따라가요.'); } else save(); renderConsole(true); },
-  cTalk: () => { state.talkInstalled = !state.talkInstalled; save(); renderConsole(true); },
-  cExpire: () => {
-    if (!state.session) { toast('로그인한 상태에서만 만료시킬 수 있어요.'); return; }
-    state.session.expired = true; if (state.kakao[kakaoId()]) state.kakao[kakaoId()].token = false;
-    Object.assign(ui, { focusKey: null, sheet: null, result: null, popup: null, form: null });
-    save(); render();
-  },
-  cSlack: (t) => {
-    const m = member();
-    if (!m || !m.onboarded) { toast('로그인과 소개를 마친 뒤 시연할 수 있어요.'); return; }
-    slackDetected(m, t.dataset.app, false);
-  },
-  cSeed: () => { const m = member(); if (!m || !m.onboarded) { toast('로그인과 소개를 마친 뒤 넣을 수 있어요.'); return; } seedCommon(m); save(); render(); },
-  cSeedExtra: () => { const m = member(); if (!m || !m.onboarded) { toast('로그인과 소개를 마친 뒤 넣을 수 있어요.'); return; } seedExtra(m); save(); render(); },
-  cFill: () => {
-    const m = member(); if (!m || !m.onboarded) { toast('로그인과 소개를 마친 뒤 쓸 수 있어요.'); return; }
-    if (!ui.form || !ui.sheet || ui.sheet.type !== 'form') ui.form = newDraft(m, '2026-11-23');
-    Object.assign(ui.form, testTaskSpec(), { errors: {}, _dlTouched: true });
-    ui.form.heat = Math.max(50, ui.form.minHeat);
-    ui.focusKey = null;
-    openSheet({ type: 'form', id: ui.form.id });
-  },
-  cUndo: () => {
-    const m = member(); if (!m) return;
-    let n = 0;
-    for (const k of Object.keys(m.runs)) if (splitKey(k)[1] === today()) { undoRun(m, k); n++; }
-    Object.assign(ui, { focusKey: null, result: null, popup: null });
-    save(); render(); toast(n ? `오늘 회차 ${n}개를 처음 상태로 되돌렸어요.` : '되돌릴 오늘 회차가 없어요.');
-  },
-  cReset: (t) => {
-    if (!t.classList.contains('armed')) { t.classList.add('armed'); t.textContent = '한 번 더 누르면 모두 지워요'; setTimeout(() => { t.classList.remove('armed'); t.textContent = '전체 초기화'; }, 3000); return; }
-    try { localStorage.removeItem(STORE_KEY); } catch (e) { /* 저장소 없음 */ }
-    state = freshState();
-    for (const k of Object.keys(lineMemo)) delete lineMemo[k];
-    Object.assign(ui, { tab: 'today', selDate: null, calMonth: null, focusKey: null, sheet: null, popup: null, result: null, form: null, login: { busy: false }, onb: { step: 0, stage: 3 } });
-    applyMotionPref(); save(); render(true); renderConsole(true); toast('처음 상태로 돌렸어요.');
-  },
-  cToggle: () => { if (tabDrag.moved) { tabDrag.moved = false; return; } ui.consoleOpen = !ui.consoleOpen; document.body.classList.toggle('console-open', ui.consoleOpen); },
 };
 function doFail(excuse) {
   const m = member(), key = ui.sheet && ui.sheet.key;
@@ -736,75 +685,6 @@ function saveForm(dupOK) {
   toast(prev ? '고친 내용을 저장했어요.' : task.type === 'jab' ? `${fmtMD(task.date)} ${task.start}부터 ${persona().name}${jo(persona().name, '이/가')} 붙어요.` : '달력에 적어 뒀어요.');
 }
 
-/* ---------- 시연 콘솔 ---------- */
-const SCENARIOS = [
-  ['normal', '정상 (최초 → 신규 가입 / 다음부터 → 기존 회원)'],
-  ['existing', '기존 회원 (기록 있는 계정으로 로그인)'],
-  ['noTalk', '카카오톡 미설치 → 카카오계정 로그인'],
-  ['talkFail', '카카오톡 실행 실패 → 대체 경로 안내'],
-  ['cancel', '사용자가 로그인 취소'],
-  ['denyRequired', '동의 화면: 필수 항목 미동의 상태로 시작'],
-  ['optionalOff', '동의 화면: 선택 항목 끄고 시작'],
-  ['network', '네트워크 끊김 → 재시도'],
-  ['server', '카카오 인증 서버 오류'],
-  ['timeout', '요청 시간 초과'],
-  ['authFail', '인증 실패'],
-  ['returnFail', '카카오톡에서 앱 복귀 실패'],
-];
-const DEMO_STEPS = ['가상 카카오 로그인', '최초 회원 온보딩', '메인 화면 확인', '데이터베이스 과제 등록 (콘솔: 폼에 테스트 값 채우기)', '주간·월간 달력에서 확인', '일정 시작', '미루먼지 반응 확인', '시간 바꿔 마감 임박 확인 (19:30)', '딴짓 팝업 (YouTube 실행)', '성공 처리 → 오늘 회차 되돌리기', '실패 처리', '새 일정 올리기에서 쌓인 먼지 60 확인', '설정 > 미루먼지 농도 > 단계 이름을 공통으로 바꿔 보기'];
-function consoleBody() {
-  const m = member();
-  const sess = state.session && !state.session.expired ? (m ? `${m.nickname} · ${m.onboarded ? '이용 중' : '온보딩 중'}` : '없음') : '로그인 전';
-  const T = (hm, l) => `<button class="cs-btn" data-act="cTime" data-hm="${hm}">${hm}<small>${l}</small></button>`;
-  return `<div class="cs-head"><div><b>시연 콘솔</b><p>앱 화면이 아니에요 · 테스트·발표 전용 도구</p></div><button class="cs-x" data-act="cToggle" aria-label="시연 콘솔 닫기">${icon('close')}</button></div>
-  <section class="cs-sec"><h3>가상 시각</h3>
-    <p class="cs-clock"><span id="cs-date"></span> <b id="cs-time"></b></p>
-    <div class="cs-grid five">${T('18:00', '시작')}${T('19:00', '진행')}${T('19:30', '임박')}${T('19:50', '끓기 직전')}${T('20:00', '마감')}</div>
-    <div class="cs-grid five">${[[-10, '−10분'], [1, '+1분'], [10, '+10분'], [60, '+1시간'], [1440, '+1일']].map(([v, l]) => `<button class="cs-btn" data-act="cShift" data-min="${v}">${l}</button>`).join('')}</div>
-    <div class="cs-row"><button class="cs-toggle ${state.auto ? 'on' : ''}" data-act="cAuto" role="switch" aria-checked="${state.auto}"><i></i>시간 흐르게 (1초 = 1분)</button><button class="cs-btn ghost" data-act="cBase">11/23 18:00로</button></div>
-    <div class="cs-row"><button class="cs-toggle ${state.realTime ? 'on' : ''}" data-act="cReal" role="switch" aria-checked="${!!state.realTime}"><i></i>실제 시각 쓰기 (폰에서 진짜로 써 보기)</button></div>
-    <p class="cs-note">켜면 가상 시각 대신 이 기기의 지금 시각을 따라가요. 위의 시각 버튼을 누르면 다시 가상 시각으로 돌아가요.</p>
-  </section>
-  ${NATIVE.on ? `<section class="cs-sec"><h3>진짜 앱</h3>
-    <div class="cs-row"><button class="cs-toggle ${state.fakeLogin ? 'on' : ''}" data-act="cFake" role="switch" aria-checked="${!!state.fakeLogin}"><i></i>카카오 로그인 흉내 모드 (인터넷 없이 발표할 때)</button></div>
-    <p class="cs-note">끄면 진짜 카카오 로그인, 켜면 아래 '다음 로그인 결과' 시나리오로 흉내만 내요. 알림은 '실제 시각 쓰기'가 켜져 있을 때만 예약돼요.</p>
-  </section>` : ''}
-  <section class="cs-sec"><h3>다음 로그인 결과${NATIVE.on ? ' (흉내 모드일 때)' : ''}</h3>
-    <div class="cs-radios" role="radiogroup" aria-label="다음 로그인 시나리오">${SCENARIOS.map(([v, l]) => `<label class="cs-radio"><input type="radio" name="scn" value="${v}" ${state.scenario === v ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
-    <div class="cs-row"><button class="cs-toggle ${state.talkInstalled ? 'on' : ''}" data-act="cTalk" role="switch" aria-checked="${state.talkInstalled}"><i></i>카카오톡 설치됨</button><button class="cs-btn ghost" data-act="cExpire">토큰 만료시키기</button></div>
-    <div class="cs-row"><button class="cs-btn" data-act="openDiag">로그인 진단 열기 (개발자용)</button></div>
-    <p class="cs-note">중복 클릭 무시: <b>${state.ignoredClicks}회</b> · 로그인 중 버튼을 여러 번 눌러 보세요.</p>
-  </section>
-  <section class="cs-sec"><h3>딴짓 시뮬레이션</h3>
-    <div class="cs-grid two"><button class="cs-btn" data-act="cSlack" data-app="YouTube">YouTube 실행</button><button class="cs-btn" data-act="cSlack" data-app="Instagram">Instagram 실행</button></div>
-    <p class="cs-note">실제 앱 감지·오버레이 권한은 쓰지 않아요. 진행 중인 잡도리 일정이 있으면 팝업이 떠요.</p>
-  </section>
-  <section class="cs-sec"><h3>테스트 데이터</h3>
-    <div class="cs-grid two"><button class="cs-btn" data-act="cFill">등록 폼에 테스트 값 채우기</button><button class="cs-btn" data-act="cSeed">공통 테스트 일정 바로 넣기</button>
-    <button class="cs-btn" data-act="cSeedExtra">보조 샘플 (일반 일정 3개)</button><button class="cs-btn" data-act="cUndo">오늘 회차 되돌리기</button></div>
-    <button class="cs-btn danger block" data-act="cReset">전체 초기화</button>
-  </section>
-  <section class="cs-sec"><h3>지금 상태</h3>
-    <dl class="cs-state"><div><dt>세션</dt><dd>${esc(sess)}</dd></div><div><dt>가입 회원</dt><dd>${Object.keys(state.members).length}명</dd></div>
-    <div><dt>${scaleOf(m).floor}</dt><dd>${m ? lv(floorOf(m), m) + ' (가산 ' + m.penalty + '칸, 연속 성공 ' + m.streak + ')' : '-'}</dd></div>
-    <div><dt>카카오 연결</dt><dd>${state.kakao[kakaoId()] && state.kakao[kakaoId()].linked ? '연결됨' : '없음'}${state.kakao[kakaoId()] && state.kakao[kakaoId()].token ? ' · 토큰 있음' : ''}</dd></div>
-    <div><dt>저장</dt><dd>${storageOK ? 'LocalStorage (새로고침해도 유지)' : '메모리 (새로고침하면 사라짐)'}</dd></div></dl>
-  </section>
-  <section class="cs-sec"><h3>공통 시연 순서</h3><ol class="cs-steps">${DEMO_STEPS.map((s) => `<li>${s}</li>`).join('')}</ol></section>`;
-}
-function renderConsole(force) {
-  if (!el.console) return;
-  const html = consoleBody();
-  if (force || html !== layerState.consoleHtml) {
-    const top = el.console.scrollTop;
-    el.console.innerHTML = html; layerState.consoleHtml = html;
-    el.console.scrollTop = top;
-  }
-  const d = new Date(now());
-  const dEl = $('#cs-date'), tEl = $('#cs-time');
-  if (dEl) dEl.textContent = `${d.getFullYear()}년 ${fmtDateShort(today())}`;
-  if (tEl) tEl.textContent = fmtHM(now());
-}
 
 /* 목소리(TTS)는 04c-voice.js */
 
@@ -969,14 +849,14 @@ Object.assign(ACT, {
 /* ---------- 시작 ---------- */
 function applyMotionPref() { document.documentElement.classList.toggle('reduce', !!state.reduceMotion); }
 function init() {
-  el = { device: $('#device'), app: $('#app'), screen: $('#screen'), tabbar: $('#tabbar'), sheet: $('#layer-sheet'), popup: $('#layer-popup'), result: $('#layer-result'), toast: $('#toast'), console: $('#console'), status: $('#sb-time') };
+  el = { device: $('#device'), app: $('#app'), screen: $('#screen'), tabbar: $('#tabbar'), sheet: $('#layer-sheet'), popup: $('#layer-popup'), result: $('#layer-result'), toast: $('#toast'), status: $('#sb-time') };
   applyMotionPref();
   document.addEventListener('click', (ev) => {
     const t = ev.target.closest('[data-act]');
     if (!t) return;
     if (t.disabled) return;
     if (t.getAttribute('aria-disabled') === 'true') {
-      if (t.dataset.act === 'login') { state.ignoredClicks++; save(); renderConsole(); }
+      if (t.dataset.act === 'login') { state.ignoredClicks++; save(); }
       return;
     }
     const fn = ACT[t.dataset.act];
@@ -984,17 +864,11 @@ function init() {
     if (fn) { ev.preventDefault(); fn(t, ev); }
   });
   document.addEventListener('input', onField);
-  document.addEventListener('change', (ev) => {
-    if (ev.target.name === 'scn') { state.scenario = ev.target.value; if (state.scenario === 'noTalk') state.talkInstalled = true; save(); renderConsole(true); return; }
-    onField(ev, true);
-  });
-  // 한 줄로 쓰기: 엔터 = 채우기
-  document.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target && ev.target.id === 'f-quick') { ev.preventDefault(); ACT.quickApply(); } });
+  document.addEventListener('change', (ev) => onField(ev, true));
   document.addEventListener('keydown', (ev) => {
     if (ev.key !== 'Escape') return;
     if (ui.popup) return; // 딴짓 팝업은 답을 골라야 닫힘
     if (ui.sheet) { ACT.sheetScrim(); ev.preventDefault(); }
-    else if (document.body.classList.contains('console-open')) ACT.cToggle();
   });
   // 달력을 옆으로 쓸면 이전·다음 (월간 = 달, 주간 = 주, 일간 = 날). 세로 스크롤과 헷갈리지 않게 가로로 충분히 움직였을 때만
   let sw = null;
@@ -1009,31 +883,14 @@ function init() {
   TTS.init();
   PWA.init();
   render(true);
-  renderConsole(true);
-  setInterval(() => { if (state.auto) setClock(now() + MIN); else if (state.realTime) syncRealClock(); }, 1000);
+  setInterval(() => { if (state.realTime) syncRealClock(); }, 1000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && state.realTime) syncRealClock(true); });
-  initTabDrag();
   nativeInit();
 }
 /* 실제 시각 모드: 폰에 설치해서 실제로 쓸 때 가상 시각 대신 기기 시각을 따라감 (분 단위로만 갱신) */
 function syncRealClock(force) {
   const t = Math.floor(Date.now() / MIN) * MIN;
   if (force || t !== now()) setClock(t);
-}
-/* 시연 탭 끌어서 옮기기: 좁은 폰에서 내용을 가리면 위아래로 치울 수 있게 */
-const tabDrag = { moved: false };
-function initTabDrag() {
-  const tab = $('#console-tab'); if (!tab) return;
-  try { const y = Number(localStorage.getItem('jabdori-tab-y')); if (y > 0) tab.style.top = y + '%'; } catch (e) { /* 저장소 없음 */ }
-  let start = null;
-  tab.addEventListener('pointerdown', (ev) => { start = { y: ev.clientY, top: tab.getBoundingClientRect().top }; tabDrag.moved = false; tab.setPointerCapture(ev.pointerId); });
-  tab.addEventListener('pointermove', (ev) => {
-    if (!start) return; const dy = ev.clientY - start.y;
-    if (Math.abs(dy) > 6) tabDrag.moved = true;
-    if (tabDrag.moved) { const pct = clamp((start.top + dy) / innerHeight * 100, 8, 86); tab.style.top = pct + '%'; }
-  });
-  const end = () => { if (start && tabDrag.moved) { try { localStorage.setItem('jabdori-tab-y', parseFloat(tab.style.top)); } catch (e) { /* 무시 */ } } start = null; };
-  tab.addEventListener('pointerup', end); tab.addEventListener('pointercancel', end);
 }
 function onField(ev, isChange) {
   const t = ev.target, k = t.dataset && t.dataset.field;
@@ -1048,7 +905,6 @@ function onField(ev, isChange) {
     return;
   }
   f[k] = t.value;
-  if (k === 'quick') { const h = $('#quick-hint'); if (h) h.textContent = quickPreview(f, t.value); return; }
   if (k === 'dlDate' || k === 'dlTime') f._dlTouched = true;
   if (k === 'title') {
     const c = $('#title-count'); if (c) c.textContent = `${t.value.length}/30`;

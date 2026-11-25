@@ -1,5 +1,6 @@
 import sys
 from playwright.sync_api import sync_playwright
+HOOKS = __import__('pathlib').Path(__file__).resolve().parent / 'test_hooks.js'  # 검사 전용 도우미 (가상 시각·테스트 일정)
 URL = 'file:///home/claude/jabdori-app/dist/index.html'
 OUT = '/home/claude/jabdori-app/shots'
 W, H = 390, 844
@@ -13,11 +14,12 @@ def screen_text(page): return page.inner_text('#app')
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox', '--lang=ko-KR'])
     ctx = b.new_context(viewport={'width': W, 'height': H}, device_scale_factor=2, has_touch=True, is_mobile=True, locale='ko-KR')
+    ctx.add_init_script(path=str(HOOKS))
     page = ctx.new_page()
     page.on('pageerror', lambda e: errors.append('PAGEERROR ' + str(e)))
     page.on('console', lambda m: errors.append('CONSOLE ' + m.text) if m.type == 'error' else None)
     page.goto(URL); page.evaluate('localStorage.clear()'); page.reload(); page.wait_for_timeout(500)
-    def scenario(v): ev(page, f"state.scenario='{v}'; save(); renderConsole(true)")
+    def scenario(v): ev(page, f"ACT.cScenario('{v}')")
     def login_wait(): page.click('.btn-kakao'); page.wait_for_timeout(1800)
     # 7. 네트워크 오류 → 재시도
     scenario('network'); login_wait(); shot(page, '01_network')

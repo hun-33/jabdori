@@ -5,6 +5,7 @@
 """
 import json
 from playwright.sync_api import sync_playwright
+HOOKS = __import__('pathlib').Path(__file__).resolve().parent / 'test_hooks.js'  # 검사 전용 도우미 (가상 시각·테스트 일정)
 URL = 'file:///home/claude/jabdori-app/www/index.html'
 OUT = '/home/claude/jabdori-app/shots'
 log, errors = [], []
@@ -53,6 +54,7 @@ MOCK = r"""
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
     ctx = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, has_touch=True, is_mobile=True, locale='ko-KR')
+    ctx.add_init_script(path=str(HOOKS))
     ctx.add_init_script(MOCK)
     pg = ctx.new_page()
     pg.on('pageerror', lambda e: errors.append('PAGEERROR ' + str(e)))
@@ -63,7 +65,7 @@ with sync_playwright() as p:
 
     check('네이티브로 인식', ev('NATIVE.on') is True and ev("document.documentElement.classList.contains('native')"))
     check('처음부터 실제 시각', ev('state.realTime') is True and abs(ev('Date.now() - now()')) < 70000)
-    check('시연 탭 숨김', ev("getComputedStyle(document.getElementById('console-tab')).display") == 'none')
+    check('시연 도구 없음 (탭·콘솔)', ev("!document.getElementById('console-tab') && !document.getElementById('console')"))
     check('로그인 안내 문구(개인정보)', '동의한 정보' in pg.inner_text('.login'))
     pg.screenshot(path=f'{OUT}/n_01_login.png')
 
@@ -101,9 +103,12 @@ with sync_playwright() as p:
     check('나: 로그인 방식·카카오 연결·앱 로그인 상태', '로그인 방식' in t and '연결됨' in t and '로그인 중' in t and '흉내 모드' not in t)
     check('나: 개발자 메뉴는 기본으로 숨김', pg.query_selector('#screen [data-act=openDiag]') is None)
     check('나 첫 화면: 설정 메뉴 5개', ev("document.querySelectorAll('[data-act=meOpen]').length") == 5)
-    pg.click('[data-act=meOpen][data-v=screen]'); pg.wait_for_timeout(300)
-    pg.click('[data-act=demoToggle]'); pg.wait_for_timeout(300)
+    check('설정 > 화면: 시연 도구 스위치 없음', (pg.click('[data-act=meOpen][data-v=screen]'), pg.wait_for_timeout(300), pg.query_selector('[data-act=demoToggle]'))[2] is None)
     pg.click('[data-act=meBack]'); pg.wait_for_timeout(300)
+    for _ in range(6): pg.click('[data-act=devTap]')
+    check('맨 아래 문구 6번까지는 개발자 메뉴 없음', pg.query_selector('#screen [data-act=openDiag]') is None)
+    pg.click('[data-act=devTap]'); pg.wait_for_timeout(300)
+    check('7번 누르면 개발자 메뉴(로그인 진단)', pg.query_selector('#screen [data-act=openDiag]') is not None)
     pg.click('#screen [data-act=openDiag]'); pg.wait_for_timeout(400)
     t = pg.inner_text('#layer-sheet')
     check('진단 화면: 회원번호는 여기서만', '3456789012' in t and '진짜 카카오 로그인' in t)
@@ -112,7 +117,6 @@ with sync_playwright() as p:
     check('재검증: 모두 성공', all(ev('state.diag.steps')[k] == 'ok' for k in ['auth','token','me','kakaoId','member','session']) and ev('state.diag.kind') == 'recheck')
     pg.click('#layer-sheet [data-act=closeSheet]'); pg.wait_for_timeout(200)
     pg.click('[data-act=meOpen][data-v=screen]'); pg.wait_for_timeout(300)
-    pg.click('[data-act=demoToggle]'); pg.wait_for_timeout(200)
     ev("(window.__listeners['App:backButton']||[]).forEach(f => f({canGoBack:false}))"); pg.wait_for_timeout(300)
     check('뒤로 가기: 나 하위 화면 → 나 첫 화면', ev('ui.tab') == 'me' and ev('ui.meSub') is None)
     check('나: 프로필 사진 표시', pg.query_selector('.profile .avatar img') is not None)

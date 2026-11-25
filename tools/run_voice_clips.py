@@ -6,6 +6,7 @@
 (소리를 귀로 듣는 검사는 아니다. 재생 호출·파일 디코딩·연결만 확인한다)"""
 import json, os
 from playwright.sync_api import sync_playwright
+HOOKS = __import__('pathlib').Path(__file__).resolve().parent / 'test_hooks.js'  # 검사 전용 도우미 (가상 시각·테스트 일정)
 URL = 'file:///home/claude/jabdori-app/dist/index.html'
 log, errors = [], []
 def check(name, cond, extra=''):
@@ -17,6 +18,7 @@ want = {c['tpl']: c['file'] for c in clips_json}
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox', '--autoplay-policy=no-user-gesture-required'])
     ctx = b.new_context(viewport={'width': 390, 'height': 844}, locale='ko-KR', timezone_id='Asia/Seoul')
+    ctx.add_init_script(path=str(HOOKS))
     pg = ctx.new_page()
     pg.on('pageerror', lambda e: errors.append('PAGEERROR ' + str(e)))
     ev = lambda c: pg.evaluate(c)

@@ -594,50 +594,6 @@ input[type="date"].txt, input[type="time"].txt { font-variant-numeric: tabular-n
 #app.no-tabs #toast.show, #app.layer-open #toast.show { transform: none; }
 
 /* ---------- 시연 콘솔 (앱 밖) ---------- */
-#console { font-size: 13.5px; color: #2E2A26; }
-.cs-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding-bottom: 10px; border-bottom: 2px solid #2E2A26; }
-.cs-head b { font-size: 16px; }
-.cs-head p { font-size: 12px; color: #6A6157; }
-.cs-x { display: none; width: 40px; height: 40px; place-items: center; border-radius: 10px; }
-.cs-sec { padding: 12px 0; border-bottom: 1px solid #CFC5B5; }
-.cs-sec h3 { font-size: 12.5px; font-weight: 700; color: #6A6157; margin-bottom: 8px; letter-spacing: .02em; }
-.cs-clock { font-size: 15px; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
-.cs-clock b { font-size: 22px; font-weight: 760; margin-left: 4px; }
-.cs-grid { display: grid; gap: 6px; margin-bottom: 6px; }
-.cs-grid.five { grid-template-columns: repeat(5, 1fr); }
-.cs-grid.two { grid-template-columns: 1fr 1fr; }
-.cs-btn { min-height: 40px; padding: 4px 6px; border-radius: 9px; background: #FFFDF8; border: 1.2px solid #CFC5B5; font-size: 12.5px; font-weight: 650; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.25; text-align: center; font-variant-numeric: tabular-nums; }
-.cs-btn small { font-size: 10.5px; color: #6A6157; font-weight: 600; }
-.cs-btn.ghost { background: transparent; }
-.cs-btn.block { width: 100%; margin-top: 6px; }
-.cs-btn.danger { color: #9E281A; border-color: #E0B4A8; }
-.cs-btn.danger.armed { background: #9E281A; color: #FFFDF8; }
-.cs-row { display: flex; gap: 6px; align-items: center; justify-content: space-between; margin-top: 6px; }
-.cs-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; font-weight: 650; font-size: 12.5px; }
-.cs-toggle i { width: 34px; height: 20px; border-radius: 10px; background: #CFC5B5; position: relative; flex: none; transition: background-color .2s var(--ease); }
-.cs-toggle i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #FFFDF8; transition: transform .2s var(--ease); }
-.cs-toggle.on i { background: #2E2A26; }
-.cs-toggle.on i::after { transform: translateX(14px); }
-.cs-radios { display: flex; flex-direction: column; gap: 0; }
-.cs-radio { display: flex; align-items: center; gap: 8px; min-height: 32px; font-size: 12.5px; cursor: pointer; line-height: 1.35; }
-.cs-radio input { accent-color: #2E2A26; width: 16px; height: 16px; flex: none; }
-.cs-note { font-size: 12px; color: #6A6157; margin-top: 6px; line-height: 1.5; }
-.cs-state div { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; font-size: 12.5px; }
-.cs-state dt { color: #6A6157; flex: none; }
-.cs-state dd { text-align: right; font-weight: 600; }
-.cs-steps { list-style: decimal; padding-left: 20px; font-size: 12.5px; color: #4A433C; line-height: 1.65; }
-#console-tab { display: none; }
-
-@media (min-width: 900px) and (min-height: 700px) {
-  #console { width: 340px; max-height: calc(100dvh - 48px); overflow-y: auto; padding: 16px 18px; border-radius: 18px; background: #EDE6DA; border: 1px solid #D3C9B9; flex: none; }
-}
-@media not ((min-width: 900px) and (min-height: 700px)) {
-  #console { position: fixed; top: 0; right: 0; bottom: 0; width: min(360px, 92vw); z-index: 100; overflow-y: auto; padding: calc(var(--safe-top) + 14px) 16px 24px; background: #EDE6DA; transform: translate3d(100%, 0, 0); transition: transform .3s var(--ease); box-shadow: -8px 0 24px rgba(30, 26, 23, .18); visibility: hidden; }
-  body.console-open #console { transform: none; visibility: visible; }
-  .cs-x { display: grid; }
-  #console-tab { display: flex; position: fixed; right: 0; top: 38%; z-index: 90; writing-mode: vertical-rl; padding: 8px 2px; min-height: 48px; opacity: .6; touch-action: none; user-select: none; align-items: center; justify-content: center; border-radius: 10px 0 0 10px; background: rgba(46, 42, 38, .78); color: #FFFDF8; font-size: 11.5px; font-weight: 700; letter-spacing: .08em; }
-}
-
 /* ---------- 움직임 줄이기 ---------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
@@ -756,15 +712,12 @@ html.reduce *, html.reduce *::before, html.reduce *::after { animation: none !im
   .chip:hover { background: var(--sunken); }
   .popup .opt:hover { background: #453D36; }
   .popup .btn.primary:hover { background: #FFFFFF; }
-  .cs-btn:hover { background: #F3EEE5; border-color: #A79C8D; }
 }
 
 /* ---------- 진짜 안드로이드 앱 (html.native) ---------- */
 .avatar { position: relative; overflow: hidden; }
 .avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .notice .dev-detail { margin-top: 6px; font-size: 12px; line-height: 1.45; opacity: .8; word-break: break-all; font-variant-numeric: tabular-nums; }
-html.native #console-tab { display: none; }
-html.native body.demo #console-tab { display: flex; }
 /* Capacitor가 넣어 주는 안전 영역 변수도 함께 쓴다 (상태 표시줄·제스처 바 아래로 내용이 숨지 않게) */
 html.native { --safe-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px)); --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px)); }
 .login .fine .link-btn { color: var(--on-stove); text-decoration: underline; text-underline-offset: 3px; min-height: 0; font-size: inherit; padding: 4px 0; }
@@ -980,9 +933,24 @@ textarea.txt.memo { height: auto; min-height: 64px; padding: 10px 14px; resize: 
 .hdr.sub-hdr .icon-btn { margin-left: -10px; }
 .me-row .lb-text small { color: var(--ink-2); }
 
-/* 새 일정: 한 줄로 쓰기 */
-.quick-row { display: flex; gap: 8px; align-items: stretch; }
-.quick-row .txt { flex: 1; min-width: 0; }
-.quick-row .btn { flex: none; }
 
 .floor-panel.mt { margin-top: 22px; }
+
+/* 설정 > 지켜볼 앱 (삼성 '앱 알림' 목록처럼: 아이콘 · 이름 · 분류 · 구분선 · 스위치) */
+.app-search { display: flex; align-items: center; gap: 8px; height: 46px; margin: 6px 0 0; padding: 0 14px; border-radius: var(--r-m); background: var(--field); border: 1px solid var(--line); }
+.app-search:focus-within { border-color: var(--ink); }
+.app-search input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; font: inherit; font-size: 15px; color: var(--ink); outline: none; }
+.app-search input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.wa-meta { margin: 12px 2px 8px; font-size: 12.5px; color: var(--ink-2); line-height: 1.5; }
+.wa-meta b { color: var(--ink); font-weight: 700; }
+.app-list { list-style: none; margin: 0; padding: 2px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l); }
+.app-row { display: flex; align-items: center; gap: 12px; min-height: 66px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.app-row:last-child { border-bottom: 0; }
+.app-row[hidden] { display: none; }
+.app-ic { flex: none; width: 44px; height: 44px; object-fit: contain; }
+.app-ic.none { display: grid; place-items: center; border-radius: 14px; background: var(--sunken); color: var(--ink-2); font-size: 17px; font-weight: 700; }
+.app-row .lb-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.app-row .lb-text b { font-size: 15.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-row .lb-text small { font-size: 12.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-sep { flex: none; width: 1px; height: 30px; background: var(--line); }
+#wa-none[hidden] { display: none; }
