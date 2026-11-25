@@ -63,14 +63,42 @@ jobs:
           name: jabdori-apk
           path: jabdori.apk
 
+      - name: 이 빌드 코드 백업
+        run: git archive --format=zip --prefix=jabdori-build-${{ github.run_number }}/ -o jabdori-source-build-${{ github.run_number }}.zip HEAD
+
+      - name: 릴리스 설명 만들기 (release-notes/build-번호.md가 있으면 그 내용, 없으면 커밋 설명)
+        env:
+          STATUS: ${{ steps.kakao.outputs.status }}
+          N: ${{ github.run_number }}
+          REPO: ${{ github.repository }}
+          MSG: ${{ github.event.head_commit.message }}
+        run: |
+          {
+            echo "폰에서 아래 jabdori.apk 를 눌러 받은 뒤 설치하세요."
+            echo "카카오 키 설정: $STATUS"
+            echo "항상 최신 버전 받기: https://github.com/$REPO/releases/latest/download/jabdori.apk"
+            echo
+            echo "---"
+            echo
+            if [ -f "release-notes/build-$N.md" ]; then
+              cat "release-notes/build-$N.md"
+            else
+              echo "# build-$N"
+              echo
+              printf '%s\n' "$MSG" | grep -v -E '^(Co-Authored-By|Claude-Session):'
+            fi
+            echo
+            echo "이 릴리스의 jabdori.apk는 build-$N 때 만든 파일 그대로이며, jabdori-source-build-$N.zip과 Source code 파일은 이 빌드에 쓰인 코드(커밋 ${GITHUB_SHA::7})입니다."
+          } > release-body.md
+
       - name: Releases에 올려서 다운로드 링크 만들기
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
           name: 잡도리 앱 (${{ github.run_number }}번째 빌드)
-          body: |
-            폰에서 아래 jabdori.apk 를 눌러 받은 뒤 설치하세요.
-            카카오 키 설정: ${{ steps.kakao.outputs.status }}
-            항상 최신 버전 받기: https://github.com/${{ github.repository }}/releases/latest/download/jabdori.apk
-          files: jabdori.apk
+          body_path: release-body.md
+          files: |
+            jabdori.apk
+            jabdori-source-build-${{ github.run_number }}.zip
           make_latest: true
