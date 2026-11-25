@@ -55,7 +55,7 @@
 | 기록 요약 | 됨 | 됨 | 이번 주 성공률, 최근 4주 막대, 자주 미루는 요일·시간대·딴짓·실패 이유 (기록 3개부터) |
 | 시작·지각·마감 임박·마감 알림 | 됨 | 됨 | 앱을 꺼 둬도 폰 알림으로 와요. 고른 알림(n분 전)도 돼요 |
 | 미루먼지 목소리 | 됨 | 됨 | 녹음한 대사 152개(미루먼지 v1). 녹음이 없는 말은 폰의 한국어 음성으로 읽어요 |
-| 홈 화면 위젯 | 됨 | **안 됨** | 안드로이드: 오늘의 일정(일반 일정은 위젯에서 바로 체크) · 다음 일정(시작까지 카운트다운) · 미루먼지(표정·한마디·농도) · 잡도리 통계. 설정 탭 > 홈 화면 위젯에서 바로 추가할 수 있어요. 아이폰: 아직 없어요 (아래 '알아 둘 것') |
+| 홈 화면 위젯 | 됨 | **안 됨** | 안드로이드: 오늘의 일정(일반 일정은 위젯에서 바로 체크) · 달력(한 달 색 막대, < > 달 이동) · 다음 일정(시작까지 카운트다운) · 미루먼지(표정·한마디·농도) · 잡도리 통계. 설정 탭 > 홈 화면 위젯에서 바로 추가할 수 있어요. 아이폰: 아직 없어요 (아래 '알아 둘 것') |
 | 딴짓 감지 | 됨 | **안 됨** | 안드로이드: 이 폰에 깔린 앱 중에서 지켜볼 앱을 골라요. 잡도리 중에 그 앱을 쓰면 **그 앱 위에 미루먼지 창**이 떠서 그 자리에서 답해요 (잡도리 앱으로 넘어가지 않아요). '다른 앱 위에 표시'를 허용하지 않으면 알림으로 와요. 아이폰: Apple이 다른 앱 실행을 알 수 없게 막아 둬서 안 돼요 |
 | 웹(PWA) 버전 | | | `site` 브랜치. 브라우저에서 둘러보기용이고 카카오·알림은 흉내예요 |
 
@@ -80,6 +80,7 @@
 | 위젯 | 기본 크기 | 보여 주는 것 | 누르면 |
 |---|---|---|---|
 | 오늘의 일정 | 4×2 (4×1~4×4) | 오늘 날짜, 완료 수와 진행률, 일정 줄(잡도리 먼저). 크게 늘리면 미루먼지 한마디도 | 일반 일정의 동그라미 = 바로 체크/해제, 줄 = 그 일정, + = 새 일정 |
+| 달력 | 4×4 (4×3~더 크게) | 한 달 격자, 일정 색 막대(여러 날 일정은 이어서, 주를 넘으면 다음 주 줄에서 이어서), 날짜마다 +N, 오늘 표시. 크기에 맞춰 막대 줄 수(최대 4줄) | 날짜 칸 = 앱 달력의 그 날, < > = 달 넘기기(위젯마다 따로), 오늘 숫자 = 이번 달로, + = 새 일정 |
 | 다음 일정 | 2×2 | 다음 일정 이름, 시작 시각, 시작까지 카운트다운, 진행 중이거나 시작 전인 잡도리 | 그 일정 (진행 중 잡도리는 집중 화면) |
 | 미루먼지 | 2×2 (4×2로 넓히면 가로 배치) | 지금 상황의 표정과 한마디, 미루먼지 농도 | 지금 붙잡힌 일정 |
 | 잡도리 통계 | 2×2 | 오늘 완료율, 이번 주 잡도리 성공률(기록 탭과 같은 기준), 연속 성공 | 기록 탭 |
@@ -88,6 +89,7 @@
 - 폰이 어두운 모드면 위젯도 숯색 바탕으로 바뀌어요.
 - 앱에서 바꾸면 위젯도 바로 바뀌어요. 시작까지 남은 시간은 위젯이 스스로 줄여 가요. '예정 → 시작 전'처럼 시간이 지나 바뀌는 상태는 안드로이드 배터리 규칙(정확한 알람을 쓰지 않음) 때문에 몇 분 늦게 바뀔 수 있어요.
 - 앱을 오래 열지 않으면(미루먼지는 이틀, 일정 목록은 7일) 위젯이 앱을 한 번 열어 달라고 해요.
+- 달력 위젯은 지난달부터 3달 뒤까지 일정을 가지고 있어요. 그 밖의 달은 날짜만 보이고, 앱을 열면 범위가 다시 맞춰져요.
 - 로그아웃·탈퇴하면 위젯에서도 일정이 바로 사라져요.
 
 ---
@@ -263,14 +265,14 @@ src/ (화면 코드 한 벌)
 | `00-native.js` | **어느 폰인지 알아내는 구역.** 진짜 앱인지, 안드로이드인지 아이폰인지 판단하고 플러그인 손잡이를 준비해요 | `NATIVE.on`(앱이면 참), `NATIVE.platform`(`android`·`ios`·`web`), `NATIVE.ios`, `NATIVE.Kakao`(카카오), `Notif`(알림), `Speech`(음성), `Watch`(딴짓 감지, 아이폰은 없음), `App`(뒤로 가기·앱 복귀), `Bars`(상태 표시줄) |
 | `01-core.js` | **데이터와 계산 구역.** 날짜 계산, 저장, 일정·회차, 농도, 캐릭터 대사 | `state`·`save`·`load`(저장), `occursOn`·`occWindow`·`occurrencesOn`(그날 회차와 시간), `heatOf`(지금 농도), `SCALES`·`stageOf`(단계), `floorOf`(시작 농도 = 기본 농도 + 쌓인 먼지), `CHARACTERS`·`persona`(캐릭터), `pickLine`·`fillLine`(대사 고르기), `startOcc`·`finishOcc`·`logRun`(시작·끝·기록) |
 | `01b-mireum.js` | **미루먼지 그리기 구역.** 표정·자세·부풂을 조합해 SVG로 그려요 | `mireumSVG`, `MR_FACES`(표정), `MR_POSES`(자세) |
-| `02-views.js` | **화면 조각 구역.** 탭마다 HTML을 만들어요 | `viewLogin`(로그인), `viewOnboarding`(처음 안내), `viewToday`(오늘), `viewCalendar`·`monthGridHTML`·`weekBars`(달력·월간 막대), `viewFocus`(집중 모드), `viewRecords`·`recordInsights`(기록·이번 주 요약·자주 미루는 때), `viewMe`·`viewMeSub`(설정 첫 화면·하위 화면 `ui.meSub`), `LOGIN_ERR`(로그인 오류 안내) |
+| `02-views.js` | **화면 조각 구역.** 탭마다 HTML을 만들어요 | `viewLogin`(로그인), `viewOnboarding`(처음 안내), `viewToday`(오늘), `viewCalendar`·`monthGridHTML`·`weekLanes`·`weekBars`(달력·월간 막대, 줄 배치는 달력 위젯과 같이 씀), `viewFocus`(집중 모드), `viewRecords`·`recordInsights`(기록·이번 주 요약·자주 미루는 때), `viewMe`·`viewMeSub`(설정 첫 화면·하위 화면 `ui.meSub`), `LOGIN_ERR`(로그인 오류 안내) |
 | `03-sheets.js` | **시트·팝업 구역.** 아래에서 올라오는 창과 등록 폼 | `viewForm`·`newDraft`·`validateDraft`(일정 등록), `viewResult`(성공·실패 도장), `viewSlackPopup`(딴짓 팝업), `viewConsent`(흉내 동의 화면) |
 | `04-app.js` | **동작 연결 구역.** 그리기, 버튼 처리 | `render`(화면 다시 그리기, 화면이 바뀌면 지난 토스트 거두기), `ACT`(버튼 함수 모음, 설정 하위 화면 `meOpen`·`meBack`, 숨은 개발자 메뉴 `devTap`), `startLogin`(진짜 앱이면 `nativeLogin`으로), `toast`(짧은 안내), `init`(시작) |
 | `04b-input.js` | **직접 입력 구역.** 휠 대신 글자로 시각·길이·날짜를 넣어요 | `parseTimeInput`(18:30, 오후 6시 반 …), `parseDurationInput`, `parseDateInput`(12/3, 내일 …), `evalInput`(범위·순서 검사) |
 | `04c-voice.js` | **목소리 구역.** 녹음 파일을 틀거나 폰 음성으로 읽어요 | `voicePrefs`(소리 모드·빠르기), `speakable`(18:30 → 18시 30분), `TTS.say`(읽을지 판단), `TTS.check`(한국어 음성 확인), `TTS.install`(음성 설치 안내) |
 | `04d-account.js` | **로그인 확인 구역.** 로그인이 진짜 됐는지 단계별로 확인하고 기록해요 | `DIAG_STEPS`(7단계), `diagBegin`·`diagStep`·`diagFail`(기록), `checkRealLogin`(카카오에 다시 확인), `showLoginWelcome`(확인 후 성공 안내), `viewLoginDiag`(진단 화면) |
 | `05-native.js` | **진짜 앱 기능 구역.** 아래 표 참고 | |
-| `05d-widget.js` | **홈 화면 위젯 구역 (안드로이드).** 앱 데이터로 위젯 묶음을 만들어 넘기고, 위젯에서 체크한 것을 기록에 반영하고, 위젯을 눌러 들어오면 그 화면을 열어요 | `widgetSnapshot`(오늘부터 7일 회차·최근 14일 기록·연속 성공·48시간 미루먼지), `widgetMoods`(앱의 `personaForToday`를 앞으로의 시각으로 돌려 표정·대사·농도를 미리 계산), `WIDGET.push`(바뀌었을 때만 넘김), `applyWidgetActions`(일반 일정 체크 반영, 같은 id는 한 번만), `WIDGET.openFrom`(open:일정 · add · today · records), `widgetsPage`(설정 > 홈 화면 위젯) |
+| `05d-widget.js` | **홈 화면 위젯 구역 (안드로이드).** 앱 데이터로 위젯 묶음을 만들어 넘기고, 위젯에서 체크한 것을 기록에 반영하고, 위젯을 눌러 들어오면 그 화면을 열어요 | `widgetSnapshot`(오늘부터 7일 회차·최근 14일 기록·연속 성공·48시간 미루먼지·지난달~3달 뒤 달력), `widgetMonths`(주마다 앱 월간 달력과 같은 막대 배치 `weekLanes`), `widgetMoods`(앱의 `personaForToday`를 앞으로의 시각으로 돌려 표정·대사·농도를 미리 계산), `WIDGET.push`(바뀌었을 때만 넘김), `applyWidgetActions`(일반 일정 체크 반영, 같은 id는 한 번만), `WIDGET.openFrom`(open:일정 · add · today · records), `widgetsPage`(설정 > 홈 화면 위젯) |
 | `05b-voice-pack.js` | 녹음 파일 152개 목록 (`tools/make_voice_pack.py`가 만들어요) | `VOICE_PACKS` |
 | `05c-watch.js` | **딴짓 감지 구역 (안드로이드).** 지켜볼 앱을 이 폰의 앱 목록에서 고르고, 지켜볼 잡도리에 맞춰 감시를 켜고 끄고, 미루먼지 창에서 고른 답을 기록에 반영해요 | `WATCH_APPS`(자주 딴짓하는 앱, 처음부터 켜 둘 앱), `watchPrefs`(설정·고른 앱·앱 이름), `WATCH.loadApps`(이 폰의 앱 목록과 아이콘), `watchAppsPage`(지켜볼 앱 화면: 검색·아이콘·분류·스위치), `watchTarget`(지금 지켜볼 일정), `WATCH.sync`(감시 시작·멈춤, 미루먼지 창 문구 전달), `slackDetected`(감지 처리), `watchChoice`(창에서 고른 답 반영), `watchSection`(설정 탭 설정, 아이폰은 안내만) |
 | `sw.js`, `manifest.webmanifest` | 웹(PWA) 버전에서 오프라인 실행·홈 화면 설치 | |
@@ -305,10 +307,10 @@ src/ (화면 코드 한 벌)
 | `java/.../JabdoriApplication.kt` | 앱이 켜질 때 카카오 SDK를 네이티브 앱 키로 준비해요 |
 | `java/.../WidgetPlugin.kt` | **위젯 다리.** `update`(묶음 보관 후 위젯 다시 그리기), `pending`·`ack`(위젯에서 쌓인 체크), `consumeLaunch`(위젯을 눌러 열었을 때 갈 곳), `status`(놓인 위젯 수), `pin`(홈 화면에 추가 요청). 이벤트 `action`·`launch` |
 | `java/.../WidgetData.kt` | **위젯 데이터.** `WidgetStore`(묶음·체크 할 일 보관), `WidgetModel`(지금 시각 기준 오늘 목록·회차 상태·다음 일정·진행률·미루먼지·이번 주 기록·다시 그릴 시각) |
-| `java/.../WidgetRender.kt` | **위젯 그리기.** 위젯 4종(`TodayWidgetProvider` 등)의 RemoteViews, 크기별 줄 수·배치, 일반 일정 체크(`WidgetActions`, 0.7초 안 연속 탭은 한 번), 다시 그릴 알람(`WidgetTickReceiver`, 화면을 깨우지 않는 RTC) |
+| `java/.../WidgetRender.kt` | **위젯 그리기.** 위젯 5종(`TodayWidgetProvider`·`MonthWidgetProvider` 등)의 RemoteViews, 크기별 줄 수·배치, 달력 달 이동(위젯마다 저장), 일반 일정 체크(`WidgetActions`, 0.7초 안 연속 탭은 한 번), 다시 그릴 알람(`WidgetTickReceiver`, 화면을 깨우지 않는 RTC) |
 | `java/.../MainActivity.kt` | 웹 화면을 띄우는 첫 화면. 위 플러그인들을 등록해요 |
-| `AndroidManifest.xml` | 카카오 인증 뒤 돌아오는 문(`kakao{앱키}://oauth`), 카카오톡 설치 확인, 앱 서랍 앱 목록 읽기(`queries`), 알림·사용 정보 접근·다른 앱 위에 표시 권한, 감시 서비스, 홈 화면 위젯 4종과 다시 그리기 수신기 |
-| `res/` | 미루먼지 앱 아이콘·알림 아이콘(`ic_stat_mireum`)·스플래시, 미루먼지 창 그림(`drawable-nodpi/mireum_watch`·`mireum_angry`), 위젯 화면(`layout/widget_*`, `xml/w_*_info`, `drawable/w_*`·`ic_w_*`, 밝은/어두운 색 `values/widget_colors`·`values-night/widget_colors`). 위젯의 미루먼지 그림은 앱 안 그림(`assets/public/assets/mireum/png`)을 그대로 써요 |
+| `AndroidManifest.xml` | 카카오 인증 뒤 돌아오는 문(`kakao{앱키}://oauth`), 카카오톡 설치 확인, 앱 서랍 앱 목록 읽기(`queries`), 알림·사용 정보 접근·다른 앱 위에 표시 권한, 감시 서비스, 홈 화면 위젯 5종과 다시 그리기 수신기 |
+| `res/` | 미루먼지 앱 아이콘·알림 아이콘(`ic_stat_mireum`)·스플래시, 미루먼지 창 그림(`drawable-nodpi/mireum_watch`·`mireum_angry`), 위젯 화면(`layout/widget_*`·달력 조각 `mo_week`·`mo_lane`·`mo_seg_1~7`·`mo_gap_1~7`, `xml/w_*_info`, `drawable/w_*`·`mo_*`·`ic_w_*`, 밝은/어두운 색 `values/widget_colors`·`values-night/widget_colors`). 위젯의 미루먼지 그림은 앱 안 그림(`assets/public/assets/mireum/png`)을 그대로 써요 |
 | `android/gradle.properties` | `KAKAO_NATIVE_APP_KEY` (카카오 네이티브 앱 키) |
 | `android/app/build.gradle` | 키를 코드와 매니페스트에 넣고, 카카오 SDK `v2-user 2.26.0`과 팀 공용 서명 키를 설정해요 |
 
