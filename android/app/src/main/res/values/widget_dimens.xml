@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <dimen name="w_radius">22dp</dimen>   <!-- --r-l -->
+    <dimen name="w_radius">22dp</dimen>   <!-- r-l -->
     <dimen name="w_pad">14dp</dimen>
 </resources>

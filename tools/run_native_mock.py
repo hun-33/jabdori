@@ -102,7 +102,7 @@ with sync_playwright() as p:
     check('나: 일반 화면에는 카카오 회원번호·이메일 숨김', '3456789012' not in t and 'dohoon@kakao.example' not in t and '이메일' not in t)
     check('나: 로그인 방식·카카오 연결·앱 로그인 상태', '로그인 방식' in t and '연결됨' in t and '로그인 중' in t and '흉내 모드' not in t)
     check('나: 개발자 메뉴는 기본으로 숨김', pg.query_selector('#screen [data-act=openDiag]') is None)
-    check('나 첫 화면: 설정 메뉴 5개', ev("document.querySelectorAll('[data-act=meOpen]').length") == 5)
+    check('설정 첫 화면: 설정 메뉴 6개 (안드로이드는 홈 화면 위젯 포함)', ev("document.querySelectorAll('[data-act=meOpen]').length") == 6 and pg.query_selector('[data-act=meOpen][data-v=widgets]') is not None)
     check('설정 > 화면: 시연 도구 스위치 없음', (pg.click('[data-act=meOpen][data-v=screen]'), pg.wait_for_timeout(300), pg.query_selector('[data-act=demoToggle]'))[2] is None)
     pg.click('[data-act=meBack]'); pg.wait_for_timeout(300)
     for _ in range(6): pg.click('[data-act=devTap]')

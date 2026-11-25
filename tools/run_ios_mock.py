@@ -65,6 +65,7 @@ with sync_playwright() as p:
     t = pg.inner_text('#app')
     check('나: 아이폰 앱 문구', '잡도리 아이폰 앱' in t and '잡도리 안드로이드 앱' not in t)
     check('나 첫 화면: 아이폰은 "알림" 메뉴 (딴짓 감지 없음)', ev("document.querySelector('[data-act=meOpen][data-v=alerts] b').textContent") == '알림', t)
+    check('아이폰: 홈 화면 위젯 메뉴 없음 (안드로이드만)', pg.query_selector('[data-act=meOpen][data-v=widgets]') is None and ev('NATIVE.Widget') is None)
     pg.click('[data-act=meOpen][data-v=alerts]'); pg.wait_for_timeout(400)
     t = pg.inner_text('#app')
     check('나 > 알림: 딴짓 감지는 아이폰에서 안 된다는 안내', '딴짓 감지' in t and '아이폰에서는 쓸 수 없어요' in t, t[-600:])
