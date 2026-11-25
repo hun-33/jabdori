@@ -7,12 +7,15 @@
 | | 안드로이드 | 아이폰 |
 |---|---|---|
 | 받는 곳 | [Releases](https://github.com/hun-33/jabdori/releases)의 `build-N` → `jabdori.apk` | [Releases](https://github.com/hun-33/jabdori/releases)의 `ios-build-N` → `jabdori.ipa` |
+| 릴리스 나눠 보기 | [안드로이드 릴리스만](https://github.com/hun-33/jabdori/releases?q=tag%3Abuild&expanded=true) | [아이폰 릴리스만](https://github.com/hun-33/jabdori/releases?q=tag%3Aios-build&expanded=true) |
 | 항상 최신 받기 | https://github.com/hun-33/jabdori/releases/latest/download/jabdori.apk | 고정 주소 없음 (Releases에서 맨 위 `ios-build-N`) |
 | 설치 방법 | 폰에서 APK를 받아 바로 설치 | Windows PC에서 Sideloadly로 설치 (7일마다 다시) |
 | 앱 아이디 | 패키지명 `com.jabdori.app` | 번들 ID `com.jabdori.app` |
 | 최소 버전 | 안드로이드 7.0 (API 24) | iOS 15 |
 
 빌드마다 바뀐 점은 [CHANGELOG.md](CHANGELOG.md)에 있어요.
+
+> **릴리스 구분:** GitHub Releases는 한 목록에 두 폰 것이 섞여 보여요. build-18·ios-build-7부터는 제목이 **[안드로이드]**·**[아이폰]**으로 시작해요. 한쪽만 보려면 위 표의 '릴리스 나눠 보기' 링크를 누르거나, Releases 페이지 위 **Find a release** 칸에 `tag:ios-build`(아이폰) 또는 `tag:build`(안드로이드)를 적어요.
 
 ---
 

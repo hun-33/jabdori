@@ -100,7 +100,7 @@ jobs:
           MSG: ${{ github.event.head_commit.message }}
         run: |
           {
-            echo "폰에서 아래 jabdori.apk 를 눌러 받은 뒤 설치하세요."
+            echo "안드로이드용 잡도리 앱입니다. 폰에서 아래 jabdori.apk 를 눌러 받은 뒤 설치하세요."
             echo "카카오 키 설정: $STATUS"
             echo "항상 최신 버전 받기: https://github.com/$REPO/releases/latest/download/jabdori.apk"
             echo
@@ -121,7 +121,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ steps.num.outputs.n }}
-          name: 잡도리 앱 (${{ steps.num.outputs.n }}번째 빌드)
+          # 제목 맨 앞의 [안드로이드]·[아이폰]으로 한 목록 안에서 바로 구분 (README '릴리스 나눠 보기')
+          name: "[안드로이드] 잡도리 앱 build-${{ steps.num.outputs.n }}"
           body_path: release-body.md
           files: |
             jabdori.apk

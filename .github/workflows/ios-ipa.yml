@@ -143,7 +143,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ios-build-${{ steps.num.outputs.n }}
-          name: 잡도리 아이폰 앱 (${{ steps.num.outputs.n }}번째 빌드)
+          name: "[아이폰] 잡도리 앱 ios-build-${{ steps.num.outputs.n }}"
           body_path: release-body.md
           files: |
             jabdori.ipa
