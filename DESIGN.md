@@ -1,4 +1,4 @@
-# Design System: 잡도리앱 — "물 올린다" 시안 v4 · 미루먼지 농도 · 안드로이드 앱 (도훈)
+# Design System: 잡도리앱 — v4 · 미루먼지 농도 · 안드로이드 앱 (도훈)
 
 > calm-design 방식 적용 · LANGUAGE: ko · DESIGN_VARIANCE: 6 · MOTION_INTENSITY: 5 · VISUAL_DENSITY: 4 · Mode: B(Redesign — 마스코트 교체 + 기획안 v5 반영)
 > 이 문서가 구현의 기준이다. 화면마다 다른 규칙을 쓰지 않는다.
