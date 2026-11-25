@@ -309,13 +309,14 @@ function nativeInit() {
 /* ---------- 나 탭에 쓰는 조각 ---------- */
 // 카카오 동의 내역 → [이름, 표시, 동의 여부] 줄 목록
 function kakaoConsentRows(m) {
-  const MAIN = ['profile_nickname', 'profile_image', 'account_email'];
+  // 이메일(account_email)은 동의항목 권한이 없어 받지 않으므로 보여 주지 않는다
+  const MAIN = ['profile_nickname', 'profile_image'];
   if (Array.isArray(ui.scopes)) {
-    const list = ui.scopes.filter((s) => s.agreed || MAIN.includes(s.id));
-    if (list.length) return list.map((s) => [s.name, MAIN.includes(s.id) ? (s.id === 'account_email' ? '선택' : '') : '', !!s.agreed]);
+    const list = ui.scopes.filter((s) => s.id !== 'account_email' && (s.agreed || MAIN.includes(s.id)));
+    if (list.length) return list.map((s) => [s.name, '', !!s.agreed]);
   }
   // 동의 내역을 아직 못 받았으면(불러오는 중·오프라인) 받은 정보로 대신 표시
-  return [['닉네임', ui.scopesLoading ? '확인 중' : '', !!m.nickname], ['프로필 사진', '', !!m.profileImageUrl], ['카카오계정(이메일)', '선택', !!m.email]];
+  return [['닉네임', ui.scopesLoading ? '확인 중' : '', !!m.nickname], ['프로필 사진', '', !!m.profileImageUrl]];
 }
 function notifRow() {
   const on = !state.notifOff;
@@ -329,17 +330,6 @@ function notifRow() {
 }
 
 Object.assign(ACT, {
-  askEmail: async () => {
-    try {
-      const u = await NATIVE.Kakao.requestScopes({ scopes: ['account_email'] });
-      const m = member(); if (m) applyKakaoProfile(m, u);
-      ui.scopes = null; save(); render();
-      toast(u.email ? '이메일 제공에 동의했어요.' : '이메일이 오지 않았어요. 카카오 동의 화면에서 이메일을 골랐는지 확인해 주세요.');
-    } catch (e) {
-      const code = (e && e.code) || '';
-      toast(code === 'CANCELLED' ? '동의를 취소했어요.' : `이메일 동의를 받을 수 없어요 (${code || '오류'}). 카카오 디벨로퍼스에서 이메일 동의항목을 켰는지 확인해 주세요.`);
-    }
-  },
   notifToggle: async () => {
     state.notifOff = !state.notifOff; save();
     if (!state.notifOff && NOTIF.perm !== 'granted') await NOTIF.ask();

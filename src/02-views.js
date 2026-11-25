@@ -186,7 +186,7 @@ function viewLogin() {
           <span>${lg.busy ? STEP[lg.step] || '확인 중…' : '카카오로 시작하기'}</span>
         </button>
         <ol class="login-steps ${lg.busy ? 'show' : ''}" aria-label="로그인 진행 단계">${steps.map((s, i) => `<li class="${i < stepIdx ? 'done' : i === stepIdx ? 'now' : ''}">${s}</li>`).join('')}</ol>
-        <p class="fine">${NATIVE.on && !state.fakeLogin ? '카카오에서 동의한 정보(닉네임·프로필 사진·이메일)만 받아요. 받은 정보는 이 폰에만 저장돼요.' : NATIVE.on ? `지금은 흉내 모드예요(카카오에 연결하지 않음). <button class="link-btn" data-act="realLogin">진짜 카카오 로그인 쓰기</button>` : '처음이면 자동으로 가입돼요. 따로 입력할 건 없어요.'}</p>
+        <p class="fine">${NATIVE.on && !state.fakeLogin ? '카카오에서 동의한 정보(닉네임·프로필 사진)만 받아요. 받은 정보는 이 폰에만 저장돼요.' : NATIVE.on ? `지금은 흉내 모드예요(카카오에 연결하지 않음). <button class="link-btn" data-act="realLogin">진짜 카카오 로그인 쓰기</button>` : '처음이면 자동으로 가입돼요. 따로 입력할 건 없어요.'}</p>
       </div>
     </section>`,
   };
@@ -408,7 +408,7 @@ function monthGridHTML(m, month, sel, act) {
       const d = addDays(ws, i), out = d.slice(0, 7) !== month;
       const dm = dayMarks(m, d);
       const inRange = R && R.a && d === R.a;
-      cells += `<button class="mo-cell ${out ? 'out' : ''} ${d === sel && !R ? 'sel' : ''} ${d === td ? 'today' : ''} ${inRange ? 'range-a' : ''} wd${i}" style="grid-column:${i + 1}" data-act="${act}" data-date="${d}" aria-pressed="${d === sel}" aria-label="${fmtDateLong(d)}${d === td ? ', 오늘' : ''}${dm.label ? ', ' + dm.label : ''}"><span class="mo-n">${parseYmd(d).getDate()}</span></button>`;
+      cells += `<button class="mo-cell ${out ? 'out' : ''} ${d === sel && !R ? 'sel' : ''} ${d === td ? 'today' : ''} ${inRange ? 'range-a' : ''} wd${i}" style="grid-column:${i + 1}" data-act="${act}" data-date="${d}" aria-pressed="${d === sel}" aria-label="${fmtDateLong(d)}${d === td ? ', 오늘' : ''}${dm.label ? ', ' + dm.label : ''}${d === sel && !R && d >= td ? ', 한 번 더 누르면 새 일정' : ''}"><span class="mo-n">${parseYmd(d).getDate()}</span></button>`;
     }
     const { segs, hidden } = weekBars(m, ws);
     const bars = segs.map((g) => {
@@ -426,7 +426,7 @@ function weekAgendaHTML(m, sel) {
   for (let i = 0; i < 7; i++) {
     const d = addDays(ws, i), occs = occurrencesCovering(m, d);
     days += `<div class="ag-day ${d === sel ? 'sel' : ''} ${d === td ? 'today' : ''}">
-      <button class="ag-date wd${i}" data-act="calPick" data-date="${d}" aria-pressed="${d === sel}"><b>${WD[WEEK_ORDER[i]]}</b><span>${parseYmd(d).getDate()}</span></button>
+      <button class="ag-date wd${i}" data-act="calPick" data-date="${d}" aria-pressed="${d === sel}" aria-label="${fmtDateLong(d)}${d === sel && d >= td ? ', 한 번 더 누르면 새 일정' : ''}"><b>${WD[WEEK_ORDER[i]]}</b><span>${parseYmd(d).getDate()}</span></button>
       <div class="ag-items">${occs.length ? `<ul class="rows tight">${occs.map(rowOcc).join('')}</ul>` : '<p class="ag-empty">비어 있음</p>'}</div>
     </div>`;
   }
@@ -484,7 +484,7 @@ function viewCalendar(m) {
   const navLabel = { day: '날', week: '주', month: '달' }[mode];
   const isToday = mode === 'month' ? ui.calMonth === td.slice(0, 7) && sel === td : mode === 'week' ? weekStartOf(sel) === weekStartOf(td) && sel === td : sel === td;
   const html = `<section class="scr calendar" aria-labelledby="cal-h">
-    <header class="hdr"><div><h1 id="cal-h" class="hdr-title">달력</h1><p class="hdr-sub">옆으로 쓸면 이전·다음 ${navLabel}로 넘어가요</p></div></header>
+    <header class="hdr"><div><h1 id="cal-h" class="hdr-title">달력</h1><p class="hdr-sub">${mode === 'day' ? '빈 시간 칸을 두 번 누르면 새 일정' : '고른 날짜를 한 번 더 누르면 새 일정'} · 옆으로 쓸면 이전·다음 ${navLabel}</p></div></header>
     <div class="paper">
       <div class="cal-bar">
         <div class="seg three" role="tablist" aria-label="달력 보기 방식">
@@ -629,7 +629,7 @@ function viewMe(m) {
   if (real && ui.scopes == null && !ui.scopesLoading) setTimeout(loadKakaoScopes, 0);
   const rows = real ? kakaoConsentRows(m) : [
     ['서비스 이용약관', '필수', c.terms], ['개인정보 수집·이용', '필수', c.privacy],
-    ['카카오계정 이메일', '선택', c.email], ['프로필 사진', '선택', c.profile],
+    ['프로필 사진', '선택', c.profile],
   ];
   // 로그아웃은 위의 '로그인 상태' 구역에 있다 (accountStatusBlock)
   const acct = real ? [
@@ -648,7 +648,6 @@ function viewMe(m) {
       ${accountStatusBlock(m)}
       <h2 class="sec-label">${real ? '카카오에서 동의한 항목' : '동의한 항목'}</h2>
       <ul class="kv">${rows.map(([n, r, v]) => `<li><span>${esc(n)} <em>${esc(r)}</em></span><b class="${v ? 'yes' : 'no'}">${icon(v ? 'check' : 'x')}${v ? '동의' : '동의 안 함'}</b></li>`).join('')}</ul>
-      ${real && !m.email ? `<button class="list-btn" data-act="askEmail">${icon('plus')}<span class="lb-text"><b>이메일 제공에 동의하기</b><small>카카오 동의 화면이 다시 열려요 (선택 항목)</small></span>${icon('chevron', 'muted')}</button>` : ''}
       ${real ? `<p class="fine dark">받은 정보는 이 폰 안에만 저장하고 서버로 보내지 않아요. 동의 철회는 아래 '카카오 연결 끊기'나 카카오 계정 설정의 연결된 서비스 관리에서 할 수 있어요.</p>` : ''}
       <h2 class="sec-label">${S.title}</h2>
       <ul class="kv">

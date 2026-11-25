@@ -2319,7 +2319,7 @@ function viewLogin() {
           <span>${lg.busy ? STEP[lg.step] || '확인 중…' : '카카오로 시작하기'}</span>
         </button>
         <ol class="login-steps ${lg.busy ? 'show' : ''}" aria-label="로그인 진행 단계">${steps.map((s, i) => `<li class="${i < stepIdx ? 'done' : i === stepIdx ? 'now' : ''}">${s}</li>`).join('')}</ol>
-        <p class="fine">${NATIVE.on && !state.fakeLogin ? '카카오에서 동의한 정보(닉네임·프로필 사진·이메일)만 받아요. 받은 정보는 이 폰에만 저장돼요.' : NATIVE.on ? `지금은 흉내 모드예요(카카오에 연결하지 않음). <button class="link-btn" data-act="realLogin">진짜 카카오 로그인 쓰기</button>` : '처음이면 자동으로 가입돼요. 따로 입력할 건 없어요.'}</p>
+        <p class="fine">${NATIVE.on && !state.fakeLogin ? '카카오에서 동의한 정보(닉네임·프로필 사진)만 받아요. 받은 정보는 이 폰에만 저장돼요.' : NATIVE.on ? `지금은 흉내 모드예요(카카오에 연결하지 않음). <button class="link-btn" data-act="realLogin">진짜 카카오 로그인 쓰기</button>` : '처음이면 자동으로 가입돼요. 따로 입력할 건 없어요.'}</p>
       </div>
     </section>`,
   };
@@ -2541,7 +2541,7 @@ function monthGridHTML(m, month, sel, act) {
       const d = addDays(ws, i), out = d.slice(0, 7) !== month;
       const dm = dayMarks(m, d);
       const inRange = R && R.a && d === R.a;
-      cells += `<button class="mo-cell ${out ? 'out' : ''} ${d === sel && !R ? 'sel' : ''} ${d === td ? 'today' : ''} ${inRange ? 'range-a' : ''} wd${i}" style="grid-column:${i + 1}" data-act="${act}" data-date="${d}" aria-pressed="${d === sel}" aria-label="${fmtDateLong(d)}${d === td ? ', 오늘' : ''}${dm.label ? ', ' + dm.label : ''}"><span class="mo-n">${parseYmd(d).getDate()}</span></button>`;
+      cells += `<button class="mo-cell ${out ? 'out' : ''} ${d === sel && !R ? 'sel' : ''} ${d === td ? 'today' : ''} ${inRange ? 'range-a' : ''} wd${i}" style="grid-column:${i + 1}" data-act="${act}" data-date="${d}" aria-pressed="${d === sel}" aria-label="${fmtDateLong(d)}${d === td ? ', 오늘' : ''}${dm.label ? ', ' + dm.label : ''}${d === sel && !R && d >= td ? ', 한 번 더 누르면 새 일정' : ''}"><span class="mo-n">${parseYmd(d).getDate()}</span></button>`;
     }
     const { segs, hidden } = weekBars(m, ws);
     const bars = segs.map((g) => {
@@ -2559,7 +2559,7 @@ function weekAgendaHTML(m, sel) {
   for (let i = 0; i < 7; i++) {
     const d = addDays(ws, i), occs = occurrencesCovering(m, d);
     days += `<div class="ag-day ${d === sel ? 'sel' : ''} ${d === td ? 'today' : ''}">
-      <button class="ag-date wd${i}" data-act="calPick" data-date="${d}" aria-pressed="${d === sel}"><b>${WD[WEEK_ORDER[i]]}</b><span>${parseYmd(d).getDate()}</span></button>
+      <button class="ag-date wd${i}" data-act="calPick" data-date="${d}" aria-pressed="${d === sel}" aria-label="${fmtDateLong(d)}${d === sel && d >= td ? ', 한 번 더 누르면 새 일정' : ''}"><b>${WD[WEEK_ORDER[i]]}</b><span>${parseYmd(d).getDate()}</span></button>
       <div class="ag-items">${occs.length ? `<ul class="rows tight">${occs.map(rowOcc).join('')}</ul>` : '<p class="ag-empty">비어 있음</p>'}</div>
     </div>`;
   }
@@ -2617,7 +2617,7 @@ function viewCalendar(m) {
   const navLabel = { day: '날', week: '주', month: '달' }[mode];
   const isToday = mode === 'month' ? ui.calMonth === td.slice(0, 7) && sel === td : mode === 'week' ? weekStartOf(sel) === weekStartOf(td) && sel === td : sel === td;
   const html = `<section class="scr calendar" aria-labelledby="cal-h">
-    <header class="hdr"><div><h1 id="cal-h" class="hdr-title">달력</h1><p class="hdr-sub">옆으로 쓸면 이전·다음 ${navLabel}로 넘어가요</p></div></header>
+    <header class="hdr"><div><h1 id="cal-h" class="hdr-title">달력</h1><p class="hdr-sub">${mode === 'day' ? '빈 시간 칸을 두 번 누르면 새 일정' : '고른 날짜를 한 번 더 누르면 새 일정'} · 옆으로 쓸면 이전·다음 ${navLabel}</p></div></header>
     <div class="paper">
       <div class="cal-bar">
         <div class="seg three" role="tablist" aria-label="달력 보기 방식">
@@ -2762,7 +2762,7 @@ function viewMe(m) {
   if (real && ui.scopes == null && !ui.scopesLoading) setTimeout(loadKakaoScopes, 0);
   const rows = real ? kakaoConsentRows(m) : [
     ['서비스 이용약관', '필수', c.terms], ['개인정보 수집·이용', '필수', c.privacy],
-    ['카카오계정 이메일', '선택', c.email], ['프로필 사진', '선택', c.profile],
+    ['프로필 사진', '선택', c.profile],
   ];
   // 로그아웃은 위의 '로그인 상태' 구역에 있다 (accountStatusBlock)
   const acct = real ? [
@@ -2781,7 +2781,6 @@ function viewMe(m) {
       ${accountStatusBlock(m)}
       <h2 class="sec-label">${real ? '카카오에서 동의한 항목' : '동의한 항목'}</h2>
       <ul class="kv">${rows.map(([n, r, v]) => `<li><span>${esc(n)} <em>${esc(r)}</em></span><b class="${v ? 'yes' : 'no'}">${icon(v ? 'check' : 'x')}${v ? '동의' : '동의 안 함'}</b></li>`).join('')}</ul>
-      ${real && !m.email ? `<button class="list-btn" data-act="askEmail">${icon('plus')}<span class="lb-text"><b>이메일 제공에 동의하기</b><small>카카오 동의 화면이 다시 열려요 (선택 항목)</small></span>${icon('chevron', 'muted')}</button>` : ''}
       ${real ? `<p class="fine dark">받은 정보는 이 폰 안에만 저장하고 서버로 보내지 않아요. 동의 철회는 아래 '카카오 연결 끊기'나 카카오 계정 설정의 연결된 서비스 관리에서 할 수 있어요.</p>` : ''}
       <h2 class="sec-label">${S.title}</h2>
       <ul class="kv">
@@ -2833,7 +2832,7 @@ function sheetHead(title, closeAct = 'closeSheet', sub = '') {
 /* ---------- 카카오 동의 (시뮬레이션) ---------- */
 function viewConsent(s) {
   const c = s.consent;
-  const items = [['terms', '서비스 이용약관', true], ['privacy', '개인정보 수집·이용', true], ['email', '카카오계정 이메일', false], ['profile', '프로필 사진', false]];
+  const items = [['terms', '서비스 이용약관', true], ['privacy', '개인정보 수집·이용', true], ['profile', '프로필 사진', false]];
   const all = items.every(([k]) => c[k]);
   const reqOK = c.terms && c.privacy;
   return sheetWrap(`${sheetHead('카카오 동의 단계', 'consentCancel', '시뮬레이션 · 실제 서비스에서는 카카오가 띄우는 화면이에요')}
@@ -2841,7 +2840,7 @@ function viewConsent(s) {
       <p class="consent-lead">잡도리가 카카오에 아래 정보를 요청해요. 닉네임과 고유 번호는 기본으로 받아요.</p>
       <button class="cbox all ${all ? 'on' : ''}" role="checkbox" aria-checked="${all}" data-act="consentAll">${icon('check')}<span>전체 동의</span></button>
       <ul class="cbox-list">${items.map(([k, n, req]) => `<li><button class="cbox ${c[k] ? 'on' : ''}" role="checkbox" aria-checked="${!!c[k]}" data-act="consentToggle" data-k="${k}">${icon('check')}<span><em class="${req ? 'tg-req' : 'tg-opt'}">${req ? '필수' : '선택'}</em>${n}</span></button></li>`).join('')}</ul>
-      ${!reqOK ? `<p class="field-err" role="alert">${icon('alert')}필수 항목 두 개에 동의해야 계속할 수 있어요.</p>` : `<p class="hint">${!c.email ? '이메일 없이도 잡도리는 그대로 쓸 수 있어요.' : '이메일은 계정 안내에만 써요.'}</p>`}
+      ${!reqOK ? `<p class="field-err" role="alert">${icon('alert')}필수 항목 두 개에 동의해야 계속할 수 있어요.</p>` : `<p class="hint">프로필 사진 없이도 잡도리는 그대로 쓸 수 있어요.</p>`}
     </div>
     <div class="sheet-foot col">
       <button class="btn primary block" data-act="consentAgree" ${reqOK ? '' : 'disabled aria-disabled="true"'}>동의하고 계속하기</button>
@@ -3536,7 +3535,7 @@ function kakaoId() { return TEST_KAKAO.id; }
 function ensureExistingMember() {
   const kid = kakaoId();
   if (state.memberByKakao[kid] && state.members[state.memberByKakao[kid]]) return;
-  const consent = { terms: true, privacy: true, email: true, profile: true };
+  const consent = { terms: true, privacy: true, email: false, profile: true };
   state.kakao[kid] = { linked: true, token: true, consent };
   const m = createMember(kid, TEST_KAKAO, consent);
   m.onboarded = true;
@@ -3587,7 +3586,7 @@ function afterKakaoAuth(method) {
     const sc = state.scenario;
     const preset = sc === 'denyRequired' ? { terms: false, privacy: false, email: false, profile: false }
       : sc === 'optionalOff' ? { terms: true, privacy: true, email: false, profile: false }
-        : { terms: true, privacy: true, email: true, profile: true };
+        : { terms: true, privacy: true, email: false, profile: true };
     if (sc === 'denyRequired' || sc === 'optionalOff') state.scenario = 'normal';
     openSheet({ type: 'consent', consent: preset, method });
     return;
@@ -3607,7 +3606,7 @@ async function completeLogin(kid, method) {
   const relinked = !!mm.unlinked;
   mm.unlinked = false;
   mm.consent = { ...state.kakao[kid].consent };
-  mm.email = mm.consent.email ? TEST_KAKAO.email : null;
+  mm.email = null; // 이메일은 받지 않는다 (동의항목 권한 없음)
   mm.profileImage = !!mm.consent.profile;
   state.kakao[kid].token = true;
   state.session = { kakaoId: kid, memberId: mid, method, at: now() };
@@ -3652,7 +3651,7 @@ const ACT = {
   login: () => startLogin(),
   loginAccount: () => startLogin({ forceAccount: true }),
   consentToggle: (t) => { ui.sheet.consent[t.dataset.k] = !ui.sheet.consent[t.dataset.k]; render(); },
-  consentAll: () => { const c = ui.sheet.consent; const all = c.terms && c.privacy && c.email && c.profile; for (const k of ['terms', 'privacy', 'email', 'profile']) c[k] = !all; render(); },
+  consentAll: () => { const c = ui.sheet.consent; const all = c.terms && c.privacy && c.profile; for (const k of ['terms', 'privacy', 'profile']) c[k] = !all; render(); },
   consentAgree: () => {
     const s = ui.sheet; if (!s.consent.terms || !s.consent.privacy) return;
     state.kakao[kakaoId()] = { linked: true, token: false, consent: { ...s.consent } };
@@ -3678,7 +3677,15 @@ const ACT = {
   /* 탐색 */
   tab: (t) => { if (ui.tab !== t.dataset.tab) TTS.stop(); ui.tab = t.dataset.tab; ui.focusKey = null; ui.sheet = null; if (ui.tab === 'calendar') { ui.calMonth = (ui.selDate || today()).slice(0, 7);  } render(); },
   selDate: (t) => { ui.selDate = t.dataset.date; render(); },
-  calPick: (t) => { ui.selDate = t.dataset.date; if (ui.calMode === 'month' && ui.selDate.slice(0, 7) !== ui.calMonth) ui.calMonth = ui.selDate.slice(0, 7); render(); },
+  /* 월간 날짜 칸·주간 날짜: 처음 누르면 그 날을 고르고, 고른 날을 한 번 더 누르면 그 날로 새 일정 (삼성 캘린더처럼) */
+  calPick: (t) => {
+    const d = t.dataset.date;
+    if (d === ui.selDate) {
+      if (d < today()) { toast('지난 날짜에는 새 일정을 만들 수 없어요.'); return; }
+      ui.form = newDraft(member(), d); openSheet({ type: 'form' }); return;
+    }
+    ui.selDate = d; if (ui.calMode === 'month' && d.slice(0, 7) !== ui.calMonth) ui.calMonth = d.slice(0, 7); render();
+  },
   calMode: (t) => { ui.calMode = t.dataset.v; ui.calMonth = ui.selDate.slice(0, 7); ui.range = null; ui.slot = null; render(); },
   /* 이전·다음: 월간은 달, 주간은 7일, 일간은 하루. 달을 넘기면 그 달 1일(오늘이 있는 달이면 오늘)을 고른다 */
   calNav: (t) => {
@@ -5082,7 +5089,7 @@ function accountStatusBlock(m) {
   const since = s && s.at ? `${fmtDateShort(ymd(real ? s.realAt || s.at : s.at))}부터` : '';
   return `<div class="profile">
         <span class="avatar" aria-hidden="true">${esc((m.nickname || '카').slice(0, 1))}${photo ? `<img src="${esc(photo)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}</span>
-        <div><p class="pf-name">${esc(m.nickname || '카카오 사용자')}</p><p class="pf-sub">이메일 ${m.email ? esc(m.email) : '제공 안 함 (선택 항목)'}</p></div>
+        <div><p class="pf-name">${esc(m.nickname || '카카오 사용자')}</p><p class="pf-sub">카카오 계정</p></div>
       </div>
       <ul class="kv acct-state" aria-label="로그인 상태">
         <li><span>로그인 방식</span><b>${KAKAO_SYMBOL}카카오${real ? '' : ' <em class="sim-tag">흉내 모드 · 실제 인증 아님</em>'}</b></li>
@@ -5451,13 +5458,14 @@ function nativeInit() {
 /* ---------- 나 탭에 쓰는 조각 ---------- */
 // 카카오 동의 내역 → [이름, 표시, 동의 여부] 줄 목록
 function kakaoConsentRows(m) {
-  const MAIN = ['profile_nickname', 'profile_image', 'account_email'];
+  // 이메일(account_email)은 동의항목 권한이 없어 받지 않으므로 보여 주지 않는다
+  const MAIN = ['profile_nickname', 'profile_image'];
   if (Array.isArray(ui.scopes)) {
-    const list = ui.scopes.filter((s) => s.agreed || MAIN.includes(s.id));
-    if (list.length) return list.map((s) => [s.name, MAIN.includes(s.id) ? (s.id === 'account_email' ? '선택' : '') : '', !!s.agreed]);
+    const list = ui.scopes.filter((s) => s.id !== 'account_email' && (s.agreed || MAIN.includes(s.id)));
+    if (list.length) return list.map((s) => [s.name, '', !!s.agreed]);
   }
   // 동의 내역을 아직 못 받았으면(불러오는 중·오프라인) 받은 정보로 대신 표시
-  return [['닉네임', ui.scopesLoading ? '확인 중' : '', !!m.nickname], ['프로필 사진', '', !!m.profileImageUrl], ['카카오계정(이메일)', '선택', !!m.email]];
+  return [['닉네임', ui.scopesLoading ? '확인 중' : '', !!m.nickname], ['프로필 사진', '', !!m.profileImageUrl]];
 }
 function notifRow() {
   const on = !state.notifOff;
@@ -5471,17 +5479,6 @@ function notifRow() {
 }
 
 Object.assign(ACT, {
-  askEmail: async () => {
-    try {
-      const u = await NATIVE.Kakao.requestScopes({ scopes: ['account_email'] });
-      const m = member(); if (m) applyKakaoProfile(m, u);
-      ui.scopes = null; save(); render();
-      toast(u.email ? '이메일 제공에 동의했어요.' : '이메일이 오지 않았어요. 카카오 동의 화면에서 이메일을 골랐는지 확인해 주세요.');
-    } catch (e) {
-      const code = (e && e.code) || '';
-      toast(code === 'CANCELLED' ? '동의를 취소했어요.' : `이메일 동의를 받을 수 없어요 (${code || '오류'}). 카카오 디벨로퍼스에서 이메일 동의항목을 켰는지 확인해 주세요.`);
-    }
-  },
   notifToggle: async () => {
     state.notifOff = !state.notifOff; save();
     if (!state.notifOff && NOTIF.perm !== 'granted') await NOTIF.ask();

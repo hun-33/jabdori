@@ -14,7 +14,7 @@ function sheetHead(title, closeAct = 'closeSheet', sub = '') {
 /* ---------- 카카오 동의 (시뮬레이션) ---------- */
 function viewConsent(s) {
   const c = s.consent;
-  const items = [['terms', '서비스 이용약관', true], ['privacy', '개인정보 수집·이용', true], ['email', '카카오계정 이메일', false], ['profile', '프로필 사진', false]];
+  const items = [['terms', '서비스 이용약관', true], ['privacy', '개인정보 수집·이용', true], ['profile', '프로필 사진', false]];
   const all = items.every(([k]) => c[k]);
   const reqOK = c.terms && c.privacy;
   return sheetWrap(`${sheetHead('카카오 동의 단계', 'consentCancel', '시뮬레이션 · 실제 서비스에서는 카카오가 띄우는 화면이에요')}
@@ -22,7 +22,7 @@ function viewConsent(s) {
       <p class="consent-lead">잡도리가 카카오에 아래 정보를 요청해요. 닉네임과 고유 번호는 기본으로 받아요.</p>
       <button class="cbox all ${all ? 'on' : ''}" role="checkbox" aria-checked="${all}" data-act="consentAll">${icon('check')}<span>전체 동의</span></button>
       <ul class="cbox-list">${items.map(([k, n, req]) => `<li><button class="cbox ${c[k] ? 'on' : ''}" role="checkbox" aria-checked="${!!c[k]}" data-act="consentToggle" data-k="${k}">${icon('check')}<span><em class="${req ? 'tg-req' : 'tg-opt'}">${req ? '필수' : '선택'}</em>${n}</span></button></li>`).join('')}</ul>
-      ${!reqOK ? `<p class="field-err" role="alert">${icon('alert')}필수 항목 두 개에 동의해야 계속할 수 있어요.</p>` : `<p class="hint">${!c.email ? '이메일 없이도 잡도리는 그대로 쓸 수 있어요.' : '이메일은 계정 안내에만 써요.'}</p>`}
+      ${!reqOK ? `<p class="field-err" role="alert">${icon('alert')}필수 항목 두 개에 동의해야 계속할 수 있어요.</p>` : `<p class="hint">프로필 사진 없이도 잡도리는 그대로 쓸 수 있어요.</p>`}
     </div>
     <div class="sheet-foot col">
       <button class="btn primary block" data-act="consentAgree" ${reqOK ? '' : 'disabled aria-disabled="true"'}>동의하고 계속하기</button>

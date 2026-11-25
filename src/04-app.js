@@ -209,7 +209,7 @@ function kakaoId() { return TEST_KAKAO.id; }
 function ensureExistingMember() {
   const kid = kakaoId();
   if (state.memberByKakao[kid] && state.members[state.memberByKakao[kid]]) return;
-  const consent = { terms: true, privacy: true, email: true, profile: true };
+  const consent = { terms: true, privacy: true, email: false, profile: true };
   state.kakao[kid] = { linked: true, token: true, consent };
   const m = createMember(kid, TEST_KAKAO, consent);
   m.onboarded = true;
@@ -260,7 +260,7 @@ function afterKakaoAuth(method) {
     const sc = state.scenario;
     const preset = sc === 'denyRequired' ? { terms: false, privacy: false, email: false, profile: false }
       : sc === 'optionalOff' ? { terms: true, privacy: true, email: false, profile: false }
-        : { terms: true, privacy: true, email: true, profile: true };
+        : { terms: true, privacy: true, email: false, profile: true };
     if (sc === 'denyRequired' || sc === 'optionalOff') state.scenario = 'normal';
     openSheet({ type: 'consent', consent: preset, method });
     return;
@@ -280,7 +280,7 @@ async function completeLogin(kid, method) {
   const relinked = !!mm.unlinked;
   mm.unlinked = false;
   mm.consent = { ...state.kakao[kid].consent };
-  mm.email = mm.consent.email ? TEST_KAKAO.email : null;
+  mm.email = null; // 이메일은 받지 않는다 (동의항목 권한 없음)
   mm.profileImage = !!mm.consent.profile;
   state.kakao[kid].token = true;
   state.session = { kakaoId: kid, memberId: mid, method, at: now() };
@@ -325,7 +325,7 @@ const ACT = {
   login: () => startLogin(),
   loginAccount: () => startLogin({ forceAccount: true }),
   consentToggle: (t) => { ui.sheet.consent[t.dataset.k] = !ui.sheet.consent[t.dataset.k]; render(); },
-  consentAll: () => { const c = ui.sheet.consent; const all = c.terms && c.privacy && c.email && c.profile; for (const k of ['terms', 'privacy', 'email', 'profile']) c[k] = !all; render(); },
+  consentAll: () => { const c = ui.sheet.consent; const all = c.terms && c.privacy && c.profile; for (const k of ['terms', 'privacy', 'profile']) c[k] = !all; render(); },
   consentAgree: () => {
     const s = ui.sheet; if (!s.consent.terms || !s.consent.privacy) return;
     state.kakao[kakaoId()] = { linked: true, token: false, consent: { ...s.consent } };
@@ -351,7 +351,15 @@ const ACT = {
   /* 탐색 */
   tab: (t) => { if (ui.tab !== t.dataset.tab) TTS.stop(); ui.tab = t.dataset.tab; ui.focusKey = null; ui.sheet = null; if (ui.tab === 'calendar') { ui.calMonth = (ui.selDate || today()).slice(0, 7);  } render(); },
   selDate: (t) => { ui.selDate = t.dataset.date; render(); },
-  calPick: (t) => { ui.selDate = t.dataset.date; if (ui.calMode === 'month' && ui.selDate.slice(0, 7) !== ui.calMonth) ui.calMonth = ui.selDate.slice(0, 7); render(); },
+  /* 월간 날짜 칸·주간 날짜: 처음 누르면 그 날을 고르고, 고른 날을 한 번 더 누르면 그 날로 새 일정 (삼성 캘린더처럼) */
+  calPick: (t) => {
+    const d = t.dataset.date;
+    if (d === ui.selDate) {
+      if (d < today()) { toast('지난 날짜에는 새 일정을 만들 수 없어요.'); return; }
+      ui.form = newDraft(member(), d); openSheet({ type: 'form' }); return;
+    }
+    ui.selDate = d; if (ui.calMode === 'month' && d.slice(0, 7) !== ui.calMonth) ui.calMonth = d.slice(0, 7); render();
+  },
   calMode: (t) => { ui.calMode = t.dataset.v; ui.calMonth = ui.selDate.slice(0, 7); ui.range = null; ui.slot = null; render(); },
   /* 이전·다음: 월간은 달, 주간은 7일, 일간은 하루. 달을 넘기면 그 달 1일(오늘이 있는 달이면 오늘)을 고른다 */
   calNav: (t) => {

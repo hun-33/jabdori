@@ -138,7 +138,7 @@ function accountStatusBlock(m) {
   const since = s && s.at ? `${fmtDateShort(ymd(real ? s.realAt || s.at : s.at))}부터` : '';
   return `<div class="profile">
         <span class="avatar" aria-hidden="true">${esc((m.nickname || '카').slice(0, 1))}${photo ? `<img src="${esc(photo)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}</span>
-        <div><p class="pf-name">${esc(m.nickname || '카카오 사용자')}</p><p class="pf-sub">이메일 ${m.email ? esc(m.email) : '제공 안 함 (선택 항목)'}</p></div>
+        <div><p class="pf-name">${esc(m.nickname || '카카오 사용자')}</p><p class="pf-sub">카카오 계정</p></div>
       </div>
       <ul class="kv acct-state" aria-label="로그인 상태">
         <li><span>로그인 방식</span><b>${KAKAO_SYMBOL}카카오${real ? '' : ' <em class="sim-tag">흉내 모드 · 실제 인증 아님</em>'}</b></li>
